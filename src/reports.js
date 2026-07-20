@@ -166,6 +166,42 @@ function getFilteredLogs() {
   return logs;
 }
 
+export function updateBulkState() {
+  const selectAllCheck = document.getElementById('bulk-select-all');
+  const selectedCountEl = document.getElementById('bulk-selected-count');
+  const markPaidBtn = document.getElementById('bulk-mark-paid-btn');
+  const deleteBtn = document.getElementById('bulk-delete-btn');
+  if (!selectAllCheck) return;
+  
+  const rowCheckboxes = document.querySelectorAll('.log-row-checkbox');
+  const checkedBoxes = document.querySelectorAll('.log-row-checkbox:checked');
+  
+  const count = checkedBoxes.length;
+  const total = rowCheckboxes.length;
+  const lang = store.getSettings().language;
+  
+  selectedCountEl.textContent = lang === 'ru' ? `Выбрано: ${count}` : `Selected: ${count}`;
+  
+  if (count > 0) {
+    markPaidBtn.disabled = false;
+    deleteBtn.disabled = false;
+  } else {
+    markPaidBtn.disabled = true;
+    deleteBtn.disabled = true;
+  }
+  
+  if (total > 0 && count === total) {
+    selectAllCheck.checked = true;
+    selectAllCheck.indeterminate = false;
+  } else if (count > 0 && count < total) {
+    selectAllCheck.checked = false;
+    selectAllCheck.indeterminate = true;
+  } else {
+    selectAllCheck.checked = false;
+    selectAllCheck.indeterminate = false;
+  }
+}
+
 export function renderReports() {
   const container = document.getElementById('logs-container');
   if (!container) return;
@@ -174,6 +210,8 @@ export function renderReports() {
   const filteredLogs = getFilteredLogs();
   const clients = store.getClients();
   const projects = store.getProjects();
+  
+  const bulkBar = document.getElementById('bulk-actions-bar');
   
   // 1. Update Summary Stats
   let totalMs = 0;
@@ -195,6 +233,7 @@ export function renderReports() {
   container.innerHTML = '';
   
   if (filteredLogs.length === 0) {
+    if (bulkBar) bulkBar.style.display = 'none';
     container.innerHTML = `
       <div class="dash-empty-state card">
         <i data-lucide="calendar-x"></i>
@@ -203,6 +242,10 @@ export function renderReports() {
     `;
     if (window.lucide) window.lucide.createIcons();
     return;
+  }
+  
+  if (bulkBar) {
+    bulkBar.style.display = 'flex';
   }
   
   // Group logs by Day (YYYY-MM-DD)
@@ -269,6 +312,9 @@ export function renderReports() {
       logRow.className = 'log-item-row';
       
       logRow.innerHTML = `
+        <div class="log-item-checkbox-col">
+          <input type="checkbox" class="log-row-checkbox" data-id="${log.id}" style="width: 18px; height: 18px; accent-color: var(--accent-indigo); cursor: pointer;">
+        </div>
         <div class="log-item-desc ${!log.description ? 'empty' : ''}">${log.description || t('no-description')}</div>
         <div class="log-item-project-badge">
           ${projectBadge}
@@ -279,8 +325,8 @@ export function renderReports() {
           ${timeStartStr} - ${timeEndStr}
         </div>
         <div class="log-item-duration">${formatDuration(durationMs)}</div>
-        <div class="log-item-billable-icon ${log.billable ? 'billable' : ''}" title="${log.billable ? t('timer-billable') : ''}">
-          <i data-lucide="${log.billable ? 'euro' : 'eye-off'}"></i>
+        <div class="log-item-billable-icon ${log.billable ? 'billable' : 'paid-status'}" title="${log.billable ? t('timer-billable') : t('paid')}">
+          <i data-lucide="${log.billable ? 'euro' : 'check-circle'}"></i>
         </div>
         <div class="log-item-financial">
           <span class="log-item-amount">${amount > 0 ? `${amount.toFixed(2)} €` : '—'}</span>
@@ -314,6 +360,8 @@ export function renderReports() {
       }
     });
   });
+  
+  updateBulkState();
   
   if (window.lucide) window.lucide.createIcons();
 }
@@ -495,6 +543,69 @@ export function initReports() {
   // Export actions
   document.getElementById('export-csv-btn').addEventListener('click', exportToCSV);
   document.getElementById('export-json-btn').addEventListener('click', exportToJSON);
+  
+  // Bulk Actions Listeners
+  const selectAllCheck = document.getElementById('bulk-select-all');
+  const markPaidBtn = document.getElementById('bulk-mark-paid-btn');
+  const deleteBtn = document.getElementById('bulk-delete-btn');
+  const logsContainer = document.getElementById('logs-container');
+  
+  if (selectAllCheck) {
+    selectAllCheck.addEventListener('change', () => {
+      const rowCheckboxes = document.querySelectorAll('.log-row-checkbox');
+      rowCheckboxes.forEach(cb => {
+        cb.checked = selectAllCheck.checked;
+      });
+      updateBulkState();
+    });
+  }
+  
+  if (markPaidBtn) {
+    markPaidBtn.addEventListener('click', () => {
+      const checkedBoxes = document.querySelectorAll('.log-row-checkbox:checked');
+      if (checkedBoxes.length === 0) return;
+      
+      checkedBoxes.forEach(cb => {
+        const id = cb.getAttribute('data-id');
+        const log = store.getTimeLogs().find(l => l.id === id);
+        if (log) {
+          store.updateTimeLog(id, {
+            description: log.description,
+            clientId: log.clientId,
+            projectId: log.projectId,
+            startTime: log.startTime,
+            endTime: log.endTime,
+            rateAtTime: log.rateAtTime,
+            billable: false
+          });
+        }
+      });
+      renderReports();
+    });
+  }
+  
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', () => {
+      const checkedBoxes = document.querySelectorAll('.log-row-checkbox:checked');
+      if (checkedBoxes.length === 0) return;
+      
+      if (confirm(t('confirm-delete-selected'))) {
+        checkedBoxes.forEach(cb => {
+          const id = cb.getAttribute('data-id');
+          store.deleteTimeLog(id);
+        });
+        renderReports();
+      }
+    });
+  }
+  
+  if (logsContainer) {
+    logsContainer.addEventListener('change', (e) => {
+      if (e.target && e.target.classList.contains('log-row-checkbox')) {
+        updateBulkState();
+      }
+    });
+  }
   
   // Populates selector filters initially
   updateReportsDropdowns();

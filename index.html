@@ -17,9 +17,7 @@
     <aside>
       <div class="logo-container">
         <div class="logo-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-          </svg>
+          <img src="https://whiteeagles.sk/assets/white-eagles-logo-white.webp" alt="White Eagles Logo" style="width: 26px; height: 26px; object-fit: contain;">
         </div>
         <div>
           <span class="logo-text">WE Tracker</span>
@@ -85,7 +83,7 @@
             <div class="timer-actions">
               <label class="billable-checkbox">
                 <input type="checkbox" id="timer-billable" checked>
-                <span data-i18n="timer-billable">Оплачиваемый</span>
+                <span data-i18n="timer-billable">Требует оплаты</span>
               </label>
               
               <div class="timer-counter" id="timer-clock">00:00:00</div>
@@ -126,11 +124,11 @@
               <label for="manual-end" data-i18n="col-end">Конец</label>
               <input type="datetime-local" id="manual-end">
             </div>
-            <div class="form-group" style="flex-direction: row; align-items: center; height: 100%; margin-top: 24px; gap: 8px;">
-              <input type="checkbox" id="manual-billable" checked style="width:18px; height:18px; accent-color:var(--accent-indigo);">
-              <label for="manual-billable" data-i18n="timer-billable" style="cursor:pointer;">Оплачиваемый</label>
+            <div class="form-group manual-checkbox-group">
+              <input type="checkbox" id="manual-billable" checked>
+              <label for="manual-billable" data-i18n="timer-billable">Требует оплаты</label>
             </div>
-            <div class="form-group" style="justify-content: flex-end; margin-top: 14px;">
+            <div class="form-group manual-btn-group">
               <button class="btn btn-primary" id="manual-add-btn" data-i18n="timer-manual-add">Добавить запись</button>
             </div>
           </div>
@@ -286,11 +284,11 @@
               </select>
             </div>
             <div class="form-group">
-              <label for="filter-billable-select" data-i18n="filter-billable">Тип оплаты</label>
+              <label for="filter-billable-select" data-i18n="filter-billable">Статус оплаты</label>
               <select id="filter-billable-select">
                 <option value="all" data-i18n="filter-all">Все</option>
-                <option value="billable" data-i18n="filter-billable-only">Только оплачиваемые</option>
-                <option value="non-billable" data-i18n="filter-non-billable-only">Неоплачиваемые</option>
+                <option value="billable" data-i18n="filter-billable-only">Требуют оплаты</option>
+                <option value="non-billable" data-i18n="filter-non-billable-only">Оплаченные</option>
               </select>
             </div>
             <div class="form-group">
@@ -326,6 +324,25 @@
           <div class="summary-item">
             <span class="summary-label" data-i18n="report-total-earnings">Сумма за период</span>
             <span class="summary-value earnings" id="rep-earnings">0.00 €</span>
+          </div>
+        </div>
+        
+        <!-- Bulk Actions Bar -->
+        <div id="bulk-actions-bar" class="bulk-actions-bar" style="display: none;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <input type="checkbox" id="bulk-select-all" style="width: 18px; height: 18px; accent-color: var(--accent-indigo); cursor: pointer;">
+            <label for="bulk-select-all" style="cursor: pointer; font-weight: 600; color: var(--text-primary);" data-i18n="select-all">Выбрать все</label>
+            <span id="bulk-selected-count" style="font-size: 0.9rem; color: var(--text-secondary); margin-left: 8px;">Выбрано: 0</span>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-secondary btn-sm" id="bulk-mark-paid-btn" disabled style="display: flex; align-items: center; gap: 6px;">
+              <i data-lucide="check-circle" style="width: 14px; height: 14px;"></i>
+              <span data-i18n="bulk-mark-paid">Пометить оплаченными</span>
+            </button>
+            <button class="btn btn-danger btn-sm" id="bulk-delete-btn" disabled style="display: flex; align-items: center; gap: 6px;">
+              <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+              <span data-i18n="bulk-delete">Удалить выбранные</span>
+            </button>
           </div>
         </div>
         
@@ -422,7 +439,7 @@
         </span>
       </div>
       <div class="promo-copyright">
-        &copy; 2026 White Eagles & Co. s.r.o. <span data-i18n="footer-rights">Все права защищены.</span>
+        &copy; <span id="current-year"></span> White Eagles & Co. s.r.o. <span data-i18n="footer-rights">Все права защищены.</span>
       </div>
     </footer>
     
@@ -515,7 +532,7 @@
       </div>
       <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px; margin-top: 12px;">
         <input type="checkbox" id="edit-log-billable" style="width:18px; height:18px; accent-color:var(--accent-indigo);">
-        <label for="edit-log-billable" data-i18n="timer-billable" style="cursor:pointer;">Оплачиваемый</label>
+        <label for="edit-log-billable" data-i18n="timer-billable" style="cursor:pointer;">Требует оплаты</label>
       </div>
       <div class="modal-actions">
         <button class="btn btn-secondary" id="edit-log-modal-cancel" data-i18n="cancel">Отмена</button>

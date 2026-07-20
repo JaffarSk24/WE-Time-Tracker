@@ -113,7 +113,7 @@ aside {
 .logo-icon {
   width: 38px;
   height: 38px;
-  background: var(--grad-primary);
+  background: #000;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -218,7 +218,7 @@ main {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  max-width: 1400px;
+  max-width: 100%;
   width: calc(100vw - var(--sidebar-width));
 }
 
@@ -412,7 +412,7 @@ textarea:focus {
 
 .timer-input-wrapper {
   flex-grow: 3;
-  min-width: 250px;
+  min-width: 320px;
 }
 
 .timer-input-wrapper input {
@@ -425,8 +425,8 @@ textarea:focus {
 }
 
 .timer-select-wrapper {
-  flex-grow: 1;
-  min-width: 180px;
+  flex-grow: 2;
+  min-width: 440px;
   display: flex;
   gap: 8px;
 }
@@ -518,9 +518,71 @@ textarea:focus {
 
 .manual-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: 1fr;
   gap: 16px;
   margin-top: 16px;
+}
+
+.manual-grid > .form-group {
+  margin-bottom: 0;
+}
+
+.manual-checkbox-group {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+}
+
+.manual-checkbox-group input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-indigo);
+  cursor: pointer;
+}
+
+.manual-checkbox-group label {
+  margin: 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.manual-btn-group {
+  display: flex;
+  align-items: flex-end;
+}
+
+.manual-btn-group button {
+  width: 100%;
+  height: 42px;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  .manual-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  .manual-grid > .form-group:nth-child(1) { grid-column: span 6; }
+  .manual-grid > .form-group:nth-child(2) { grid-column: span 3; }
+  .manual-grid > .form-group:nth-child(3) { grid-column: span 3; }
+  .manual-grid > .form-group:nth-child(4) { grid-column: span 3; }
+  .manual-grid > .form-group:nth-child(5) { grid-column: span 3; }
+  .manual-grid > .manual-checkbox-group { grid-column: span 3; }
+  .manual-grid > .manual-btn-group { grid-column: span 3; }
+}
+
+@media (min-width: 992px) {
+  .manual-grid {
+    grid-template-columns: repeat(12, 1fr);
+  }
+  .manual-grid > .form-group:nth-child(1) { grid-column: span 4; }
+  .manual-grid > .form-group:nth-child(2) { grid-column: span 4; }
+  .manual-grid > .form-group:nth-child(3) { grid-column: span 4; }
+  
+  .manual-grid > .form-group:nth-child(4) { grid-column: span 3; }
+  .manual-grid > .form-group:nth-child(5) { grid-column: span 3; }
+  .manual-grid > .manual-checkbox-group { grid-column: span 3; }
+  .manual-grid > .manual-btn-group { grid-column: span 3; }
 }
 
 /* DASHBOARD VIEW STYLES */
@@ -695,19 +757,24 @@ textarea:focus {
 
 .search-input-wrapper {
   position: relative;
-  min-width: 250px;
+  min-width: 350px;
 }
 
 .search-input-wrapper input {
-  padding-left: 36px;
+  padding-left: 38px;
+  width: 100%;
 }
 
-.search-input-wrapper i {
+.search-input-wrapper i,
+.search-input-wrapper svg {
   position: absolute;
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-muted);
+  pointer-events: none;
+  width: 16px;
+  height: 16px;
 }
 
 /* Grid of clients/projects cards */
@@ -1015,7 +1082,11 @@ textarea:focus {
 }
 
 .log-item-billable-icon.billable {
-  color: var(--accent-cyan);
+  color: #f59e0b; /* Amber/gold for Requires Payment */
+}
+
+.log-item-billable-icon.paid-status {
+  color: #10b981; /* Green for Paid */
 }
 
 .log-item-actions {

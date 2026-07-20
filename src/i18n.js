@@ -15,7 +15,7 @@ export const translations = {
     'timer-placeholder': 'Над чем вы работаете в данный момент?',
     'timer-client-placeholder': 'Выберите клиента',
     'timer-project-placeholder': 'Выберите проект (опционально)',
-    'timer-billable': 'Оплачиваемый',
+    'timer-billable': 'Требует оплаты',
     'timer-start': 'Старт',
     'timer-stop': 'Стоп',
     'timer-cancel': 'Отмена',
@@ -56,10 +56,10 @@ export const translations = {
     'reports-title': 'Детализированные отчеты',
     'filter-client': 'Клиент',
     'filter-project': 'Проект',
-    'filter-billable': 'Тип оплаты',
+    'filter-billable': 'Статус оплаты',
     'filter-all': 'Все',
-    'filter-billable-only': 'Только оплачиваемые',
-    'filter-non-billable-only': 'Неоплачиваемые',
+    'filter-billable-only': 'Требуют оплаты',
+    'filter-non-billable-only': 'Оплаченные',
     'filter-range': 'Период',
     'range-today': 'Сегодня',
     'range-yesterday': 'Вчера',
@@ -104,8 +104,13 @@ export const translations = {
     'confirm-delete-client': 'Вы уверены, что хотите удалить этого клиента? Все связанные проекты и логи времени будут удалены!',
     'confirm-delete-project': 'Вы уверены, что хотите удалить этот проект? Все связанные логи времени будут удалены!',
     'confirm-delete-log': 'Вы уверены, что хотите удалить эту запись времени?',
+    'select-all': 'Выбрать все',
+    'bulk-mark-paid': 'Пометить оплаченными',
+    'bulk-delete': 'Удалить выбранные',
+    'confirm-delete-selected': 'Вы уверены, что хотите удалить все выбранные записи?',
     'no-project': 'Без проекта',
-    'no-description': '(без описания)'
+    'no-description': '(без описания)',
+    'paid': 'Оплачено'
   },
   en: {
     // Sidebar
@@ -119,7 +124,7 @@ export const translations = {
     'timer-placeholder': 'What are you working on right now?',
     'timer-client-placeholder': 'Select client',
     'timer-project-placeholder': 'Select project (optional)',
-    'timer-billable': 'Billable',
+    'timer-billable': 'Requires Payment',
     'timer-start': 'Start',
     'timer-stop': 'Stop',
     'timer-cancel': 'Cancel',
@@ -160,10 +165,10 @@ export const translations = {
     'reports-title': 'Detailed Reports',
     'filter-client': 'Client',
     'filter-project': 'Project',
-    'filter-billable': 'Billability',
+    'filter-billable': 'Payment Status',
     'filter-all': 'All',
-    'filter-billable-only': 'Billable Only',
-    'filter-non-billable-only': 'Non-billable Only',
+    'filter-billable-only': 'Requires Payment',
+    'filter-non-billable-only': 'Paid',
     'filter-range': 'Period',
     'range-today': 'Today',
     'range-yesterday': 'Yesterday',
@@ -208,8 +213,13 @@ export const translations = {
     'confirm-delete-client': 'Are you sure you want to delete this client? All associated projects and time logs will be deleted!',
     'confirm-delete-project': 'Are you sure you want to delete this project? All associated time logs will be deleted!',
     'confirm-delete-log': 'Are you sure you want to delete this time log?',
+    'select-all': 'Select All',
+    'bulk-mark-paid': 'Mark as Paid',
+    'bulk-delete': 'Delete Selected',
+    'confirm-delete-selected': 'Are you sure you want to delete all selected time logs?',
     'no-project': 'No Project',
-    'no-description': '(no description)'
+    'no-description': '(no description)',
+    'paid': 'Paid'
   }
 };
 

@@ -49,11 +49,11 @@ export function renderClients() {
       </div>
       <div class="entity-rate">${client.defaultRate} € / ${isRu ? 'час' : 'hour'}</div>
       <div class="entity-actions">
-        <button class="btn btn-secondary btn-sm edit-client-btn" data-id="${client.id}">
-          <i data-lucide="edit-2"></i> ${t('edit')}
+        <button class="btn-icon edit-client-btn" data-id="${client.id}" title="${t('edit')}">
+          <i data-lucide="edit-2"></i>
         </button>
-        <button class="btn btn-danger btn-sm delete-client-btn" data-id="${client.id}">
-          <i data-lucide="trash-2"></i> ${t('delete')}
+        <button class="btn-icon delete delete-client-btn" data-id="${client.id}" title="${t('delete')}">
+          <i data-lucide="x"></i>
         </button>
       </div>
     `;
@@ -76,6 +76,8 @@ export function renderClients() {
       }
     });
   });
+  
+  if (window.lucide) window.lucide.createIcons();
 }
 
 // ---------------- PROJECTS TAB ----------------
@@ -113,11 +115,11 @@ export function renderProjects() {
       </div>
       <div class="entity-rate">${rateText}</div>
       <div class="entity-actions">
-        <button class="btn btn-secondary btn-sm edit-project-btn" data-id="${proj.id}">
-          <i data-lucide="edit-2"></i> ${t('edit')}
+        <button class="btn-icon edit-project-btn" data-id="${proj.id}" title="${t('edit')}">
+          <i data-lucide="edit-2"></i>
         </button>
-        <button class="btn btn-danger btn-sm delete-project-btn" data-id="${proj.id}">
-          <i data-lucide="trash-2"></i> ${t('delete')}
+        <button class="btn-icon delete delete-project-btn" data-id="${proj.id}" title="${t('delete')}">
+          <i data-lucide="x"></i>
         </button>
       </div>
     `;
@@ -140,6 +142,8 @@ export function renderProjects() {
       }
     });
   });
+  
+  if (window.lucide) window.lucide.createIcons();
 }
 
 // ---------------- MODALS OPERATIONS ----------------
