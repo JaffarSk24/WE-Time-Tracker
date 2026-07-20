@@ -20,6 +20,31 @@ function createWindow(url) {
   // Remove default menu for a clean native app look
   mainWindow.setMenu(null);
 
+  // Open external links in the default browser
+  mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+    try {
+      const parsedUrl = new URL(navigationUrl);
+      if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+        event.preventDefault();
+        require('electron').shell.openExternal(navigationUrl);
+      }
+    } catch (e) {
+      console.error('Failed to parse URL in will-navigate:', e);
+    }
+  });
+
+  mainWindow.webContents.setWindowOpenHandler(({ url: openUrl }) => {
+    try {
+      const parsedUrl = new URL(openUrl);
+      if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+        require('electron').shell.openExternal(openUrl);
+      }
+    } catch (e) {
+      console.error('Failed to parse URL in setWindowOpenHandler:', e);
+    }
+    return { action: 'deny' };
+  });
+
   mainWindow.loadURL(url);
 
   mainWindow.on('closed', () => {
