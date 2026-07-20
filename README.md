@@ -29,12 +29,24 @@ The codebase represents a modern, lightweight SPA built with speed and long-term
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Download & Installation
 
-### Prerequisites
+### ⬇️ Option A: Download Compiled Desktop Application (Recommended)
+You do not need node.js or a terminal setup to run the application on macOS.
+1. Navigate to the **[Releases](https://github.com/JaffarSk24/WE-Time-Tracker/releases)** section of this repository.
+2. Download the latest **`WE Time Tracker-1.0.0.dmg`** or **`WE Time Tracker-1.0.0-mac.zip`**.
+3. Open/mount the downloaded file, drag **WE Time Tracker** to your **Applications** folder.
+4. Open Terminal and run the following command to bypass the Gatekeeper security check for instant startup (avoiding the dock-bouncing delay):
+   ```bash
+   xattr -cr "/Applications/WE Time Tracker.app"
+   ```
+
+### 🛠️ Option B: Developer Setup (Running & Packaging from Source)
+
+#### Prerequisites
 Ensure you have [Node.js](https://nodejs.org/) installed (v18.0.0 or higher recommended).
 
-### Installation
+#### Installation
 1. Clone the repository:
    ```bash
    git clone https://github.com/JaffarSk24/WE-Time-Tracker.git
