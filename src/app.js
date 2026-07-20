@@ -102,6 +102,10 @@ export function populateDropdown(selectElement, items, placeholderText, selected
 
 // Global UI updater
 function updateGlobalUI() {
+  // Apply theme
+  const currentTheme = store.getSettings().theme || 'dark';
+  document.documentElement.setAttribute('data-theme', currentTheme);
+
   // Translate text
   translatePage();
   
@@ -116,6 +120,10 @@ function updateGlobalUI() {
 
 // Init App
 document.addEventListener('DOMContentLoaded', () => {
+  // Apply theme initially
+  const currentTheme = store.getSettings().theme || 'dark';
+  document.documentElement.setAttribute('data-theme', currentTheme);
+
   // Set current year in footer
   const yearEl = document.getElementById('current-year');
   if (yearEl) {

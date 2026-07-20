@@ -1,0 +1,93 @@
+const { app, BrowserWindow } = require('electron');
+const path = require('path');
+const { spawn } = require('child_process');
+
+let viteProcess = null;
+let mainWindow = null;
+
+function createWindow(url) {
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    title: 'WE Time Tracker',
+    icon: path.join(__dirname, 'icon.png'),
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+
+  // Remove default menu for a clean native app look
+  mainWindow.setMenu(null);
+
+  mainWindow.loadURL(url);
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+}
+
+app.whenReady().then(() => {
+  const isDev = process.env.NODE_ENV === 'development';
+
+  if (isDev) {
+    // Start Vite dev server dynamically
+    viteProcess = spawn('npx', ['vite', '--port', '3003', '--no-open'], {
+      shell: true,
+      stdio: 'inherit'
+    });
+
+    // Wait a brief moment for Vite to start up, then open browser window
+    setTimeout(() => {
+      createWindow('http://localhost:3003');
+    }, 1500);
+  } else {
+    // In production build, we load the built static files via a lightweight HTTP server
+    const http = require('http');
+    const fs = require('fs');
+    const mime = {
+      '.html': 'text/html',
+      '.css': 'text/css',
+      '.js': 'text/javascript',
+      '.webp': 'image/webp',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.svg': 'image/svg+xml',
+      '.json': 'application/json'
+    };
+
+    const server = http.createServer((req, res) => {
+      let filePath = path.join(__dirname, 'dist', req.url === '/' ? 'index.html' : req.url.split('?')[0]);
+      if (!fs.existsSync(filePath)) {
+        filePath = path.join(__dirname, 'dist', 'index.html');
+      }
+      const ext = path.extname(filePath);
+      res.writeHead(200, { 'Content-Type': mime[ext] || 'application/octet-stream' });
+      fs.createReadStream(filePath).pipe(res);
+    });
+
+    server.listen(0, '127.0.0.1', () => {
+      const port = server.address().port;
+      createWindow(`http://127.0.0.1:${port}`);
+    });
+  }
+});
+
+app.on('window-all-closed', () => {
+  if (viteProcess) {
+    try {
+      viteProcess.kill();
+    } catch (e) {}
+  }
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app.on('will-quit', () => {
+  if (viteProcess) {
+    try {
+      viteProcess.kill();
+    } catch (e) {}
+  }
+});

@@ -17,6 +17,18 @@ export function initSettings() {
   langSelect.addEventListener('change', (e) => {
     store.updateSettings({ language: e.target.value });
   });
+
+  const themeSelect = document.getElementById('settings-theme-select');
+  const currentTheme = store.getSettings().theme || 'dark';
+  themeSelect.value = currentTheme;
+  
+  document.documentElement.setAttribute('data-theme', currentTheme);
+  
+  themeSelect.addEventListener('change', (e) => {
+    const selectedTheme = e.target.value;
+    store.updateSettings({ theme: selectedTheme });
+    document.documentElement.setAttribute('data-theme', selectedTheme);
+  });
   
   // Backup Button Click
   backupBtn.addEventListener('click', () => {

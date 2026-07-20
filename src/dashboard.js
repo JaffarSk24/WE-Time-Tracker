@@ -176,12 +176,22 @@ function showEmptyState(show) {
   });
 }
 
+function getThemeColors() {
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  return {
+    textColor: isLight ? '#475569' : '#94a3b8',
+    gridColor: isLight ? 'rgba(15, 23, 42, 0.08)' : 'rgba(255, 255, 255, 0.05)'
+  };
+}
+
 function renderProjectChart(labels, data) {
   const ctx = document.getElementById('projectChart').getContext('2d');
   
   if (projectChartInstance) {
     projectChartInstance.destroy();
   }
+  
+  const colors = getThemeColors();
   
   projectChartInstance = new Chart(ctx, {
     type: 'doughnut',
@@ -202,7 +212,7 @@ function renderProjectChart(labels, data) {
         legend: {
           position: 'right',
           labels: {
-            color: '#94a3b8',
+            color: colors.textColor,
             font: { family: 'Inter', size: 12 }
           }
         },
@@ -228,6 +238,8 @@ function renderClientChart(labels, data) {
     clientChartInstance.destroy();
   }
   
+  const colors = getThemeColors();
+  
   clientChartInstance = new Chart(ctx, {
     type: 'doughnut',
     data: {
@@ -247,7 +259,7 @@ function renderClientChart(labels, data) {
         legend: {
           position: 'right',
           labels: {
-            color: '#94a3b8',
+            color: colors.textColor,
             font: { family: 'Inter', size: 12 }
           }
         },
@@ -273,6 +285,7 @@ function renderWeeklyChart(labels, data) {
     weeklyChartInstance.destroy();
   }
   
+  const colors = getThemeColors();
   const gradient = ctx.createLinearGradient(0, 0, 0, 200);
   gradient.addColorStop(0, 'rgba(99, 102, 241, 0.7)'); // indigo
   gradient.addColorStop(1, 'rgba(168, 85, 247, 0.1)'); // purple
@@ -308,11 +321,11 @@ function renderWeeklyChart(labels, data) {
       scales: {
         x: {
           grid: { display: false },
-          ticks: { color: '#94a3b8', font: { family: 'Inter' } }
+          ticks: { color: colors.textColor, font: { family: 'Inter' } }
         },
         y: {
-          grid: { color: 'rgba(255, 255, 255, 0.05)' },
-          ticks: { color: '#94a3b8', font: { family: 'Inter' } }
+          grid: { color: colors.gridColor },
+          ticks: { color: colors.textColor, font: { family: 'Inter' } }
         }
       }
     }

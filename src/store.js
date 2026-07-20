@@ -4,7 +4,8 @@ const STORAGE_KEY = 'we_time_tracker_data';
 
 const DEFAULT_SETTINGS = {
   language: 'ru', // 'ru' or 'en'
-  currency: 'EUR'
+  currency: 'EUR',
+  theme: 'dark' // 'dark' or 'light'
 };
 
 const getDemoData = () => {

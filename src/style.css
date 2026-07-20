@@ -41,6 +41,115 @@
   --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   
   --sidebar-width: 260px;
+  --bg-sidebar: rgba(10, 12, 18, 0.85);
+}
+
+[data-theme="light"] {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-card-hover: rgba(255, 255, 255, 0.98);
+  --border-color: rgba(15, 23, 42, 0.08);
+  --border-focus: rgba(99, 102, 241, 0.6);
+  
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  
+  --accent-indigo: #4f46e5;
+  --accent-purple: #9333ea;
+  --accent-cyan: #0891b2;
+  --accent-blue: #2563eb;
+  
+  --grad-primary: linear-gradient(135deg, #4f46e5 0%, #9333ea 100%);
+  --grad-secondary: linear-gradient(135deg, #0891b2 0%, #2563eb 100%);
+  --grad-dark: linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 100%);
+  
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 0 15px rgba(79, 70, 229, 0.12);
+  
+  --bg-sidebar: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="light"] body {
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(147, 51, 234, 0.04) 0px, transparent 50%);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] .logo-text {
+  background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+[data-theme="light"] .nav-item:hover {
+  background-color: rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="light"] input[type="text"],
+[data-theme="light"] input[type="number"],
+[data-theme="light"] input[type="datetime-local"],
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+  background-color: #ffffff;
+}
+
+[data-theme="light"] .timer-widget {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .timer-input-wrapper input,
+[data-theme="light"] .timer-select-wrapper select {
+  background-color: #ffffff;
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .timer-counter {
+  color: var(--text-primary);
+  text-shadow: none;
+}
+
+[data-theme="light"] .entity-card {
+  background: rgba(15, 23, 42, 0.02);
+}
+[data-theme="light"] .entity-card:hover {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="light"] .reports-summary {
+  background-color: rgba(15, 23, 42, 0.02);
+}
+[data-theme="light"] .summary-value.hours {
+  color: var(--text-primary);
+}
+[data-theme="light"] .log-group-header {
+  background-color: rgba(15, 23, 42, 0.03);
+}
+[data-theme="light"] .log-group-total-time {
+  color: var(--text-primary);
+}
+[data-theme="light"] .log-item-row {
+  background-color: rgba(15, 23, 42, 0.01);
+  border: 1px solid rgba(15, 23, 42, 0.04);
+}
+[data-theme="light"] .log-item-row:hover {
+  background-color: rgba(15, 23, 42, 0.03);
+  border-color: rgba(15, 23, 42, 0.08);
+}
+[data-theme="light"] .data-action-box {
+  background-color: rgba(15, 23, 42, 0.01);
 }
 
 * {
@@ -88,7 +197,7 @@ body {
 /* Sidebar Styling */
 aside {
   width: var(--sidebar-width);
-  background-color: rgba(10, 12, 18, 0.85);
+  background-color: var(--bg-sidebar);
   border-right: 1px solid var(--border-color);
   backdrop-filter: blur(20px);
   padding: 24px 16px;
@@ -133,6 +242,7 @@ aside {
   font-size: 1.25rem;
   background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: -0.5px;
 }
@@ -257,6 +367,7 @@ h1, h2, h3, h4 {
   margin-bottom: 4px;
   background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -635,12 +746,14 @@ textarea:focus {
 .stat-value.grad-text-1 {
   background: var(--grad-primary);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .stat-value.grad-text-2 {
   background: var(--grad-secondary);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -1216,6 +1329,7 @@ textarea:focus {
   text-decoration: none;
   background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   transition: var(--transition-fast);
   border-bottom: 1px solid transparent;

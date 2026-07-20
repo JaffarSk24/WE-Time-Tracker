@@ -85,6 +85,9 @@ export const translations = {
     // Settings
     'settings-title': 'Настройки приложения',
     'settings-lang': 'Язык интерфейса',
+    'settings-theme': 'Тема оформления',
+    'theme-dark': 'Темная',
+    'theme-light': 'Светлая',
     'settings-currency': 'Валюта по умолчанию',
     'settings-data': 'Управление данными',
     'settings-backup-desc': 'Экспортируйте ваши проекты, клиентов и логи времени в один JSON-файл для резервной копии.',
@@ -194,6 +197,9 @@ export const translations = {
     // Settings
     'settings-title': 'Application Settings',
     'settings-lang': 'Interface Language',
+    'settings-theme': 'Interface Theme',
+    'theme-dark': 'Dark',
+    'theme-light': 'Light',
     'settings-currency': 'Default Currency',
     'settings-data': 'Data Management',
     'settings-backup-desc': 'Export your projects, clients, and time logs into a single JSON file for safe backup.',
