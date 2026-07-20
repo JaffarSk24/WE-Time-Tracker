@@ -8,88 +8,6 @@ const DEFAULT_SETTINGS = {
   theme: 'dark' // 'dark' or 'light'
 };
 
-const getDemoData = () => {
-  const now = new Date();
-  const getPastDateStr = (daysAgo, hours, minutes) => {
-    const d = new Date(now);
-    d.setDate(d.getDate() - daysAgo);
-    d.setHours(hours, minutes, 0, 0);
-    return d.toISOString();
-  };
-
-  const clients = [
-    { id: 'c1', name: 'White Eagles & Co. s.r.o.', defaultRate: 50 },
-    { id: 'c2', name: 'Tatra Auto', defaultRate: 40 }
-  ];
-
-  const projects = [
-    { id: 'p1', name: 'WE Time Tracker Development', clientId: 'c1', rate: 0 }, // inherits 50
-    { id: 'p2', name: 'SEO & Marketing Campaign', clientId: 'c1', rate: 65 },  // custom rate
-    { id: 'p3', name: 'E-commerce Redesign', clientId: 'c2', rate: 45 }
-  ];
-
-  const timeLogs = [
-    {
-      id: 'l1',
-      description: 'Разработка архитектуры приложения и структуры данных',
-      clientId: 'c1',
-      projectId: 'p1',
-      startTime: getPastDateStr(2, 9, 0), // 2 days ago, 9:00
-      endTime: getPastDateStr(2, 12, 30), // 12:30 (3.5 hours)
-      billable: true,
-      rateAtTime: 50
-    },
-    {
-      id: 'l2',
-      description: 'Настройка рекламных кампаний в Google Ads',
-      clientId: 'c1',
-      projectId: 'p2',
-      startTime: getPastDateStr(2, 14, 0),
-      endTime: getPastDateStr(2, 16, 45), // 2.75 hours
-      billable: true,
-      rateAtTime: 65
-    },
-    {
-      id: 'l3',
-      description: 'Созвон по проекту E-commerce и прототипирование',
-      clientId: 'c2',
-      projectId: 'p3',
-      startTime: getPastDateStr(1, 10, 0),
-      endTime: getPastDateStr(1, 12, 15), // 2.25 hours
-      billable: true,
-      rateAtTime: 45
-    },
-    {
-      id: 'l4',
-      description: 'Создание UI компонентов и темной темы',
-      clientId: 'c1',
-      projectId: 'p1',
-      startTime: getPastDateStr(1, 13, 30),
-      endTime: getPastDateStr(1, 18, 0), // 4.5 hours
-      billable: true,
-      rateAtTime: 50
-    },
-    {
-      id: 'l5',
-      description: 'Анализ конкурентов и ключевых слов',
-      clientId: 'c1',
-      projectId: 'p2',
-      startTime: getPastDateStr(0, 10, 30), // today
-      endTime: getPastDateStr(0, 12, 0), // 1.5 hours
-      billable: true,
-      rateAtTime: 65
-    }
-  ];
-
-  return {
-    clients,
-    projects,
-    timeLogs,
-    settings: { ...DEFAULT_SETTINGS },
-    activeTimer: null
-  };
-};
-
 class Store {
   constructor() {
     this.state = this.loadState();
@@ -113,9 +31,15 @@ class Store {
     } catch (e) {
       console.error('Failed to load state from localStorage', e);
     }
-    const demo = getDemoData();
-    this.saveStateDirectly(demo);
-    return demo;
+    const emptyState = {
+      clients: [],
+      projects: [],
+      timeLogs: [],
+      settings: { ...DEFAULT_SETTINGS },
+      activeTimer: null
+    };
+    this.saveStateDirectly(emptyState);
+    return emptyState;
   }
 
   saveState() {
