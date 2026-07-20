@@ -558,7 +558,7 @@ textarea:focus {
   height: 42px;
 }
 
-@media (min-width: 768px) and (max-width: 991px) {
+@media (min-width: 768px) and (max-width: 1023px) {
   .manual-grid {
     grid-template-columns: repeat(6, 1fr);
   }
@@ -571,18 +571,11 @@ textarea:focus {
   .manual-grid > .manual-btn-group { grid-column: span 3; }
 }
 
-@media (min-width: 992px) {
+@media (min-width: 1024px) {
   .manual-grid {
-    grid-template-columns: repeat(12, 1fr);
+    grid-template-columns: 2.2fr 1.8fr 1.8fr 1.4fr 1.4fr auto auto;
+    align-items: end;
   }
-  .manual-grid > .form-group:nth-child(1) { grid-column: span 4; }
-  .manual-grid > .form-group:nth-child(2) { grid-column: span 4; }
-  .manual-grid > .form-group:nth-child(3) { grid-column: span 4; }
-  
-  .manual-grid > .form-group:nth-child(4) { grid-column: span 3; }
-  .manual-grid > .form-group:nth-child(5) { grid-column: span 3; }
-  .manual-grid > .manual-checkbox-group { grid-column: span 3; }
-  .manual-grid > .manual-btn-group { grid-column: span 3; }
 }
 
 /* DASHBOARD VIEW STYLES */
