@@ -83,7 +83,20 @@ You can compile a standalone, native macOS application with custom brand assets 
    ```
    Packages the application into a mountable disk image (`dist/WE Time Tracker-1.0.0.dmg`) and a zip file (`dist/WE Time Tracker-1.0.0-mac.zip`) with the custom White Eagles logo embedded as the application icon.
 
+
+### ⚠️ Note on macOS Gatekeeper (First Launch Delay)
+Since local builds are packaged without a paid Apple Developer certificate, macOS Gatekeeper may run an extensive background verification check on the unsigned `.app` bundle during the very first launch. This can cause the application icon to bounce in the Dock for up to a minute before starting.
+
+To bypass this check and ensure the application launches instantly:
+1. Open your terminal.
+2. Run the following command to remove the macOS quarantine flag:
+   ```bash
+   xattr -cr "dist/mac/WE Time Tracker.app"
+   ```
+   *(Or if you moved it to your Applications folder: `xattr -cr "/Applications/WE Time Tracker.app"`)*
+
 ---
+
 
 ## 📜 License & Agency Credits
 
