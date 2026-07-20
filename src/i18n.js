@@ -123,7 +123,9 @@ export const translations = {
     'confirm-delete-selected': 'Вы уверены, что хотите удалить все выбранные записи?',
     'no-project': 'Без проекта',
     'no-description': '(без описания)',
-    'paid': 'Оплачено'
+    'paid': 'Оплачено',
+    'client-debt': 'Долг: ',
+    'no-debt': 'Нет задолженности'
   },
   en: {
     // Sidebar
@@ -245,7 +247,9 @@ export const translations = {
     'confirm-delete-selected': 'Are you sure you want to delete all selected time logs?',
     'no-project': 'No Project',
     'no-description': '(no description)',
-    'paid': 'Paid'
+    'paid': 'Paid',
+    'client-debt': 'Debt: ',
+    'no-debt': 'No debt'
   }
 };
 

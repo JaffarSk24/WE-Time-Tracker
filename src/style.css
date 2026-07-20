@@ -152,6 +152,10 @@
   background-color: rgba(15, 23, 42, 0.01);
 }
 
+[data-theme="light"] .bulk-actions-bar {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
 [data-theme="light"] .promo-footer {
   background: rgba(241, 245, 249, 0.85);
   box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.05);
@@ -1068,6 +1072,20 @@ textarea:focus {
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
   flex-wrap: wrap;
+}
+
+.bulk-actions-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-top: 16px;
+  margin-bottom: 24px;
 }
 
 .summary-item {

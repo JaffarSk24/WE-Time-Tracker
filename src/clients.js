@@ -42,12 +42,33 @@ export function renderClients() {
     
     const isRu = store.getSettings().language === 'ru';
     
+    // Calculate client debt
+    const logs = store.getTimeLogs();
+    let debt = 0;
+    logs.forEach(log => {
+      if (log.clientId === client.id && log.billable) {
+        const duration = new Date(log.endTime) - new Date(log.startTime);
+        debt += (duration / 3600000) * (log.rateAtTime || 0);
+      }
+    });
+
+    const hasDebt = debt > 0.005;
+    const debtText = hasDebt 
+      ? `${t('client-debt')}<span style="font-weight: 700;">${debt.toFixed(2)} €</span>`
+      : t('no-debt');
+    const debtColor = hasDebt ? '#f97316' : '#22c55e'; // orange: #f97316, green: #22c55e
+
     card.innerHTML = `
       <div>
         <div class="entity-name">${client.name}</div>
         <div class="entity-meta">ID: ${client.id.substring(7, 15)}...</div>
       </div>
-      <div class="entity-rate">${client.defaultRate} € / ${isRu ? 'час' : 'hour'}</div>
+      <div>
+        <div class="entity-rate">${client.defaultRate} € / ${isRu ? 'час' : 'hour'}</div>
+        <div style="font-size: 0.8rem; font-weight: 600; color: ${debtColor}; margin-top: 4px;">
+          ${debtText}
+        </div>
+      </div>
       <div class="entity-actions">
         <button class="btn-icon edit-client-btn" data-id="${client.id}" title="${t('edit')}">
           <i data-lucide="edit-2"></i>
