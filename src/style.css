@@ -156,6 +156,10 @@
   background-color: rgba(0, 0, 0, 0.02);
 }
 
+[data-theme="light"] .dash-activity-select {
+  background-color: #ffffff;
+}
+
 [data-theme="light"] .promo-footer {
   background: rgba(241, 245, 249, 0.85);
   box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.05);
@@ -1086,6 +1090,24 @@ textarea:focus {
   padding: 12px 16px;
   margin-top: 16px;
   margin-bottom: 24px;
+}
+
+.dash-activity-select {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background-color: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: var(--transition-fast);
+}
+
+.dash-activity-select:focus {
+  border-color: var(--border-focus);
 }
 
 .summary-item {

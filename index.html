@@ -204,8 +204,20 @@
         </div>
         
         <div class="card chart-card" style="min-height: auto;">
-          <div class="chart-header">
-            <h3 data-i18n="dash-weekly-activity">Активность за последние 7 дней (часы)</h3>
+          <div class="chart-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <h3 data-i18n="dash-activity-title">Активность</h3>
+            <select id="dash-activity-period" class="dash-activity-select">
+              <option value="7" data-i18n="period-7">7 дней</option>
+              <option value="14" data-i18n="period-14">14 дней</option>
+              <option value="30" data-i18n="period-30">30 дней</option>
+              <option value="current-month" data-i18n="period-curr-month">Текущий месяц</option>
+              <option value="last-month" data-i18n="period-last-month">Прошлый месяц</option>
+              <option value="3-months" data-i18n="period-3-months">Последние 3 месяца</option>
+              <option value="6-months" data-i18n="period-6-months">Последние 6 месяцев</option>
+              <option value="12-months" data-i18n="period-12-months">Последние 12 месяцев</option>
+              <option value="current-year" data-i18n="period-curr-year">Текущий год</option>
+              <option value="last-year" data-i18n="period-last-year">Прошлый год</option>
+            </select>
           </div>
           <div class="chart-container" style="height: 200px;">
             <canvas id="weeklyChart"></canvas>

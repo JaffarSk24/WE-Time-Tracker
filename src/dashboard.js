@@ -4,6 +4,7 @@ import { store } from './store.js';
 let projectChartInstance = null;
 let clientChartInstance = null;
 let weeklyChartInstance = null;
+let selectedActivityPeriod = '7';
 
 // Color palette for charts (premium translucent neon colors)
 const CHART_COLORS = [
@@ -43,7 +44,13 @@ function calculateStats(logs) {
 }
 
 export function initDashboard() {
-  // Empty, renders dynamically on triggerViewRender
+  const periodSelect = document.getElementById('dash-activity-period');
+  if (periodSelect) {
+    periodSelect.addEventListener('change', (e) => {
+      selectedActivityPeriod = e.target.value;
+      renderDashboard();
+    });
+  }
 }
 
 export function renderDashboard() {
@@ -51,6 +58,12 @@ export function renderDashboard() {
   const clients = store.getClients();
   const projects = store.getProjects();
   const lang = store.getSettings().language;
+
+  // Sync the period dropdown to current selected value
+  const periodSelect = document.getElementById('dash-activity-period');
+  if (periodSelect) {
+    periodSelect.value = selectedActivityPeriod;
+  }
   
   // 1. Calculate and update stats counters
   const { totalHours, totalEarnings } = calculateStats(logs);
@@ -113,40 +126,120 @@ export function renderDashboard() {
     clientData.push(Number(clientTimes[cId].toFixed(2)));
   });
   
-  // 4. Prepare Weekly Activity Chart Data (last 7 days)
-  const weekdayNames = lang === 'ru' 
-    ? ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб']
-    : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    
-  const dailyHours = Array(7).fill(0);
-  const dailyLabels = [];
-  
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    dailyLabels.push(weekdayNames[date.getDay()]);
-    
-    // Sum hours for this specific day
-    const dayStart = new Date(date.setHours(0, 0, 0, 0));
-    const dayEnd = new Date(date.setHours(23, 59, 59, 999));
-    
-    logs.forEach(log => {
-      const logStart = new Date(log.startTime);
-      if (logStart >= dayStart && logStart <= dayEnd) {
-        const duration = (new Date(log.endTime) - logStart) / 3600000;
-        dailyHours[6 - i] += duration;
+  // 4. Prepare Activity Chart Data
+  const activityLabels = [];
+  const activityData = [];
+  const now = new Date();
+  const isDayGrouping = ['7', '14', '30', 'current-month', 'last-month'].includes(selectedActivityPeriod);
+
+  if (isDayGrouping) {
+    let daysList = [];
+    if (selectedActivityPeriod === '7' || selectedActivityPeriod === '14' || selectedActivityPeriod === '30') {
+      const daysCount = parseInt(selectedActivityPeriod, 10);
+      for (let i = daysCount - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        daysList.push(d);
       }
+    } else if (selectedActivityPeriod === 'current-month') {
+      const currentDay = now.getDate();
+      for (let i = 0; i < currentDay; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth(), 1 + i);
+        daysList.push(d);
+      }
+    } else if (selectedActivityPeriod === 'last-month') {
+      const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonthYear = lastMonthDate.getFullYear();
+      const lastMonthMonth = lastMonthDate.getMonth();
+      const daysInLastMonth = new Date(lastMonthYear, lastMonthMonth + 1, 0).getDate();
+      for (let i = 0; i < daysInLastMonth; i++) {
+        const d = new Date(lastMonthYear, lastMonthMonth, 1 + i);
+        daysList.push(d);
+      }
+    }
+
+    daysList.forEach(date => {
+      // Format label
+      if (selectedActivityPeriod === '7') {
+        const weekdayNames = lang === 'ru' 
+          ? ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб']
+          : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        activityLabels.push(weekdayNames[date.getDay()]);
+      } else {
+        activityLabels.push(new Intl.DateTimeFormat(lang === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short' }).format(date));
+      }
+
+      // Sum hours for this day
+      const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+      const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+      let daySum = 0;
+      logs.forEach(log => {
+        const logStart = new Date(log.startTime);
+        if (logStart >= dayStart && logStart <= dayEnd) {
+          const duration = (new Date(log.endTime) - logStart) / 3600000;
+          daySum += duration;
+        }
+      });
+      activityData.push(Number(daySum.toFixed(2)));
+    });
+  } else {
+    // Month grouping
+    let monthsList = [];
+    if (selectedActivityPeriod === '3-months') {
+      for (let i = 2; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        monthsList.push({ year: d.getFullYear(), month: d.getMonth() });
+      }
+    } else if (selectedActivityPeriod === '6-months') {
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        monthsList.push({ year: d.getFullYear(), month: d.getMonth() });
+      }
+    } else if (selectedActivityPeriod === '12-months') {
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        monthsList.push({ year: d.getFullYear(), month: d.getMonth() });
+      }
+    } else if (selectedActivityPeriod === 'current-year') {
+      const currentYear = now.getFullYear();
+      for (let m = 0; m <= now.getMonth(); m++) {
+        monthsList.push({ year: currentYear, month: m });
+      }
+    } else if (selectedActivityPeriod === 'last-year') {
+      const lastYear = now.getFullYear() - 1;
+      for (let m = 0; m <= 11; m++) {
+        monthsList.push({ year: lastYear, month: m });
+      }
+    }
+
+    monthsList.forEach(m => {
+      // Format month label
+      const date = new Date(m.year, m.month, 1);
+      activityLabels.push(new Intl.DateTimeFormat(lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'short', year: '2-digit' }).format(date));
+
+      // Sum hours for this month
+      const monthStart = new Date(m.year, m.month, 1, 0, 0, 0, 0);
+      const monthEnd = new Date(m.year, m.month + 1, 0, 23, 59, 59, 999);
+      let monthSum = 0;
+      logs.forEach(log => {
+        const logStart = new Date(log.startTime);
+        if (logStart >= monthStart && logStart <= monthEnd) {
+          const duration = (new Date(log.endTime) - logStart) / 3600000;
+          monthSum += duration;
+        }
+      });
+      activityData.push(Number(monthSum.toFixed(2)));
     });
   }
-  
+
   // Render Project Chart
   renderProjectChart(projectLabels, projectData);
   
   // Render Client Chart
   renderClientChart(clientLabels, clientData);
   
-  // Render Weekly Chart
-  renderWeeklyChart(dailyLabels, dailyHours.map(h => Number(h.toFixed(2))));
+  // Render Activity Chart
+  renderWeeklyChart(activityLabels, activityData);
 }
 
 function showEmptyState(show) {
