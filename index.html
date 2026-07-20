@@ -140,7 +140,7 @@
       <section id="dashboard-view" class="view-panel">
         <div>
           <h1 class="view-title" data-i18n="dash-title">Аналитика времени</h1>
-          <p class="view-subtitle">Обзор вашей фриланс-статистики</p>
+          <p class="view-subtitle" data-i18n="dash-subtitle">Overview of your freelancing stats</p>
         </div>
         
         <!-- Stats Row -->
@@ -151,7 +151,7 @@
               <i data-lucide="clock" class="text-secondary"></i>
             </div>
             <div class="stat-value grad-text-1" id="dash-hours-val">0h 00m</div>
-            <div class="stat-desc">За все время трекинга</div>
+            <div class="stat-desc" data-i18n="dash-total-hours-desc">For the entire tracking history</div>
           </div>
           
           <div class="card stat-card secondary">
@@ -160,7 +160,7 @@
               <i data-lucide="euro" class="text-secondary"></i>
             </div>
             <div class="stat-value grad-text-2" id="dash-earnings-val">0.00 €</div>
-            <div class="stat-desc">На основе почасовых ставок</div>
+            <div class="stat-desc" data-i18n="dash-total-earnings-desc">Based on hourly rates</div>
           </div>
           
           <div class="card stat-card warning">
@@ -169,7 +169,7 @@
               <i data-lucide="folder-git-2" class="text-secondary"></i>
             </div>
             <div class="stat-value" id="dash-projects-val" style="color: var(--warning);">0</div>
-            <div class="stat-desc">Всего создано проектов</div>
+            <div class="stat-desc" data-i18n="dash-active-projects-desc">Total projects created</div>
           </div>
           
           <div class="card stat-card info" style="position:relative; overflow:hidden;">
@@ -178,7 +178,7 @@
               <i data-lucide="users" class="text-secondary"></i>
             </div>
             <div class="stat-value" id="dash-clients-val" style="color: var(--accent-cyan);">0</div>
-            <div class="stat-desc">Всего клиентов в базе</div>
+            <div class="stat-desc" data-i18n="dash-active-clients-desc">Total clients in database</div>
           </div>
         </div>
         
@@ -217,7 +217,7 @@
       <section id="clients-view" class="view-panel">
         <div>
           <h1 class="view-title" data-i18n="clients-title">Управление клиентами & проектами</h1>
-          <p class="view-subtitle">Настройка ставок в EUR для каждого клиента или проекта отдельно</p>
+          <p class="view-subtitle" data-i18n="clients-subtitle">Configure EUR rates for each client or project individually</p>
         </div>
         
         <div class="tabs-header">
@@ -230,7 +230,7 @@
           <div class="panel-header">
             <div class="search-input-wrapper">
               <i data-lucide="search"></i>
-              <input type="text" id="search-clients" placeholder="Поиск клиентов...">
+              <input type="text" id="search-clients" data-i18n="search-clients-placeholder" placeholder="Search clients...">
             </div>
             <button class="btn btn-primary" id="add-client-btn">
               <i data-lucide="plus"></i>
@@ -248,7 +248,7 @@
           <div class="panel-header">
             <div class="search-input-wrapper">
               <i data-lucide="search"></i>
-              <input type="text" id="search-projects" placeholder="Поиск проектов...">
+              <input type="text" id="search-projects" data-i18n="search-projects-placeholder" placeholder="Search projects...">
             </div>
             <button class="btn btn-primary" id="add-project-btn">
               <i data-lucide="plus"></i>
@@ -266,7 +266,7 @@
       <section id="reports-view" class="view-panel">
         <div>
           <h1 class="view-title" data-i18n="reports-title">Детализированные отчеты</h1>
-          <p class="view-subtitle">Фильтрация логов и экспорт в CSV/JSON</p>
+          <p class="view-subtitle" data-i18n="reports-subtitle">Filter logs and export to CSV/JSON</p>
         </div>
         
         <!-- Filter Card -->
@@ -357,7 +357,7 @@
       <section id="settings-view" class="view-panel">
         <div>
           <h1 class="view-title" data-i18n="settings-title">Настройки приложения</h1>
-          <p class="view-subtitle">Язык, бэкап и управление данными</p>
+          <p class="view-subtitle" data-i18n="settings-subtitle">Language, backup, and data management</p>
         </div>
         
         <div class="card">
@@ -468,7 +468,7 @@
   <div class="modal-overlay" id="client-modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title" id="client-modal-title">Добавить клиента</h3>
+        <h3 class="modal-title" id="client-modal-title">Add Client</h3>
         <button class="modal-close" id="client-modal-close"><i data-lucide="x"></i></button>
       </div>
       <div class="form-group">
@@ -490,7 +490,7 @@
   <div class="modal-overlay" id="project-modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title" id="project-modal-title">Добавить проект</h3>
+        <h3 class="modal-title" id="project-modal-title">Add Project</h3>
         <button class="modal-close" id="project-modal-close"><i data-lucide="x"></i></button>
       </div>
       <div class="form-group">

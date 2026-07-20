@@ -3,7 +3,7 @@
 const STORAGE_KEY = 'we_time_tracker_data';
 
 const DEFAULT_SETTINGS = {
-  language: 'ru', // 'ru' or 'en'
+  language: 'en', // 'ru' or 'en'
   currency: 'EUR',
   theme: 'dark' // 'dark' or 'light'
 };

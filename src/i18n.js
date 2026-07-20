@@ -25,10 +25,15 @@ export const translations = {
 
     // Dashboard
     'dash-title': 'Аналитика времени',
+    'dash-subtitle': 'Обзор вашей фриланс-статистики',
     'dash-total-hours': 'Всего часов',
+    'dash-total-hours-desc': 'За все время трекинга',
     'dash-total-earnings': 'Всего заработано',
+    'dash-total-earnings-desc': 'На основе почасовых ставок',
     'dash-active-projects': 'Активные проекты',
+    'dash-active-projects-desc': 'Всего создано проектов',
     'dash-active-clients': 'Клиенты',
+    'dash-active-clients-desc': 'Всего клиентов в базе',
     'dash-by-project': 'Время по проектам',
     'dash-by-client': 'Время по клиентам',
     'dash-weekly-activity': 'Активность за последние 7 дней (часы)',
@@ -36,10 +41,13 @@ export const translations = {
 
     // Clients & Projects
     'clients-title': 'Управление клиентами & проектами',
+    'clients-subtitle': 'Настройка ставок в EUR для каждого клиента или проекта отдельно',
     'clients-tab': 'Клиенты',
     'projects-tab': 'Проекты',
     'clients-add-btn': 'Добавить клиента',
     'projects-add-btn': 'Добавить проект',
+    'search-clients-placeholder': 'Поиск клиентов...',
+    'search-projects-placeholder': 'Поиск проектов...',
     'client-name-label': 'Название / Имя клиента',
     'client-rate-label': 'Ставка по умолчанию (EUR/час)',
     'project-name-label': 'Название проекта',
@@ -54,6 +62,7 @@ export const translations = {
 
     // Reports & Logs
     'reports-title': 'Детализированные отчеты',
+    'reports-subtitle': 'Фильтрация логов и экспорт в CSV/JSON',
     'filter-client': 'Клиент',
     'filter-project': 'Проект',
     'filter-billable': 'Статус оплаты',
@@ -84,6 +93,7 @@ export const translations = {
     
     // Settings
     'settings-title': 'Настройки приложения',
+    'settings-subtitle': 'Язык, бэкап и управление данными',
     'settings-lang': 'Язык интерфейса',
     'settings-theme': 'Тема оформления',
     'theme-dark': 'Темная',
@@ -137,10 +147,15 @@ export const translations = {
 
     // Dashboard
     'dash-title': 'Time Analytics',
+    'dash-subtitle': 'Overview of your freelancing stats',
     'dash-total-hours': 'Total Hours',
+    'dash-total-hours-desc': 'For the entire tracking history',
     'dash-total-earnings': 'Total Earnings',
+    'dash-total-earnings-desc': 'Based on hourly rates',
     'dash-active-projects': 'Active Projects',
+    'dash-active-projects-desc': 'Total projects created',
     'dash-active-clients': 'Clients',
+    'dash-active-clients-desc': 'Total clients in database',
     'dash-by-project': 'Time by Project',
     'dash-by-client': 'Time by Client',
     'dash-weekly-activity': 'Weekly Activity (hours)',
@@ -148,10 +163,13 @@ export const translations = {
 
     // Clients & Projects
     'clients-title': 'Manage Clients & Projects',
+    'clients-subtitle': 'Configure EUR rates for each client or project individually',
     'clients-tab': 'Clients',
     'projects-tab': 'Projects',
     'clients-add-btn': 'Add Client',
     'projects-add-btn': 'Add Project',
+    'search-clients-placeholder': 'Search clients...',
+    'search-projects-placeholder': 'Search projects...',
     'client-name-label': 'Client Name / Company',
     'client-rate-label': 'Default Rate (EUR/hour)',
     'project-name-label': 'Project Name',
@@ -166,6 +184,7 @@ export const translations = {
 
     // Reports & Logs
     'reports-title': 'Detailed Reports',
+    'reports-subtitle': 'Filter logs and export to CSV/JSON',
     'filter-client': 'Client',
     'filter-project': 'Project',
     'filter-billable': 'Payment Status',
@@ -196,6 +215,7 @@ export const translations = {
     
     // Settings
     'settings-title': 'Application Settings',
+    'settings-subtitle': 'Language, backup, and data management',
     'settings-lang': 'Interface Language',
     'settings-theme': 'Interface Theme',
     'theme-dark': 'Dark',
