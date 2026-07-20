@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WE Time Tracker — White Eagles & Co.</title>
+  <link rel="stylesheet" href="./src/style.css">
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div id="app-container">
+    
+    <!-- Sidebar -->
+    <aside>
+      <div class="logo-container">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div>
+          <span class="logo-text">WE Tracker</span>
+          <span class="logo-sub">White Eagles</span>
+        </div>
+      </div>
+      
+      <nav>
+        <a class="nav-item active" data-target="timer-view">
+          <i data-lucide="play-circle"></i>
+          <span data-i18n="nav-timer">Таймер</span>
+        </a>
+        <a class="nav-item" data-target="dashboard-view">
+          <i data-lucide="bar-chart-3"></i>
+          <span data-i18n="nav-dashboard">Дашборд</span>
+        </a>
+        <a class="nav-item" data-target="clients-view">
+          <i data-lucide="briefcase"></i>
+          <span data-i18n="nav-clients">Клиенты & Проекты</span>
+        </a>
+        <a class="nav-item" data-target="reports-view">
+          <i data-lucide="file-spreadsheet"></i>
+          <span data-i18n="nav-reports">Отчеты & Логи</span>
+        </a>
+        <a class="nav-item" data-target="settings-view">
+          <i data-lucide="settings"></i>
+          <span data-i18n="nav-settings">Настройки</span>
+        </a>
+      </nav>
+      
+      <div class="sidebar-footer">
+        WE Time Tracker v1.0.0<br>
+        <a href="https://whiteeagles.sk/" target="_blank">White Eagles & Co. s.r.o.</a>
+      </div>
+    </aside>
+    
+    <!-- Main Content -->
+    <main>
+      
+      <!-- 1. TIMER VIEW -->
+      <section id="timer-view" class="view-panel active">
+        <div>
+          <h1 class="view-title" data-i18n="nav-timer">Таймер</h1>
+          <p class="view-subtitle" id="timer-date-subtitle">Пн, 20 июля 2026</p>
+        </div>
+        
+        <!-- Live Timer Widget -->
+        <div class="timer-widget card">
+          <div class="timer-row">
+            <div class="timer-input-wrapper">
+              <input type="text" id="timer-desc" data-i18n="timer-placeholder" placeholder="Над чем вы работаете в данный момент?">
+            </div>
+            
+            <div class="timer-select-wrapper">
+              <select id="timer-client-select">
+                <option value="" data-i18n="timer-client-placeholder">Выберите клиента</option>
+              </select>
+              <select id="timer-project-select" disabled>
+                <option value="" data-i18n="timer-project-placeholder">Выберите проект (опционально)</option>
+              </select>
+            </div>
+            
+            <div class="timer-actions">
+              <label class="billable-checkbox">
+                <input type="checkbox" id="timer-billable" checked>
+                <span data-i18n="timer-billable">Оплачиваемый</span>
+              </label>
+              
+              <div class="timer-counter" id="timer-clock">00:00:00</div>
+              
+              <button class="btn btn-timer btn-timer-start" id="timer-toggle-btn" data-i18n="timer-start">Старт</button>
+              <button class="btn btn-secondary btn-icon-only" id="timer-cancel-btn" style="display: none;" title="Cancel">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Manual Log Toggle -->
+        <div class="manual-entry-card card">
+          <h3 data-i18n="timer-manual-title">Ввод вручную</h3>
+          <div class="manual-grid">
+            <div class="form-group">
+              <label for="manual-desc" data-i18n="col-desc">Описание</label>
+              <input type="text" id="manual-desc" placeholder="...">
+            </div>
+            <div class="form-group">
+              <label for="manual-client-select" data-i18n="filter-client">Клиент</label>
+              <select id="manual-client-select">
+                <option value="" data-i18n="timer-client-placeholder">Выберите клиента</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="manual-project-select" data-i18n="filter-project">Проект</label>
+              <select id="manual-project-select" disabled>
+                <option value="" data-i18n="timer-project-placeholder">Выберите проект (опционально)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="manual-start" data-i18n="col-start">Начало</label>
+              <input type="datetime-local" id="manual-start">
+            </div>
+            <div class="form-group">
+              <label for="manual-end" data-i18n="col-end">Конец</label>
+              <input type="datetime-local" id="manual-end">
+            </div>
+            <div class="form-group" style="flex-direction: row; align-items: center; height: 100%; margin-top: 24px; gap: 8px;">
+              <input type="checkbox" id="manual-billable" checked style="width:18px; height:18px; accent-color:var(--accent-indigo);">
+              <label for="manual-billable" data-i18n="timer-billable" style="cursor:pointer;">Оплачиваемый</label>
+            </div>
+            <div class="form-group" style="justify-content: flex-end; margin-top: 14px;">
+              <button class="btn btn-primary" id="manual-add-btn" data-i18n="timer-manual-add">Добавить запись</button>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- 2. DASHBOARD VIEW -->
+      <section id="dashboard-view" class="view-panel">
+        <div>
+          <h1 class="view-title" data-i18n="dash-title">Аналитика времени</h1>
+          <p class="view-subtitle">Обзор вашей фриланс-статистики</p>
+        </div>
+        
+        <!-- Stats Row -->
+        <div class="dashboard-grid">
+          <div class="card stat-card primary">
+            <div class="stat-header">
+              <span data-i18n="dash-total-hours">Всего часов</span>
+              <i data-lucide="clock" class="text-secondary"></i>
+            </div>
+            <div class="stat-value grad-text-1" id="dash-hours-val">0h 00m</div>
+            <div class="stat-desc">За все время трекинга</div>
+          </div>
+          
+          <div class="card stat-card secondary">
+            <div class="stat-header">
+              <span data-i18n="dash-total-earnings">Всего заработано</span>
+              <i data-lucide="euro" class="text-secondary"></i>
+            </div>
+            <div class="stat-value grad-text-2" id="dash-earnings-val">0.00 €</div>
+            <div class="stat-desc">На основе почасовых ставок</div>
+          </div>
+          
+          <div class="card stat-card warning">
+            <div class="stat-header">
+              <span data-i18n="dash-active-projects">Активные проекты</span>
+              <i data-lucide="folder-git-2" class="text-secondary"></i>
+            </div>
+            <div class="stat-value" id="dash-projects-val" style="color: var(--warning);">0</div>
+            <div class="stat-desc">Всего создано проектов</div>
+          </div>
+          
+          <div class="card stat-card info" style="position:relative; overflow:hidden;">
+            <div class="stat-header">
+              <span data-i18n="dash-active-clients">Клиенты</span>
+              <i data-lucide="users" class="text-secondary"></i>
+            </div>
+            <div class="stat-value" id="dash-clients-val" style="color: var(--accent-cyan);">0</div>
+            <div class="stat-desc">Всего клиентов в базе</div>
+          </div>
+        </div>
+        
+        <!-- Charts Grid -->
+        <div class="charts-row">
+          <div class="card chart-card">
+            <div class="chart-header">
+              <h3 data-i18n="dash-by-project">Время по проектам</h3>
+            </div>
+            <div class="chart-container">
+              <canvas id="projectChart"></canvas>
+            </div>
+          </div>
+          
+          <div class="card chart-card">
+            <div class="chart-header">
+              <h3 data-i18n="dash-by-client">Время по клиентам</h3>
+            </div>
+            <div class="chart-container">
+              <canvas id="clientChart"></canvas>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card chart-card" style="min-height: auto;">
+          <div class="chart-header">
+            <h3 data-i18n="dash-weekly-activity">Активность за последние 7 дней (часы)</h3>
+          </div>
+          <div class="chart-container" style="height: 200px;">
+            <canvas id="weeklyChart"></canvas>
+          </div>
+        </div>
+      </section>
+      
+      <!-- 3. CLIENTS VIEW -->
+      <section id="clients-view" class="view-panel">
+        <div>
+          <h1 class="view-title" data-i18n="clients-title">Управление клиентами & проектами</h1>
+          <p class="view-subtitle">Настройка ставок в EUR для каждого клиента или проекта отдельно</p>
+        </div>
+        
+        <div class="tabs-header">
+          <button class="tab-btn active" id="tab-clients" data-target="panel-clients" data-i18n="clients-tab">Клиенты</button>
+          <button class="tab-btn" id="tab-projects" data-target="panel-projects" data-i18n="projects-tab">Проекты</button>
+        </div>
+        
+        <!-- Client Tab Panel -->
+        <div class="tab-panel active" id="panel-clients">
+          <div class="panel-header">
+            <div class="search-input-wrapper">
+              <i data-lucide="search"></i>
+              <input type="text" id="search-clients" placeholder="Поиск клиентов...">
+            </div>
+            <button class="btn btn-primary" id="add-client-btn">
+              <i data-lucide="plus"></i>
+              <span data-i18n="clients-add-btn">Добавить клиента</span>
+            </button>
+          </div>
+          
+          <div class="entity-grid" id="clients-grid">
+            <!-- Client Cards will render here -->
+          </div>
+        </div>
+        
+        <!-- Project Tab Panel -->
+        <div class="tab-panel" id="panel-projects">
+          <div class="panel-header">
+            <div class="search-input-wrapper">
+              <i data-lucide="search"></i>
+              <input type="text" id="search-projects" placeholder="Поиск проектов...">
+            </div>
+            <button class="btn btn-primary" id="add-project-btn">
+              <i data-lucide="plus"></i>
+              <span data-i18n="projects-add-btn">Добавить проект</span>
+            </button>
+          </div>
+          
+          <div class="entity-grid" id="projects-grid">
+            <!-- Project Cards will render here -->
+          </div>
+        </div>
+      </section>
+      
+      <!-- 4. REPORTS VIEW -->
+      <section id="reports-view" class="view-panel">
+        <div>
+          <h1 class="view-title" data-i18n="reports-title">Детализированные отчеты</h1>
+          <p class="view-subtitle">Фильтрация логов и экспорт в CSV/JSON</p>
+        </div>
+        
+        <!-- Filter Card -->
+        <div class="reports-filters-card card">
+          <div class="filters-grid">
+            <div class="form-group">
+              <label for="filter-client-select" data-i18n="filter-client">Клиент</label>
+              <select id="filter-client-select">
+                <option value="" data-i18n="filter-all">Все</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="filter-project-select" data-i18n="filter-project">Проект</label>
+              <select id="filter-project-select" disabled>
+                <option value="" data-i18n="filter-all">Все</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="filter-billable-select" data-i18n="filter-billable">Тип оплаты</label>
+              <select id="filter-billable-select">
+                <option value="all" data-i18n="filter-all">Все</option>
+                <option value="billable" data-i18n="filter-billable-only">Только оплачиваемые</option>
+                <option value="non-billable" data-i18n="filter-non-billable-only">Неоплачиваемые</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="filter-range-select" data-i18n="filter-range">Период</label>
+              <select id="filter-range-select">
+                <option value="today" data-i18n="range-today">Сегодня</option>
+                <option value="yesterday" data-i18n="range-yesterday">Вчера</option>
+                <option value="week" data-i18n="range-week">Текущая неделя</option>
+                <option value="month" data-i18n="range-month" selected>Текущий месяц</option>
+                <option value="all" data-i18n="range-all">Все время</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="filters-actions">
+            <button class="btn btn-secondary" id="export-csv-btn">
+              <i data-lucide="download"></i>
+              <span data-i18n="export-csv">Экспорт в CSV</span>
+            </button>
+            <button class="btn btn-secondary" id="export-json-btn">
+              <i data-lucide="code"></i>
+              <span data-i18n="export-json">Экспорт в JSON</span>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Summary Stats of Filtered Items -->
+        <div class="reports-summary">
+          <div class="summary-item">
+            <span class="summary-label" data-i18n="report-total-hours">Часы за период</span>
+            <span class="summary-value hours" id="rep-hours">0h 00m</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label" data-i18n="report-total-earnings">Сумма за период</span>
+            <span class="summary-value earnings" id="rep-earnings">0.00 €</span>
+          </div>
+        </div>
+        
+        <!-- Time Logs list grouped by day -->
+        <div id="logs-container">
+          <!-- Daily grouped logs will render here -->
+        </div>
+      </section>
+      
+      <!-- 5. SETTINGS VIEW -->
+      <section id="settings-view" class="view-panel">
+        <div>
+          <h1 class="view-title" data-i18n="settings-title">Настройки приложения</h1>
+          <p class="view-subtitle">Язык, бэкап и управление данными</p>
+        </div>
+        
+        <div class="card">
+          <!-- Language & Currency -->
+          <div class="settings-section">
+            <h3 class="settings-section-title">
+              <i data-lucide="globe"></i>
+              <span data-i18n="settings-lang">Язык интерфейса</span>
+            </h3>
+            <div class="settings-grid">
+              <div class="form-group">
+                <select id="settings-lang-select">
+                  <option value="ru">Русский (Russian)</option>
+                  <option value="en">English (Английский)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Data Management -->
+          <div class="settings-section">
+            <h3 class="settings-section-title">
+              <i data-lucide="database"></i>
+              <span data-i18n="settings-data">Управление данными</span>
+            </h3>
+            
+            <!-- Backup -->
+            <div class="data-action-box">
+              <div class="data-action-text">
+                <div class="data-action-title" data-i18n="settings-backup-btn">Экспортировать данные (JSON)</div>
+                <div class="data-action-desc" data-i18n="settings-backup-desc">Экспортируйте ваши проекты, клиентов и логи времени в один JSON-файл для резервной копии.</div>
+              </div>
+              <button class="btn btn-secondary" id="settings-backup-btn">
+                <i data-lucide="upload-cloud"></i>
+                <span data-i18n="settings-backup-btn">Экспортировать</span>
+              </button>
+            </div>
+            
+            <!-- Restore -->
+            <div class="data-action-box">
+              <div class="data-action-text">
+                <div class="data-action-title" data-i18n="settings-restore-btn">Импортировать данные</div>
+                <div class="data-action-desc" data-i18n="settings-restore-desc">Импортируйте ранее сохраненный файл резервной копии.</div>
+              </div>
+              <div>
+                <input type="file" id="settings-import-input" accept=".json" style="display: none;">
+                <button class="btn btn-secondary" id="settings-import-btn">
+                  <i data-lucide="download-cloud"></i>
+                  <span data-i18n="settings-restore-btn">Импортировать</span>
+                </button>
+              </div>
+            </div>
+            
+            <!-- Reset -->
+            <div class="data-action-box" style="border-color: rgba(244, 63, 94, 0.2); background: rgba(244, 63, 94, 0.02);">
+              <div class="data-action-text">
+                <div class="data-action-title" style="color: var(--danger);" data-i18n="settings-clear-btn">Сбросить все данные</div>
+                <div class="data-action-desc" data-i18n="settings-clear-desc">Удалить ВСЕ данные из приложения. Это действие необратимо!</div>
+              </div>
+              <button class="btn btn-danger" id="settings-clear-btn">
+                <i data-lucide="trash-2"></i>
+                <span data-i18n="settings-clear-btn">Очистить</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+    </main>
+    
+    <!-- Floating Promotion Footer (White Eagles & Co. s.r.o.) -->
+    <footer class="promo-footer">
+      <div class="promo-content">
+        <span class="promo-badge">White Eagles</span>
+        <span class="promo-text">
+          <span data-i18n="footer-promo">Создание современных сайтов и запуск эффективной онлайн-рекламы в Google и соцсетях — </span>
+          <a href="https://whiteeagles.sk/" target="_blank">
+            <span data-i18n="footer-visit">посетить White Eagles</span> <i data-lucide="external-link" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle;"></i>
+          </a>
+        </span>
+      </div>
+      <div class="promo-copyright">
+        &copy; 2026 White Eagles & Co. s.r.o. <span data-i18n="footer-rights">Все права защищены.</span>
+      </div>
+    </footer>
+    
+  </div>
+
+  <!-- MODALS -->
+  
+  <!-- Client Modal -->
+  <div class="modal-overlay" id="client-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="client-modal-title">Добавить клиента</h3>
+        <button class="modal-close" id="client-modal-close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="form-group">
+        <label for="client-modal-name" data-i18n="client-name-label">Название / Имя клиента</label>
+        <input type="text" id="client-modal-name" required>
+      </div>
+      <div class="form-group">
+        <label for="client-modal-rate" data-i18n="client-rate-label">Ставка по умолчанию (EUR/час)</label>
+        <input type="number" id="client-modal-rate" value="0" min="0" step="0.5">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="client-modal-cancel" data-i18n="cancel">Отмена</button>
+        <button class="btn btn-primary" id="client-modal-save" data-i18n="save">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Project Modal -->
+  <div class="modal-overlay" id="project-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="project-modal-title">Добавить проект</h3>
+        <button class="modal-close" id="project-modal-close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="form-group">
+        <label for="project-modal-name" data-i18n="project-name-label">Название проекта</label>
+        <input type="text" id="project-modal-name" required>
+      </div>
+      <div class="form-group">
+        <label for="project-modal-client" data-i18n="project-client-label">Клиент</label>
+        <select id="project-modal-client" required></select>
+      </div>
+      <div class="form-group">
+        <label for="project-modal-rate" data-i18n="project-rate-label">Ставка проекта (EUR/час)</label>
+        <input type="number" id="project-modal-rate" value="0" min="0" step="0.5">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="project-modal-cancel" data-i18n="cancel">Отмена</button>
+        <button class="btn btn-primary" id="project-modal-save" data-i18n="save">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Log Modal -->
+  <div class="modal-overlay" id="edit-log-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" data-i18n="log-edit-title">Редактировать запись времени</h3>
+        <button class="modal-close" id="edit-log-modal-close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="form-group">
+        <label for="edit-log-desc" data-i18n="col-desc">Описание</label>
+        <input type="text" id="edit-log-desc">
+      </div>
+      <div class="form-group">
+        <label for="edit-log-client" data-i18n="filter-client">Клиент</label>
+        <select id="edit-log-client">
+          <option value="" data-i18n="timer-client-placeholder">Выберите клиента</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="edit-log-project" data-i18n="filter-project">Проект</label>
+        <select id="edit-log-project" disabled>
+          <option value="" data-i18n="timer-project-placeholder">Выберите проект</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="edit-log-start" data-i18n="col-start">Начало</label>
+        <input type="datetime-local" id="edit-log-start" required>
+      </div>
+      <div class="form-group">
+        <label for="edit-log-end" data-i18n="col-end">Конец</label>
+        <input type="datetime-local" id="edit-log-end" required>
+      </div>
+      <div class="form-group">
+        <label for="edit-log-rate" data-i18n="col-rate">Почасовая ставка (€)</label>
+        <input type="number" id="edit-log-rate" min="0" step="0.5">
+      </div>
+      <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px; margin-top: 12px;">
+        <input type="checkbox" id="edit-log-billable" style="width:18px; height:18px; accent-color:var(--accent-indigo);">
+        <label for="edit-log-billable" data-i18n="timer-billable" style="cursor:pointer;">Оплачиваемый</label>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="edit-log-modal-cancel" data-i18n="cancel">Отмена</button>
+        <button class="btn btn-primary" id="edit-log-modal-save" data-i18n="save">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Initialize Application Modules -->
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
