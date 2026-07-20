@@ -152,6 +152,34 @@
   background-color: rgba(15, 23, 42, 0.01);
 }
 
+[data-theme="light"] .promo-footer {
+  background: rgba(241, 245, 249, 0.85);
+  box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.05);
+  border-top-color: rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .promo-content {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .promo-badge {
+  background: var(--grad-primary);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+}
+
+[data-theme="light"] .promo-text a {
+  background: var(--grad-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+[data-theme="light"] .promo-copyright {
+  color: var(--text-muted);
+}
+
+
 * {
   box-sizing: border-box;
   margin: 0;
