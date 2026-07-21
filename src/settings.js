@@ -1,6 +1,7 @@
 // WE Time Tracker Settings Module
 import { store } from './store.js';
 import { t } from './i18n.js';
+import { showToast } from './toast.js';
 
 export function initSettings() {
   const langSelect = document.getElementById('settings-lang-select');
@@ -54,14 +55,14 @@ export function initSettings() {
         const result = store.importData(data);
         
         if (result && result.success) {
-          alert(isRu ? 'Данные успешно импортированы!' : 'Data successfully imported!');
+          showToast(isRu ? 'Данные успешно импортированы!' : 'Data successfully imported!', { type: 'success' });
           // reload the page to refresh charts and everything clean
-          window.location.reload();
+          setTimeout(() => window.location.reload(), 800);
         } else {
-          alert((isRu ? 'Не удалось импортировать данные: ' : 'Failed to import data: ') + (result.error || ''));
+          showToast((isRu ? 'Не удалось импортировать данные: ' : 'Failed to import data: ') + (result.error || ''), { type: 'error' });
         }
       } catch (err) {
-        alert((isRu ? 'Ошибка чтения файла JSON: ' : 'Error reading JSON file: ') + err.message);
+        showToast((isRu ? 'Ошибка чтения файла JSON: ' : 'Error reading JSON file: ') + err.message, { type: 'error' });
       }
       importInput.value = ''; // clear input
     };
@@ -73,8 +74,8 @@ export function initSettings() {
   clearBtn.addEventListener('click', () => {
     if (confirm(t('settings-clear-confirm'))) {
       store.clearAllData();
-      alert(store.getSettings().language === 'ru' ? 'Все данные стерты!' : 'All data cleared!');
-      window.location.reload();
+      showToast(store.getSettings().language === 'ru' ? 'Все данные стерты!' : 'All data cleared!', { type: 'info' });
+      setTimeout(() => window.location.reload(), 800);
     }
   });
 }

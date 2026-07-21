@@ -1535,3 +1535,134 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==================== TOASTS ==================== */
+#toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 380px;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(20, 24, 40, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  animation: toast-in 0.2s ease-out;
+}
+
+[data-theme="light"] .toast {
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.15);
+}
+
+.toast-success { border-left: 3px solid #22c55e; }
+.toast-error   { border-left: 3px solid var(--danger, #f43f5e); }
+.toast-info    { border-left: 3px solid var(--accent-indigo, #6366f1); }
+
+.toast-message { flex: 1; }
+
+.toast-action {
+  background: none;
+  border: none;
+  color: var(--accent-indigo, #6366f1);
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 4px 6px;
+}
+.toast-action:hover { text-decoration: underline; }
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--text-muted, #64748b);
+  font-size: 1.1rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.toast-hide { opacity: 0; transition: opacity 0.2s; }
+
+@keyframes toast-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+/* ==================== TODAY'S LOGS (Timer view) ==================== */
+.today-logs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.today-logs-totals {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.today-empty {
+  color: var(--text-muted, #64748b);
+  font-size: 0.9rem;
+  font-style: italic;
+  padding: 8px 0;
+}
+
+.today-log-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.today-log-row:last-child { border-bottom: none; }
+
+[data-theme="light"] .today-log-row {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+}
+
+.today-log-desc {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.92rem;
+}
+.today-log-desc.empty { color: var(--text-muted, #64748b); font-style: italic; }
+
+.today-log-meta {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.today-log-time {
+  color: var(--text-muted, #64748b);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.today-log-duration {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+/* Статус "не оплачивается" в отчетах */
+.log-item-billable-icon.free-status { color: var(--text-muted, #64748b); }

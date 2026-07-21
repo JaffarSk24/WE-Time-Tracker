@@ -94,6 +94,15 @@
           </div>
         </div>
         
+        <!-- Today's Entries -->
+        <div class="today-logs-card card">
+          <div class="today-logs-header">
+            <h3 data-i18n="today-logs-title">Сегодня</h3>
+            <span id="today-logs-totals" class="today-logs-totals"></span>
+          </div>
+          <div id="today-logs-list"></div>
+        </div>
+
         <!-- Manual Log Toggle -->
         <div class="manual-entry-card card">
           <h3 data-i18n="timer-manual-title">Ввод вручную</h3>
@@ -297,8 +306,9 @@
               <label for="filter-billable-select" data-i18n="filter-billable">Статус оплаты</label>
               <select id="filter-billable-select">
                 <option value="all" data-i18n="filter-all">Все</option>
-                <option value="billable" data-i18n="filter-billable-only">Требуют оплаты</option>
-                <option value="non-billable" data-i18n="filter-non-billable-only">Оплаченные</option>
+                <option value="unpaid" data-i18n="filter-billable-only">Ожидают оплаты</option>
+                <option value="paid" data-i18n="filter-non-billable-only">Оплаченные</option>
+                <option value="free" data-i18n="filter-free-only">Не оплачиваемые</option>
               </select>
             </div>
             <div class="form-group">
@@ -309,7 +319,18 @@
                 <option value="week" data-i18n="range-week">Текущая неделя</option>
                 <option value="month" data-i18n="range-month" selected>Текущий месяц</option>
                 <option value="all" data-i18n="range-all">Все время</option>
+                <option value="custom" data-i18n="range-custom">Произвольный период</option>
               </select>
+            </div>
+            <div class="form-group" id="custom-range-wrap" style="display: none; flex-direction: row; gap: 10px; align-items: flex-end;">
+              <div style="flex: 1;">
+                <label for="filter-range-from" data-i18n="range-from">С</label>
+                <input type="date" id="filter-range-from">
+              </div>
+              <div style="flex: 1;">
+                <label for="filter-range-to" data-i18n="range-to">По</label>
+                <input type="date" id="filter-range-to">
+              </div>
             </div>
           </div>
           
@@ -559,6 +580,10 @@
       <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px; margin-top: 12px;">
         <input type="checkbox" id="edit-log-billable" style="width:18px; height:18px; accent-color:var(--accent-indigo);">
         <label for="edit-log-billable" data-i18n="timer-billable" style="cursor:pointer;">Требует оплаты</label>
+      </div>
+      <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px; margin-top: 8px;">
+        <input type="checkbox" id="edit-log-paid" style="width:18px; height:18px; accent-color:var(--success, #22c55e);">
+        <label for="edit-log-paid" data-i18n="log-paid-label" style="cursor:pointer;">Оплачено</label>
       </div>
       <div class="modal-actions">
         <button class="btn btn-secondary" id="edit-log-modal-cancel" data-i18n="cancel">Отмена</button>

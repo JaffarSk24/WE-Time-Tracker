@@ -1,14 +1,25 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, protocol, Tray, Menu, nativeImage, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
 let viteProcess = null;
 let mainWindow = null;
+let lastUrl = null;
+let tray = null;
+let trayTimerState = null;
+let trayTickInterval = null;
+
+const STORAGE_KEY = 'we_time_tracker_data';
+
+// Кастомная схема app:// вместо HTTP-сервера: стабильный origin (данные не
+// привязаны к порту) и никакого открытого localhost-порта (path traversal закрыт).
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } }
+]);
 
 // --- Файловое хранилище данных пользователя ---
-// JSON-файл в userData переживает переустановку приложения и обновление версий
-// (в отличие от localStorage, привязанного к origin http://127.0.0.1:PORT).
+// JSON-файл в userData переживает переустановку приложения и обновление версий.
 const dataFilePath = () => path.join(app.getPath('userData'), 'we-tracker-data.json');
 const backupsDir = () => path.join(app.getPath('userData'), 'backups');
 const BACKUPS_TO_KEEP = 14;
@@ -34,6 +45,14 @@ function makeDailyBackup() {
   }
 }
 
+function saveDataFile(json) {
+  makeDailyBackup();
+  // Атомарная запись: сначала во временный файл, затем rename.
+  const tmp = dataFilePath() + '.tmp';
+  fs.writeFileSync(tmp, json, 'utf8');
+  fs.renameSync(tmp, dataFilePath());
+}
+
 function initStorageIpc() {
   ipcMain.on('storage:load', (event) => {
     try {
@@ -46,18 +65,247 @@ function initStorageIpc() {
   ipcMain.on('storage:save', (event, json) => {
     if (typeof json !== 'string') return;
     try {
-      makeDailyBackup();
-      // Атомарная запись: сначала во временный файл, затем rename.
-      const tmp = dataFilePath() + '.tmp';
-      fs.writeFileSync(tmp, json, 'utf8');
-      fs.renameSync(tmp, dataFilePath());
+      saveDataFile(json);
     } catch (e) {
       console.error('Failed to save data file:', e);
     }
   });
 }
 
+// --- Menubar (tray) мини-таймер ---
+function formatTrayElapsed(state) {
+  let elapsed = state.accumulatedTime || 0;
+  if (!state.isPaused && state.startTime) {
+    elapsed += Date.now() - new Date(state.startTime).getTime();
+  }
+  const totalSecs = Math.floor(elapsed / 1000);
+  const h = Math.floor(totalSecs / 3600);
+  const m = String(Math.floor((totalSecs % 3600) / 60)).padStart(2, '0');
+  const s = String(totalSecs % 60).padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+
+function updateTrayTitle() {
+  if (!tray) return;
+  if (!trayTimerState) {
+    tray.setTitle('🦅');
+    tray.setToolTip('WE Time Tracker');
+    return;
+  }
+  const prefix = trayTimerState.isPaused ? '🦅 ⏸' : '🦅 ▶';
+  tray.setTitle(`${prefix} ${formatTrayElapsed(trayTimerState)}`);
+  tray.setToolTip(trayTimerState.description || 'WE Time Tracker');
+}
+
+function getAppLanguage() {
+  try {
+    const state = JSON.parse(fs.readFileSync(dataFilePath(), 'utf8'));
+    return state.settings && state.settings.language === 'ru' ? 'ru' : 'en';
+  } catch (e) {
+    return 'en';
+  }
+}
+
+function rebuildTrayMenu() {
+  if (!tray) return;
+  const ru = getAppLanguage() === 'ru';
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: ru ? 'Открыть WE Time Tracker' : 'Open WE Time Tracker', click: () => showMainWindow() },
+    {
+      label: ru ? 'Остановить таймер' : 'Stop timer',
+      enabled: !!trayTimerState,
+      click: () => stopTimerFromTray()
+    },
+    { type: 'separator' },
+    { label: ru ? 'Выйти' : 'Quit', click: () => app.quit() }
+  ]));
+}
+
+function initTray() {
+  tray = new Tray(nativeImage.createEmpty());
+  tray.on('click', () => showMainWindow());
+  rebuildTrayMenu();
+  updateTrayTitle();
+
+  ipcMain.on('timer:sync', (event, state) => {
+    trayTimerState = state || null;
+    updateTrayTitle();
+    rebuildTrayMenu();
+
+    if (trayTimerState && !trayTimerState.isPaused) {
+      if (!trayTickInterval) {
+        trayTickInterval = setInterval(updateTrayTitle, 1000);
+      }
+    } else if (trayTickInterval) {
+      clearInterval(trayTickInterval);
+      trayTickInterval = null;
+    }
+  });
+}
+
+// Остановка таймера из tray: если окно живо — стопим через рендерер (одна
+// логика в store.js); если окна нет — main сам дописывает запись в файл.
+function stopTimerFromTray() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('timer:stop-request');
+    return;
+  }
+  if (!trayTimerState) return;
+  try {
+    const state = JSON.parse(fs.readFileSync(dataFilePath(), 'utf8'));
+    const timer = state.activeTimer;
+    if (timer) {
+      let total = timer.accumulatedTime || 0;
+      if (!timer.isPaused && timer.startTime) {
+        total += Date.now() - new Date(timer.startTime).getTime();
+      }
+      const endTime = new Date().toISOString();
+      const startTime = new Date(Date.now() - total).toISOString();
+      state.timeLogs.push({
+        id: 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        description: (timer.description || '').trim(),
+        clientId: timer.clientId || null,
+        projectId: timer.projectId || null,
+        startTime,
+        endTime,
+        billable: timer.billable !== undefined ? timer.billable : true,
+        paid: false,
+        rateAtTime: trayTimerState.rateAtTime || 0
+      });
+      state.activeTimer = null;
+      saveDataFile(JSON.stringify(state));
+    }
+  } catch (e) {
+    console.error('Tray stop failed:', e);
+  }
+  trayTimerState = null;
+  updateTrayTitle();
+  rebuildTrayMenu();
+  if (trayTickInterval) {
+    clearInterval(trayTickInterval);
+    trayTickInterval = null;
+  }
+}
+
+// --- Раздача статики через app:// (только внутри dist, без сервера) ---
+const MIME = {
+  '.html': 'text/html',
+  '.css': 'text/css',
+  '.js': 'text/javascript',
+  '.webp': 'image/webp',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+  '.json': 'application/json',
+  '.ico': 'image/x-icon'
+};
+
+function registerAppProtocol() {
+  const distRoot = path.join(__dirname, 'dist');
+  protocol.handle('app', (request) => {
+    try {
+      const u = new URL(request.url);
+      let pathname = decodeURIComponent(u.pathname);
+      if (!pathname || pathname === '/') pathname = '/index.html';
+
+      let file = path.normalize(path.join(distRoot, pathname));
+      // Жёсткое ограничение путей корнем dist
+      if (file !== distRoot && !file.startsWith(distRoot + path.sep)) {
+        return new Response('Forbidden', { status: 403 });
+      }
+      if (!fs.existsSync(file)) {
+        file = path.join(distRoot, 'index.html');
+      }
+      const data = fs.readFileSync(file);
+      const mime = MIME[path.extname(file)] || 'application/octet-stream';
+      return new Response(data, { headers: { 'Content-Type': mime } });
+    } catch (e) {
+      console.error('app:// handler error:', e);
+      return new Response('Internal error', { status: 500 });
+    }
+  });
+}
+
+// --- Одноразовая миграция localStorage со старого origin http://127.0.0.1:<port> ---
+// Версии <= 1.2.x держали данные в localStorage, привязанном к порту сервера.
+// Поднимаем этот origin в скрытом окне, забираем данные и переносим в файл.
+function migrateLegacyLocalStorage(done) {
+  if (fs.existsSync(dataFilePath())) {
+    done();
+    return;
+  }
+
+  const portFile = path.join(app.getPath('userData'), 'port.txt');
+  let port = 39103;
+  if (fs.existsSync(portFile)) {
+    try {
+      const parsed = parseInt(fs.readFileSync(portFile, 'utf8').trim(), 10);
+      if (!isNaN(parsed) && parsed > 1024 && parsed < 65535) {
+        port = parsed;
+      }
+    } catch (e) { /* используем дефолтный порт */ }
+  }
+
+  const http = require('http');
+  const distRoot = path.join(__dirname, 'dist');
+  const server = http.createServer((req, res) => {
+    // Минимальный безопасный ответ: нам нужен только документ с нужным origin
+    let file = path.normalize(path.join(distRoot, req.url.split('?')[0] === '/' ? 'index.html' : req.url.split('?')[0]));
+    if (!file.startsWith(distRoot) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+      file = path.join(distRoot, 'index.html');
+    }
+    res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'text/html' });
+    res.end(fs.readFileSync(file));
+  });
+
+  let finished = false;
+  const finish = (win) => {
+    if (finished) return;
+    finished = true;
+    if (win && !win.isDestroyed()) win.destroy();
+    try { server.close(); } catch (e) { /* ignore */ }
+    done();
+  };
+
+  server.once('error', () => finish(null)); // порт занят — мигрировать неоткуда
+  server.listen(port, '127.0.0.1', () => {
+    const win = new BrowserWindow({ show: false, webPreferences: { contextIsolation: true } });
+    // Загружаем картинку, а не index.html — origin тот же, но код приложения не выполняется
+    win.loadURL(`http://127.0.0.1:${port}/white-eagles-logo-white.webp`)
+      .then(() => win.webContents.executeJavaScript(`localStorage.getItem(${JSON.stringify(STORAGE_KEY)})`))
+      .then(data => {
+        if (data) {
+          try {
+            const parsed = JSON.parse(data);
+            const hasData = (parsed.clients || []).length || (parsed.projects || []).length || (parsed.timeLogs || []).length;
+            if (hasData) {
+              saveDataFile(data);
+              console.log('Migrated legacy localStorage data to file storage');
+            }
+          } catch (e) {
+            console.error('Legacy data parse failed:', e);
+          }
+        }
+      })
+      .catch(e => console.error('Legacy migration failed:', e))
+      .then(() => finish(win));
+  });
+
+  // Страховка от зависания миграции
+  setTimeout(() => finish(null), 10000);
+}
+
+function showMainWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+    mainWindow.focus();
+  } else if (lastUrl) {
+    createWindow(lastUrl);
+  }
+}
+
 function createWindow(url) {
+  lastUrl = url;
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -79,7 +327,7 @@ function createWindow(url) {
       const parsedUrl = new URL(navigationUrl);
       if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
         event.preventDefault();
-        require('electron').shell.openExternal(navigationUrl);
+        shell.openExternal(navigationUrl);
       }
     } catch (e) {
       console.error('Failed to parse URL in will-navigate:', e);
@@ -90,7 +338,7 @@ function createWindow(url) {
     try {
       const parsedUrl = new URL(openUrl);
       if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
-        require('electron').shell.openExternal(openUrl);
+        shell.openExternal(openUrl);
       }
     } catch (e) {
       console.error('Failed to parse URL in setWindowOpenHandler:', e);
@@ -107,6 +355,7 @@ function createWindow(url) {
 
 app.whenReady().then(() => {
   initStorageIpc();
+  initTray();
 
   const isDev = process.env.NODE_ENV === 'development';
 
@@ -122,73 +371,24 @@ app.whenReady().then(() => {
       createWindow('http://localhost:3003');
     }, 1500);
   } else {
-    // In production build, we load the built static files via a lightweight HTTP server
-    const http = require('http');
-    const mime = {
-      '.html': 'text/html',
-      '.css': 'text/css',
-      '.js': 'text/javascript',
-      '.webp': 'image/webp',
-      '.png': 'image/png',
-      '.jpg': 'image/jpeg',
-      '.svg': 'image/svg+xml',
-      '.json': 'application/json'
-    };
-
-    const server = http.createServer((req, res) => {
-      let filePath = path.join(__dirname, 'dist', req.url === '/' ? 'index.html' : req.url.split('?')[0]);
-      if (!fs.existsSync(filePath)) {
-        filePath = path.join(__dirname, 'dist', 'index.html');
-      }
-      const ext = path.extname(filePath);
-      res.writeHead(200, { 'Content-Type': mime[ext] || 'application/octet-stream' });
-      fs.createReadStream(filePath).pipe(res);
+    registerAppProtocol();
+    migrateLegacyLocalStorage(() => {
+      createWindow('app://bundle/index.html');
     });
-
-    const portFile = path.join(app.getPath('userData'), 'port.txt');
-    let savedPort = 39103;
-    if (fs.existsSync(portFile)) {
-      try {
-        const fileContent = fs.readFileSync(portFile, 'utf8').trim();
-        const parsed = parseInt(fileContent, 10);
-        if (!isNaN(parsed) && parsed > 1024 && parsed < 65535) {
-          savedPort = parsed;
-        }
-      } catch (e) {
-        console.error('Failed to read saved port, using default', e);
-      }
-    }
-
-    function listen(port) {
-      server.once('error', (err) => {
-        if (err.code === 'EADDRINUSE') {
-          console.log(`Port ${port} in use, trying next...`);
-          listen(port + 1);
-        } else {
-          console.error('Server error:', err);
-        }
-      });
-
-      server.listen(port, '127.0.0.1', () => {
-        const actualPort = server.address().port;
-        try {
-          fs.writeFileSync(portFile, actualPort.toString(), 'utf8');
-        } catch (e) {
-          console.error('Failed to save port to file', e);
-        }
-        createWindow(`http://127.0.0.1:${actualPort}`);
-      });
-    }
-
-    listen(savedPort);
   }
+});
+
+// macOS: клик по иконке в доке заново открывает окно
+// (раньше после закрытия окна приложение оставалось висеть без способа открыть его)
+app.on('activate', () => {
+  showMainWindow();
 });
 
 app.on('window-all-closed', () => {
   if (viteProcess) {
     try {
       viteProcess.kill();
-    } catch (e) {}
+    } catch (e) { /* ignore */ }
   }
   if (process.platform !== 'darwin') {
     app.quit();
@@ -199,6 +399,6 @@ app.on('will-quit', () => {
   if (viteProcess) {
     try {
       viteProcess.kill();
-    } catch (e) {}
+    } catch (e) { /* ignore */ }
   }
 });

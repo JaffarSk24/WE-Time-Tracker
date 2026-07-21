@@ -1,7 +1,7 @@
 // WE Time Tracker - Main Application entry point
 import { createIcons, icons } from 'lucide';
 import { store } from './store.js';
-import { translatePage, t } from './i18n.js';
+import { translatePage } from './i18n.js';
 import { initTimer, updateTimerDropdowns, refreshTimerUI } from './timer.js';
 import { initDashboard, renderDashboard } from './dashboard.js';
 import { initClients, renderClients } from './clients.js';
@@ -56,7 +56,42 @@ function initNavigation() {
           panel.classList.remove('active');
         }
       });
+
+      // Сброс скролла: без этого при переходе с прокрученной вкладки
+      // новая открывалась "в середине" (видели чёрный экран)
+      window.scrollTo(0, 0);
+      const main = document.querySelector('main');
+      if (main) main.scrollTo(0, 0);
     });
+  });
+}
+
+// Клавиатура и клик-мимо для модальных окон:
+// Esc — закрыть, Enter — сохранить, клик по затемнению — закрыть.
+function initModalUX() {
+  const modals = document.querySelectorAll('.modal-overlay');
+
+  modals.forEach(modal => {
+    modal.addEventListener('mousedown', (e) => {
+      if (e.target === modal) {
+        modal.classList.remove('active');
+      }
+    });
+  });
+
+  document.addEventListener('keydown', (e) => {
+    const activeModal = document.querySelector('.modal-overlay.active');
+    if (!activeModal) return;
+
+    if (e.key === 'Escape') {
+      activeModal.classList.remove('active');
+    } else if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+      const saveBtn = activeModal.querySelector('.btn-primary');
+      if (saveBtn) {
+        e.preventDefault();
+        saveBtn.click();
+      }
+    }
   });
 }
 
@@ -144,7 +179,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Navigation
   initNavigation();
-  
+  initModalUX();
+
   // Initialize sub modules
   initTimer();
   initDashboard();
@@ -156,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateGlobalUI();
   
   // Subscribe to store updates
-  store.subscribe((state) => {
+  store.subscribe((_state) => {
     updateGlobalUI();
     
     // Update all client/project selections to keep them sync'd

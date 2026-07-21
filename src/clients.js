@@ -1,6 +1,8 @@
 // WE Time Tracker Clients and Projects Management Module
 import { store } from './store.js';
 import { t } from './i18n.js';
+import { showToast } from './toast.js';
+import { escapeHtml, billableHours } from './utils.js';
 
 let editingClientId = null;
 let editingProjectId = null;
@@ -42,13 +44,14 @@ export function renderClients() {
     
     const isRu = store.getSettings().language === 'ru';
     
-    // Calculate client debt
+    // Долг клиента = оплачиваемые, но ещё не оплаченные записи
+    // (длительность округляется вверх до 5-минутных блоков, как и в отчетах)
     const logs = store.getTimeLogs();
     let debt = 0;
     logs.forEach(log => {
-      if (log.clientId === client.id && log.billable) {
+      if (log.clientId === client.id && log.billable && !log.paid) {
         const duration = new Date(log.endTime) - new Date(log.startTime);
-        debt += (duration / 3600000) * (log.rateAtTime || 0);
+        debt += billableHours(duration) * (log.rateAtTime || 0);
       }
     });
 
@@ -60,7 +63,7 @@ export function renderClients() {
 
     card.innerHTML = `
       <div>
-        <div class="entity-name">${client.name}</div>
+        <div class="entity-name">${escapeHtml(client.name)}</div>
         <div class="entity-meta">ID: ${client.id.substring(7, 15)}...</div>
       </div>
       <div>
@@ -120,7 +123,7 @@ export function renderProjects() {
     card.className = 'entity-card';
     
     const client = clients.find(c => c.id === proj.clientId);
-    const clientName = client ? client.name : (store.getSettings().language === 'ru' ? 'Неизвестный клиент' : 'Unknown Client');
+    const clientName = client ? client.name : t('unknown-client');
     
     const isRu = store.getSettings().language === 'ru';
     const rateText = proj.rate > 0 
@@ -129,9 +132,9 @@ export function renderProjects() {
     
     card.innerHTML = `
       <div>
-        <div class="entity-name">${proj.name}</div>
+        <div class="entity-name">${escapeHtml(proj.name)}</div>
         <div class="entity-meta" style="color: var(--accent-indigo); font-weight: 500;">
-          <i data-lucide="building" style="width:12px; height:12px; display:inline-block; vertical-align:middle; margin-right:3px;"></i> ${clientName}
+          <i data-lucide="building" style="width:12px; height:12px; display:inline-block; vertical-align:middle; margin-right:3px;"></i> ${escapeHtml(clientName)}
         </div>
       </div>
       <div class="entity-rate">${rateText}</div>
@@ -211,7 +214,6 @@ function openProjectModal(id = null) {
   const modal = document.getElementById('project-modal');
   const title = document.getElementById('project-modal-title');
   const nameInput = document.getElementById('project-modal-name');
-  const clientSelect = document.getElementById('project-modal-client');
   const rateInput = document.getElementById('project-modal-rate');
   
   if (id) {
@@ -275,17 +277,18 @@ export function initClients() {
     const rate = document.getElementById('client-modal-rate').value;
     
     if (!name.trim()) {
-      alert(store.getSettings().language === 'ru' ? 'Введите название клиента!' : 'Enter client name!');
+      showToast(store.getSettings().language === 'ru' ? 'Введите название клиента!' : 'Enter client name!', { type: 'error' });
       return;
     }
-    
+
     if (editingClientId) {
       store.updateClient(editingClientId, name, rate);
     } else {
       store.addClient(name, rate);
     }
-    
+
     closeClientModal();
+    showToast(t('toast-saved'), { type: 'success' });
     renderClients();
   });
   
@@ -301,17 +304,18 @@ export function initClients() {
     const rate = document.getElementById('project-modal-rate').value;
     
     if (!name.trim()) {
-      alert(store.getSettings().language === 'ru' ? 'Введите название проекта!' : 'Enter project name!');
+      showToast(store.getSettings().language === 'ru' ? 'Введите название проекта!' : 'Enter project name!', { type: 'error' });
       return;
     }
-    
+
     if (editingProjectId) {
       store.updateProject(editingProjectId, name, clientId, rate);
     } else {
       store.addProject(name, clientId, rate);
     }
-    
+
     closeProjectModal();
+    showToast(t('toast-saved'), { type: 'success' });
     renderProjects();
   });
 }

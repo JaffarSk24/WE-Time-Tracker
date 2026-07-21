@@ -61,7 +61,7 @@ class Store {
         return {
           clients: parsed.clients || [],
           projects: parsed.projects || [],
-          timeLogs: parsed.timeLogs || [],
+          timeLogs: (parsed.timeLogs || []).map(l => this.normalizeLog(l)),
           settings: parsed.settings || { ...DEFAULT_SETTINGS },
           activeTimer: parsed.activeTimer || null
         };
@@ -84,6 +84,17 @@ class Store {
     return emptyState;
   }
 
+  // Миграция модели оплат: раньше «Пометить оплаченными» ставило billable=false,
+  // из-за чего оплаченные записи выпадали из «Всего заработано». Теперь paid —
+  // отдельное поле; старые записи с billable=false считаем оплаченными
+  // (в старом UI это был единственный смысл billable=false).
+  normalizeLog(log) {
+    if (log.paid === undefined) {
+      return { ...log, billable: true, paid: log.billable === false };
+    }
+    return log;
+  }
+
   saveState() {
     this.saveStateDirectly(this.state);
     this.notify();
@@ -96,7 +107,7 @@ class Store {
         window.weStorage.save(json);
         // Файл — единственный источник истины: подчищаем legacy-копию,
         // чтобы миграция не «воскресила» данные после их явного сброса.
-        try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+        try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* браузерный fallback недоступен — не критично */ }
       } else {
         localStorage.setItem(STORAGE_KEY, json);
       }
@@ -236,6 +247,7 @@ class Store {
       startTime: log.startTime,
       endTime: log.endTime,
       billable: log.billable !== undefined ? log.billable : true,
+      paid: log.paid !== undefined ? log.paid : false,
       rateAtTime
     };
     this.state.timeLogs.push(newLog);
@@ -264,6 +276,7 @@ class Store {
         startTime: updatedLog.startTime || existing.startTime,
         endTime: updatedLog.endTime || existing.endTime,
         billable: updatedLog.billable !== undefined ? updatedLog.billable : existing.billable,
+        paid: updatedLog.paid !== undefined ? updatedLog.paid : existing.paid,
         rateAtTime: rate
       };
       this.saveState();
@@ -272,9 +285,45 @@ class Store {
     return false;
   }
 
+  // Возвращает удалённые записи — для undo через restoreTimeLogs().
   deleteTimeLog(id) {
-    this.state.timeLogs = this.state.timeLogs.filter(l => l.id !== id);
+    return this.deleteTimeLogs([id]);
+  }
+
+  deleteTimeLogs(ids) {
+    const idSet = new Set(ids);
+    const removed = this.state.timeLogs.filter(l => idSet.has(l.id));
+    if (removed.length === 0) return [];
+    this.state.timeLogs = this.state.timeLogs.filter(l => !idSet.has(l.id));
     this.saveState();
+    return removed;
+  }
+
+  // Восстановление ранее удалённых записей (undo) с исходными id.
+  restoreTimeLogs(logs) {
+    if (!logs || logs.length === 0) return;
+    const existingIds = new Set(this.state.timeLogs.map(l => l.id));
+    logs.forEach(log => {
+      if (!existingIds.has(log.id)) {
+        this.state.timeLogs.push(log);
+      }
+    });
+    this.saveState();
+  }
+
+  // Батч-отметка «оплачено»: одна запись состояния вместо N.
+  setLogsPaid(ids, paid = true) {
+    const idSet = new Set(ids);
+    let changed = false;
+    this.state.timeLogs = this.state.timeLogs.map(l => {
+      if (idSet.has(l.id) && l.paid !== paid) {
+        changed = true;
+        return { ...l, paid };
+      }
+      return l;
+    });
+    if (changed) this.saveState();
+    return changed;
   }
 
   // --- Active Timer API ---
@@ -383,7 +432,7 @@ class Store {
         this.state = {
           clients: parsed.clients || [],
           projects: parsed.projects || [],
-          timeLogs: parsed.timeLogs || [],
+          timeLogs: (parsed.timeLogs || []).map(l => this.normalizeLog(l)),
           settings: parsed.settings || { ...DEFAULT_SETTINGS },
           activeTimer: parsed.activeTimer || null
         };

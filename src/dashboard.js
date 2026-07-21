@@ -1,6 +1,7 @@
 // WE Time Tracker Dashboard Analytics Module
 import Chart from 'chart.js/auto';
 import { store } from './store.js';
+import { billableHours, formatDurationShort } from './utils.js';
 
 let projectChartInstance = null;
 let clientChartInstance = null;
@@ -22,25 +23,21 @@ const CHART_BORDERS = [
   '#6366f1', '#00f2fe', '#10b981', '#f59e0b', '#f43f5e', '#a855f7', '#3b82f6'
 ];
 
-function formatDuration(decimalHours, lang) {
-  const hrs = Math.floor(decimalHours);
-  const mins = Math.round((decimalHours - hrs) * 60);
-  return lang === 'ru' ? `${hrs}ч ${mins}м` : `${hrs}h ${mins}m`;
-}
-
 function calculateStats(logs) {
   let totalHours = 0;
   let totalEarnings = 0;
-  
+
   logs.forEach(log => {
-    const duration = (new Date(log.endTime) - new Date(log.startTime)) / 3600000; // hours
-    totalHours += duration;
-    
+    const durationMs = new Date(log.endTime) - new Date(log.startTime);
+    totalHours += durationMs / 3600000;
+
+    // Заработано = все оплачиваемые записи (и оплаченные, и ожидающие оплаты);
+    // сумма считается с округлением до 5-минутных блоков.
     if (log.billable) {
-      totalEarnings += duration * (log.rateAtTime || 0);
+      totalEarnings += billableHours(durationMs) * (log.rateAtTime || 0);
     }
   });
-  
+
   return { totalHours, totalEarnings };
 }
 
@@ -69,7 +66,7 @@ export function renderDashboard() {
   // 1. Calculate and update stats counters
   const { totalHours, totalEarnings } = calculateStats(logs);
   
-  document.getElementById('dash-hours-val').textContent = formatDuration(totalHours, lang);
+  document.getElementById('dash-hours-val').textContent = formatDurationShort(totalHours, lang);
   document.getElementById('dash-earnings-val').textContent = `${totalEarnings.toFixed(2)} €`;
   document.getElementById('dash-projects-val').textContent = projects.length;
   document.getElementById('dash-clients-val').textContent = clients.length;
@@ -315,7 +312,7 @@ function renderProjectChart(labels, data) {
             label: function(context) {
               const val = context.raw;
               const lang = store.getSettings().language;
-              return ` ${formatDuration(val, lang)}`;
+              return ` ${formatDurationShort(val, lang)}`;
             }
           }
         }
@@ -362,7 +359,7 @@ function renderClientChart(labels, data) {
             label: function(context) {
               const val = context.raw;
               const lang = store.getSettings().language;
-              return ` ${formatDuration(val, lang)}`;
+              return ` ${formatDurationShort(val, lang)}`;
             }
           }
         }
@@ -407,7 +404,7 @@ function renderWeeklyChart(labels, data) {
             label: function(context) {
               const val = context.raw;
               const lang = store.getSettings().language;
-              return ` ${formatDuration(val, lang)}`;
+              return ` ${formatDurationShort(val, lang)}`;
             }
           }
         }

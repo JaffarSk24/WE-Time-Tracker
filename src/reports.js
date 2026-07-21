@@ -1,64 +1,26 @@
 // WE Time Tracker Reports Module
 import { store } from './store.js';
 import { t } from './i18n.js';
+import { showToast } from './toast.js';
+import {
+  fillSelect,
+  escapeHtml,
+  billableHours,
+  toLocalDatetimeString,
+  localDayKey,
+  dayKeyToLocalDate,
+  formatDurationHMS,
+  formatDurationShort,
+  csvCell
+} from './utils.js';
 
 let editingLogId = null;
 
-// Helper to fill select elements
-function fillSelect(element, items, placeholderText, selectedId = null) {
-  if (!element) return;
-  element.innerHTML = '';
-  
-  const placeholder = document.createElement('option');
-  placeholder.value = '';
-  placeholder.textContent = placeholderText;
-  element.appendChild(placeholder);
-  
-  items.forEach(item => {
-    const opt = document.createElement('option');
-    opt.value = item.id;
-    opt.textContent = item.name;
-    if (selectedId && item.id === selectedId) {
-      opt.selected = true;
-    }
-    element.appendChild(opt);
-  });
-}
-
-// Convert ISO string to local datetime-local format
-function toLocalDatetimeString(isoString) {
-  if (!isoString) return '';
-  const d = new Date(isoString);
-  const tzOffset = d.getTimezoneOffset() * 60000;
-  return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
-}
-
-// Format duration into HH:MM:SS
-function formatDuration(ms) {
-  const totalSecs = Math.floor(ms / 1000);
-  const hrs = Math.floor(totalSecs / 3600);
-  const mins = Math.floor((totalSecs % 3600) / 60);
-  const secs = totalSecs % 60;
-  
-  return [
-    hrs.toString().padStart(2, '0'),
-    mins.toString().padStart(2, '0'),
-    secs.toString().padStart(2, '0')
-  ].join(':');
-}
-
-// Format duration into short text (e.g. 2h 15m)
-function formatDurationShort(decimalHours, lang) {
-  const hrs = Math.floor(decimalHours);
-  const mins = Math.round((decimalHours - hrs) * 60);
-  return lang === 'ru' ? `${hrs}ч ${mins}м` : `${hrs}h ${mins}m`;
-}
-
 // Format date to local readable format
-function formatDateReadable(dateStr, lang) {
-  const d = new Date(dateStr);
+function formatDateReadable(dayKey, lang) {
+  const d = dayKeyToLocalDate(dayKey);
   const options = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
-  
+
   try {
     const locale = lang === 'ru' ? 'ru-RU' : 'en-US';
     return d.toLocaleDateString(locale, options);
@@ -67,23 +29,26 @@ function formatDateReadable(dateStr, lang) {
   }
 }
 
+// Денежная сумма записи: округление длительности вверх до 5-минутных блоков.
+function logAmount(log) {
+  if (!log.billable) return 0;
+  const durationMs = new Date(log.endTime) - new Date(log.startTime);
+  return billableHours(durationMs) * (log.rateAtTime || 0);
+}
+
 // Update filter dropdowns
 export function updateReportsDropdowns() {
   const clientFilter = document.getElementById('filter-client-select');
   const editClient = document.getElementById('edit-log-client');
   const clients = store.getClients();
-  
-  const currentLang = store.getSettings().language;
-  const clientPlaceholder = currentLang === 'ru' ? 'Все клиенты' : 'All Clients';
-  const editClientPlaceholder = currentLang === 'ru' ? 'Выберите клиента' : 'Select Client';
-  
+
   // Save selections
   const selectedFilterClient = clientFilter.value;
   const selectedEditClient = editClient.value;
-  
-  fillSelect(clientFilter, clients, clientPlaceholder, selectedFilterClient);
-  fillSelect(editClient, clients, editClientPlaceholder, selectedEditClient);
-  
+
+  fillSelect(clientFilter, clients, t('filter-all'), selectedFilterClient);
+  fillSelect(editClient, clients, t('timer-client-placeholder'), selectedEditClient);
+
   updateReportsProjectDropdown('filter');
   updateReportsProjectDropdown('edit-log');
 }
@@ -92,77 +57,99 @@ function updateReportsProjectDropdown(prefix) {
   const clientSelect = document.getElementById(`${prefix}-client-select`) || document.getElementById(`${prefix}-client`);
   const projSelect = document.getElementById(`${prefix}-project-select`) || document.getElementById(`${prefix}-project`);
   if (!clientSelect || !projSelect) return;
-  
+
   const clientId = clientSelect.value;
-  const currentLang = store.getSettings().language;
-  const projPlaceholder = currentLang === 'ru' ? 'Все проекты' : 'All Projects';
-  const editProjPlaceholder = currentLang === 'ru' ? 'Выберите проект (опционально)' : 'Select project (optional)';
-  
-  const placeholder = prefix === 'filter' ? projPlaceholder : editProjPlaceholder;
-  
+  const placeholder = prefix === 'filter' ? t('filter-all') : t('timer-project-placeholder');
+
   if (clientId) {
     const projects = store.getProjects(clientId);
-    fillSelect(projSelect, projects, placeholder);
+    // Сохраняем текущий выбор: раньше фильтр проектов молча сбрасывался
+    const selected = projSelect.value;
+    const stillValid = projects.some(p => p.id === selected);
+    fillSelect(projSelect, projects, placeholder, stillValid ? selected : null);
     projSelect.disabled = false;
   } else {
-    projSelect.innerHTML = `<option value="">${placeholder}</option>`;
+    projSelect.innerHTML = '';
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = placeholder;
+    projSelect.appendChild(opt);
     projSelect.disabled = true;
+  }
+}
+
+// Показ/скрытие полей произвольного периода
+function syncCustomRangeVisibility() {
+  const range = document.getElementById('filter-range-select').value;
+  const wrap = document.getElementById('custom-range-wrap');
+  if (wrap) {
+    wrap.style.display = range === 'custom' ? 'flex' : 'none';
   }
 }
 
 // Filter current logs based on selected filters
 function getFilteredLogs() {
   let logs = store.getTimeLogs();
-  
+
   const clientId = document.getElementById('filter-client-select').value;
   const projectId = document.getElementById('filter-project-select').value;
   const billable = document.getElementById('filter-billable-select').value;
   const range = document.getElementById('filter-range-select').value;
-  
+
   // Client Filter
   if (clientId) {
     logs = logs.filter(l => l.clientId === clientId);
   }
-  
+
   // Project Filter
   if (projectId) {
     logs = logs.filter(l => l.projectId === projectId);
   }
-  
-  // Billable Filter
-  if (billable !== 'all') {
-    const isBillable = billable === 'billable';
-    logs = logs.filter(l => l.billable === isBillable);
+
+  // Payment Status Filter
+  if (billable === 'unpaid') {
+    logs = logs.filter(l => l.billable && !l.paid);
+  } else if (billable === 'paid') {
+    logs = logs.filter(l => l.billable && l.paid);
+  } else if (billable === 'free') {
+    logs = logs.filter(l => !l.billable);
   }
-  
-  // Date Range Filter
+
+  // Date Range Filter (локальные границы дней)
   const now = new Date();
   let startLimit = null;
   let endLimit = null;
-  
+
   if (range === 'today') {
-    startLimit = new Date(now.setHours(0, 0, 0, 0));
+    startLimit = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   } else if (range === 'yesterday') {
-    const yest = new Date();
-    yest.setDate(yest.getDate() - 1);
-    startLimit = new Date(yest.setHours(0, 0, 0, 0));
-    endLimit = new Date(yest.setHours(23, 59, 59, 999));
+    startLimit = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    endLimit = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, -1);
   } else if (range === 'week') {
     const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday start
-    startLimit = new Date(now.setDate(diff));
-    startLimit.setHours(0, 0, 0, 0);
+    const diff = day === 0 ? 6 : day - 1; // Monday start
+    startLimit = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diff);
   } else if (range === 'month') {
-    startLimit = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    startLimit = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else if (range === 'custom') {
+    const fromVal = document.getElementById('filter-range-from').value;
+    const toVal = document.getElementById('filter-range-to').value;
+    if (fromVal) {
+      startLimit = dayKeyToLocalDate(fromVal);
+    }
+    if (toVal) {
+      const toDate = dayKeyToLocalDate(toVal);
+      endLimit = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate() + 1, 0, 0, 0, -1);
+    }
   }
-  
+
   if (startLimit) {
     logs = logs.filter(l => new Date(l.startTime) >= startLimit);
   }
   if (endLimit) {
     logs = logs.filter(l => new Date(l.startTime) <= endLimit);
   }
-  
+
   return logs;
 }
 
@@ -172,24 +159,19 @@ export function updateBulkState() {
   const markPaidBtn = document.getElementById('bulk-mark-paid-btn');
   const deleteBtn = document.getElementById('bulk-delete-btn');
   if (!selectAllCheck) return;
-  
+
   const rowCheckboxes = document.querySelectorAll('.log-row-checkbox');
   const checkedBoxes = document.querySelectorAll('.log-row-checkbox:checked');
-  
+
   const count = checkedBoxes.length;
   const total = rowCheckboxes.length;
   const lang = store.getSettings().language;
-  
+
   selectedCountEl.textContent = lang === 'ru' ? `Выбрано: ${count}` : `Selected: ${count}`;
-  
-  if (count > 0) {
-    markPaidBtn.disabled = false;
-    deleteBtn.disabled = false;
-  } else {
-    markPaidBtn.disabled = true;
-    deleteBtn.disabled = true;
-  }
-  
+
+  markPaidBtn.disabled = count === 0;
+  deleteBtn.disabled = count === 0;
+
   if (total > 0 && count === total) {
     selectAllCheck.checked = true;
     selectAllCheck.indeterminate = false;
@@ -202,36 +184,48 @@ export function updateBulkState() {
   }
 }
 
+function getCheckedIds() {
+  return [...document.querySelectorAll('.log-row-checkbox:checked')].map(cb => cb.getAttribute('data-id'));
+}
+
+// Иконка и подпись статуса оплаты записи
+function paymentStatus(log) {
+  if (!log.billable) {
+    return { icon: 'minus-circle', cls: 'free-status', title: t('not-billable') };
+  }
+  if (log.paid) {
+    return { icon: 'check-circle', cls: 'paid-status', title: t('paid') };
+  }
+  return { icon: 'euro', cls: 'billable', title: t('awaiting-payment') };
+}
+
 export function renderReports() {
   const container = document.getElementById('logs-container');
   if (!container) return;
-  
+
   const lang = store.getSettings().language;
   const filteredLogs = getFilteredLogs();
   const clients = store.getClients();
   const projects = store.getProjects();
-  
+
   const bulkBar = document.getElementById('bulk-actions-bar');
-  
+  syncCustomRangeVisibility();
+
   // 1. Update Summary Stats
   let totalMs = 0;
   let totalEarnings = 0;
-  
+
   filteredLogs.forEach(log => {
-    const duration = new Date(log.endTime) - new Date(log.startTime);
-    totalMs += duration;
-    if (log.billable) {
-      totalEarnings += (duration / 3600000) * (log.rateAtTime || 0);
-    }
+    totalMs += new Date(log.endTime) - new Date(log.startTime);
+    totalEarnings += logAmount(log);
   });
-  
-  const totalHrs = totalMs / 3600000;
-  document.getElementById('rep-hours').textContent = formatDurationShort(totalHrs, lang);
+
+  document.getElementById('rep-hours').textContent = formatDurationShort(totalMs / 3600000, lang);
   document.getElementById('rep-earnings').textContent = `${totalEarnings.toFixed(2)} €`;
-  
+
   // 2. Clear view and rebuild daily grouped elements
   container.innerHTML = '';
-  
+
   if (filteredLogs.length === 0) {
     if (bulkBar) bulkBar.style.display = 'none';
     container.innerHTML = `
@@ -243,39 +237,36 @@ export function renderReports() {
     if (window.lucide) window.lucide.createIcons();
     return;
   }
-  
+
   if (bulkBar) {
     bulkBar.style.display = 'flex';
   }
-  
-  // Group logs by Day (YYYY-MM-DD)
+
+  // Group logs by LOCAL day (не UTC-срез: записи у полуночи попадали не в тот день)
   const grouped = {};
   filteredLogs.forEach(log => {
-    const dayKey = log.startTime.slice(0, 10);
+    const dayKey = localDayKey(log.startTime);
     if (!grouped[dayKey]) grouped[dayKey] = [];
     grouped[dayKey].push(log);
   });
-  
+
   // Sort days descending
-  const sortedDays = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
-  
+  const sortedDays = Object.keys(grouped).sort((a, b) => (a < b ? 1 : -1));
+
   sortedDays.forEach(dayKey => {
     const dayLogs = grouped[dayKey];
-    
+
     // Sum day totals
     let dayMs = 0;
     let dayEarnings = 0;
     dayLogs.forEach(l => {
-      const dur = new Date(l.endTime) - new Date(l.startTime);
-      dayMs += dur;
-      if (l.billable) {
-        dayEarnings += (dur / 3600000) * (l.rateAtTime || 0);
-      }
+      dayMs += new Date(l.endTime) - new Date(l.startTime);
+      dayEarnings += logAmount(l);
     });
-    
+
     const dayGroupDiv = document.createElement('div');
     dayGroupDiv.className = 'log-group-day';
-    
+
     // Header for the day group
     dayGroupDiv.innerHTML = `
       <div class="log-group-header">
@@ -287,35 +278,38 @@ export function renderReports() {
       </div>
       <div class="log-items-list"></div>
     `;
-    
+
     const itemsList = dayGroupDiv.querySelector('.log-items-list');
-    
+
     // Render individual log items
     dayLogs.forEach(log => {
       const durationMs = new Date(log.endTime) - new Date(log.startTime);
-      const amount = log.billable ? (durationMs / 3600000) * (log.rateAtTime || 0) : 0;
-      
+      const amount = logAmount(log);
+
       const client = clients.find(c => c.id === log.clientId);
       const proj = projects.find(p => p.id === log.projectId);
-      
-      const timeStartStr = new Date(log.startTime).toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-US', { hour: '2-digit', minute: '2-digit' });
-      const timeEndStr = new Date(log.endTime).toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-US', { hour: '2-digit', minute: '2-digit' });
-      
-      const projectBadge = proj 
-        ? `<div class="project-badge-tag"><i data-lucide="folder" style="width:10px; height:10px; display:inline-block; margin-right:3px;"></i>${proj.name}</div>`
+
+      const locale = lang === 'ru' ? 'ru-RU' : 'en-US';
+      const timeStartStr = new Date(log.startTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+      const timeEndStr = new Date(log.endTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+
+      const projectBadge = proj
+        ? `<div class="project-badge-tag"><i data-lucide="folder" style="width:10px; height:10px; display:inline-block; margin-right:3px;"></i>${escapeHtml(proj.name)}</div>`
         : `<div class="project-badge-tag" style="color:var(--text-muted); font-style:italic;">${t('no-project')}</div>`;
-        
-      const clientName = client ? client.name : (lang === 'ru' ? 'Неизвестный клиент' : 'Unknown Client');
-      const clientBadge = `<div class="client-badge-tag">${clientName}</div>`;
-      
+
+      const clientName = client ? client.name : t('unknown-client');
+      const clientBadge = `<div class="client-badge-tag">${escapeHtml(clientName)}</div>`;
+
+      const status = paymentStatus(log);
+
       const logRow = document.createElement('div');
       logRow.className = 'log-item-row';
-      
+
       logRow.innerHTML = `
         <div class="log-item-checkbox-col">
           <input type="checkbox" class="log-row-checkbox" data-id="${log.id}" style="width: 18px; height: 18px; accent-color: var(--accent-indigo); cursor: pointer;">
         </div>
-        <div class="log-item-desc ${!log.description ? 'empty' : ''}">${log.description || t('no-description')}</div>
+        <div class="log-item-desc ${!log.description ? 'empty' : ''}">${log.description ? escapeHtml(log.description) : t('no-description')}</div>
         <div class="log-item-project-badge">
           ${projectBadge}
           ${clientBadge}
@@ -324,9 +318,9 @@ export function renderReports() {
           <i data-lucide="clock" style="width:10px; height:10px; display:inline-block; margin-right:4px; vertical-align:middle;"></i>
           ${timeStartStr} - ${timeEndStr}
         </div>
-        <div class="log-item-duration">${formatDuration(durationMs)}</div>
-        <div class="log-item-billable-icon ${log.billable ? 'billable' : 'paid-status'}" title="${log.billable ? t('timer-billable') : t('paid')}">
-          <i data-lucide="${log.billable ? 'euro' : 'check-circle'}"></i>
+        <div class="log-item-duration">${formatDurationHMS(durationMs)}</div>
+        <div class="log-item-billable-icon ${status.cls}" title="${status.title}">
+          <i data-lucide="${status.icon}"></i>
         </div>
         <div class="log-item-financial">
           <span class="log-item-amount">${amount > 0 ? `${amount.toFixed(2)} €` : '—'}</span>
@@ -334,36 +328,30 @@ export function renderReports() {
         </div>
         <div class="log-item-actions">
           <button class="btn-icon play-log-btn" data-id="${log.id}" title="${lang === 'ru' ? 'Запустить снова' : 'Start again'}"><i data-lucide="play"></i></button>
-          <button class="btn-icon edit-log-btn" data-id="${log.id}" title="Edit"><i data-lucide="edit-2"></i></button>
-          <button class="btn-icon delete delete-log-btn" data-id="${log.id}" title="Delete"><i data-lucide="trash-2"></i></button>
+          <button class="btn-icon edit-log-btn" data-id="${log.id}" title="${t('edit')}"><i data-lucide="edit-2"></i></button>
+          <button class="btn-icon delete delete-log-btn" data-id="${log.id}" title="${t('delete')}"><i data-lucide="trash-2"></i></button>
         </div>
       `;
-      
+
       itemsList.appendChild(logRow);
     });
-    
+
     container.appendChild(dayGroupDiv);
   });
-  
+
   // Attach Log Row Actions
   document.querySelectorAll('.play-log-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.getAttribute('data-id');
       const log = store.getTimeLogs().find(l => l.id === id);
       if (log) {
-        // If there's an active timer, stop it first or warn user?
-        // Let's stop it automatically to start the new one, like a quick restart.
-        // Actually, if we just call startTimer, it overrides it. But let's check store.js.
-        // In store.js, startTimer replaces activeTimer directly. Let's make sure it is safe.
-        // Wait, to preserve current active timer data, it's safer to cancel or stop it?
-        // The standard behavior for a play button is to stop/save the currently running timer,
-        // and start the new one. Or just start the new one.
-        // Let's call store.stopTimer() if there's an active timer running, to avoid losing time.
+        // Сохраняем текущий активный таймер (если был) и запускаем новый
         if (store.getActiveTimer()) {
           store.stopTimer();
         }
         store.startTimer(log.description || '', log.clientId, log.projectId, log.billable);
-        
+        showToast(t('toast-timer-started'), { type: 'success' });
+
         // Switch to timer view
         const timerNavItem = document.querySelector('nav .nav-item[data-target="timer-view"]');
         if (timerNavItem) {
@@ -378,19 +366,24 @@ export function renderReports() {
       openEditLogModal(btn.getAttribute('data-id'));
     });
   });
-  
+
   document.querySelectorAll('.delete-log-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.getAttribute('data-id');
-      if (confirm(t('confirm-delete-log'))) {
-        store.deleteTimeLog(id);
-        renderReports();
+      const removed = store.deleteTimeLog(id);
+      if (removed.length) {
+        showToast(t('toast-log-deleted'), {
+          type: 'info',
+          actionLabel: t('toast-undo'),
+          onAction: () => store.restoreTimeLogs(removed)
+        });
       }
+      renderReports();
     });
   });
-  
+
   updateBulkState();
-  
+
   if (window.lucide) window.lucide.createIcons();
 }
 
@@ -399,7 +392,7 @@ function openEditLogModal(id) {
   editingLogId = id;
   const log = store.getTimeLogs().find(l => l.id === id);
   if (!log) return;
-  
+
   const modal = document.getElementById('edit-log-modal');
   const desc = document.getElementById('edit-log-desc');
   const clientSelect = document.getElementById('edit-log-client');
@@ -408,27 +401,32 @@ function openEditLogModal(id) {
   const endInput = document.getElementById('edit-log-end');
   const rateInput = document.getElementById('edit-log-rate');
   const billableCheck = document.getElementById('edit-log-billable');
-  
+  const paidCheck = document.getElementById('edit-log-paid');
+
   const clients = store.getClients();
-  const currentLang = store.getSettings().language;
-  
+
   desc.value = log.description;
-  fillSelect(clientSelect, clients, currentLang === 'ru' ? 'Выберите клиента' : 'Select Client', log.clientId);
-  
+  fillSelect(clientSelect, clients, t('timer-client-placeholder'), log.clientId);
+
   if (log.clientId) {
     const projects = store.getProjects(log.clientId);
-    fillSelect(projectSelect, projects, currentLang === 'ru' ? 'Выберите проект (опционально)' : 'Select project (optional)', log.projectId);
+    fillSelect(projectSelect, projects, t('timer-project-placeholder'), log.projectId);
     projectSelect.disabled = false;
   } else {
-    projectSelect.innerHTML = `<option value="">${currentLang === 'ru' ? 'Выберите проект' : 'Select project'}</option>`;
+    projectSelect.innerHTML = '';
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = t('timer-project-placeholder');
+    projectSelect.appendChild(opt);
     projectSelect.disabled = true;
   }
-  
+
   startInput.value = toLocalDatetimeString(log.startTime);
   endInput.value = toLocalDatetimeString(log.endTime);
   rateInput.value = log.rateAtTime;
   billableCheck.checked = log.billable;
-  
+  if (paidCheck) paidCheck.checked = !!log.paid;
+
   modal.classList.add('active');
 }
 
@@ -437,44 +435,94 @@ function closeEditLogModal() {
   editingLogId = null;
 }
 
+function saveEditLogModal() {
+  if (!editingLogId) return;
+
+  const desc = document.getElementById('edit-log-desc').value;
+  const clientId = document.getElementById('edit-log-client').value;
+  const projectId = document.getElementById('edit-log-project').value;
+  const startVal = document.getElementById('edit-log-start').value;
+  const endVal = document.getElementById('edit-log-end').value;
+  const rate = document.getElementById('edit-log-rate').value;
+  const billable = document.getElementById('edit-log-billable').checked;
+  const paidCheck = document.getElementById('edit-log-paid');
+  const paid = paidCheck ? paidCheck.checked : false;
+
+  if (!clientId) {
+    showToast(t('toast-select-client'), { type: 'error' });
+    return;
+  }
+  if (!startVal || !endVal) {
+    showToast(t('toast-fill-times'), { type: 'error' });
+    return;
+  }
+
+  const startTime = new Date(startVal).toISOString();
+  const endTime = new Date(endVal).toISOString();
+
+  if (new Date(startTime) >= new Date(endTime)) {
+    showToast(t('toast-end-after-start'), { type: 'error' });
+    return;
+  }
+
+  store.updateTimeLog(editingLogId, {
+    description: desc,
+    clientId,
+    projectId,
+    startTime,
+    endTime,
+    rateAtTime: rate,
+    billable,
+    paid
+  });
+
+  closeEditLogModal();
+  showToast(t('toast-saved'), { type: 'success' });
+  renderReports();
+}
+
 // ---------------- EXPORTS ----------------
 function exportToCSV() {
   const logs = getFilteredLogs();
   const clients = store.getClients();
   const projects = store.getProjects();
   const isRu = store.getSettings().language === 'ru';
-  
+
   // Headers
   let csvContent = isRu
-    ? 'Описание,Клиент,Проект,Начало,Конец,Длительность (Часы),Оплачиваемый,Ставка (EUR/ч),Сумма (EUR)\r\n'
-    : 'Description,Client,Project,Start,End,Duration (Hours),Billable,Rate (EUR/h),Amount (EUR)\r\n';
-    
+    ? 'Описание,Клиент,Проект,Начало,Конец,Длительность (Часы),Статус,Ставка (EUR/ч),Сумма (EUR)\r\n'
+    : 'Description,Client,Project,Start,End,Duration (Hours),Status,Rate (EUR/h),Amount (EUR)\r\n';
+
   logs.forEach(log => {
     const client = clients.find(c => c.id === log.clientId);
     const proj = projects.find(p => p.id === log.projectId);
-    
-    const clientName = client ? client.name : '';
-    const projName = proj ? proj.name : '';
-    
+
     const startStr = new Date(log.startTime).toLocaleString();
     const endStr = new Date(log.endTime).toLocaleString();
     const durationHrs = ((new Date(log.endTime) - new Date(log.startTime)) / 3600000).toFixed(2);
-    const isBillable = log.billable ? (isRu ? 'Да' : 'Yes') : (isRu ? 'Нет' : 'No');
-    const amount = log.billable ? (durationHrs * log.rateAtTime).toFixed(2) : '0.00';
-    
-    // Clean description to avoid CSV breaks
-    const cleanDesc = (log.description || '').replace(/"/g, '""');
-    
-    csvContent += `"${cleanDesc}","${clientName}","${projName}","${startStr}","${endStr}",${durationHrs},"${isBillable}",${log.rateAtTime},${amount}\r\n`;
+    const status = paymentStatus(log).title;
+    const amount = logAmount(log).toFixed(2);
+
+    csvContent += [
+      csvCell(log.description || ''),
+      csvCell(client ? client.name : ''),
+      csvCell(proj ? proj.name : ''),
+      csvCell(startStr),
+      csvCell(endStr),
+      durationHrs,
+      csvCell(status),
+      log.rateAtTime,
+      amount
+    ].join(',') + '\r\n';
   });
-  
+
   // Create download link with BOM for Excel Russian Cyrillic support
   const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
-  
+
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', `we_time_tracker_report_${new Date().toISOString().slice(0,10)}.csv`);
+  link.setAttribute('download', `we_time_tracker_report_${localDayKey(new Date())}.csv`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
@@ -484,11 +532,11 @@ function exportToCSV() {
 function exportToJSON() {
   const logs = getFilteredLogs();
   const dataStr = JSON.stringify(logs, null, 2);
-  const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-  
+  const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+
   const link = document.createElement('a');
   link.setAttribute('href', dataUri);
-  link.setAttribute('download', `we_time_tracker_report_${new Date().toISOString().slice(0,10)}.json`);
+  link.setAttribute('download', `we_time_tracker_report_${localDayKey(new Date())}.json`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
@@ -500,133 +548,84 @@ export function initReports() {
   const projectFilter = document.getElementById('filter-project-select');
   const billableFilter = document.getElementById('filter-billable-select');
   const rangeFilter = document.getElementById('filter-range-select');
-  
+  const rangeFrom = document.getElementById('filter-range-from');
+  const rangeTo = document.getElementById('filter-range-to');
+
   const editClient = document.getElementById('edit-log-client');
-  const editProj = document.getElementById('edit-log-project');
-  
+
   // Filters events
   clientFilter.addEventListener('change', () => {
     updateReportsProjectDropdown('filter');
     renderReports();
   });
-  
+
   projectFilter.addEventListener('change', renderReports);
   billableFilter.addEventListener('change', renderReports);
   rangeFilter.addEventListener('change', renderReports);
-  
+  if (rangeFrom) rangeFrom.addEventListener('change', renderReports);
+  if (rangeTo) rangeTo.addEventListener('change', renderReports);
+
   // Edit modal event
   editClient.addEventListener('change', () => {
     updateReportsProjectDropdown('edit-log');
   });
-  
+
   // Modal Close buttons
   document.getElementById('edit-log-modal-close').addEventListener('click', closeEditLogModal);
   document.getElementById('edit-log-modal-cancel').addEventListener('click', closeEditLogModal);
-  
+
   // Save edited log
-  document.getElementById('edit-log-modal-save').addEventListener('click', () => {
-    if (!editingLogId) return;
-    
-    const desc = document.getElementById('edit-log-desc').value;
-    const clientId = editClient.value;
-    const projectId = editProj.value;
-    const startVal = document.getElementById('edit-log-start').value;
-    const endVal = document.getElementById('edit-log-end').value;
-    const rate = document.getElementById('edit-log-rate').value;
-    const billable = document.getElementById('edit-log-billable').checked;
-    
-    const isRu = store.getSettings().language === 'ru';
-    
-    if (!clientId) {
-      alert(isRu ? 'Выберите клиента!' : 'Select a client!');
-      return;
-    }
-    if (!startVal || !endVal) {
-      alert(isRu ? 'Заполните время начала и окончания!' : 'Fill start and end times!');
-      return;
-    }
-    
-    const startTime = new Date(startVal).toISOString();
-    const endTime = new Date(endVal).toISOString();
-    
-    if (new Date(startTime) >= new Date(endTime)) {
-      alert(isRu ? 'Время окончания должно быть позже времени начала!' : 'End time must be after start time!');
-      return;
-    }
-    
-    store.updateTimeLog(editingLogId, {
-      description: desc,
-      clientId,
-      projectId,
-      startTime,
-      endTime,
-      rateAtTime: rate,
-      billable
-    });
-    
-    closeEditLogModal();
-    renderReports();
-  });
-  
+  document.getElementById('edit-log-modal-save').addEventListener('click', saveEditLogModal);
+
   // Export actions
   document.getElementById('export-csv-btn').addEventListener('click', exportToCSV);
   document.getElementById('export-json-btn').addEventListener('click', exportToJSON);
-  
+
   // Bulk Actions Listeners
   const selectAllCheck = document.getElementById('bulk-select-all');
   const markPaidBtn = document.getElementById('bulk-mark-paid-btn');
   const deleteBtn = document.getElementById('bulk-delete-btn');
   const logsContainer = document.getElementById('logs-container');
-  
+
   if (selectAllCheck) {
     selectAllCheck.addEventListener('change', () => {
-      const rowCheckboxes = document.querySelectorAll('.log-row-checkbox');
-      rowCheckboxes.forEach(cb => {
+      document.querySelectorAll('.log-row-checkbox').forEach(cb => {
         cb.checked = selectAllCheck.checked;
       });
       updateBulkState();
     });
   }
-  
+
   if (markPaidBtn) {
     markPaidBtn.addEventListener('click', () => {
-      const checkedBoxes = document.querySelectorAll('.log-row-checkbox:checked');
-      if (checkedBoxes.length === 0) return;
-      
-      checkedBoxes.forEach(cb => {
-        const id = cb.getAttribute('data-id');
-        const log = store.getTimeLogs().find(l => l.id === id);
-        if (log) {
-          store.updateTimeLog(id, {
-            description: log.description,
-            clientId: log.clientId,
-            projectId: log.projectId,
-            startTime: log.startTime,
-            endTime: log.endTime,
-            rateAtTime: log.rateAtTime,
-            billable: false
-          });
-        }
+      const ids = getCheckedIds();
+      if (ids.length === 0) return;
+      store.setLogsPaid(ids, true);
+      showToast(t('toast-marked-paid'), {
+        type: 'success',
+        actionLabel: t('toast-undo'),
+        onAction: () => store.setLogsPaid(ids, false)
       });
       renderReports();
     });
   }
-  
+
   if (deleteBtn) {
     deleteBtn.addEventListener('click', () => {
-      const checkedBoxes = document.querySelectorAll('.log-row-checkbox:checked');
-      if (checkedBoxes.length === 0) return;
-      
-      if (confirm(t('confirm-delete-selected'))) {
-        checkedBoxes.forEach(cb => {
-          const id = cb.getAttribute('data-id');
-          store.deleteTimeLog(id);
+      const ids = getCheckedIds();
+      if (ids.length === 0) return;
+      const removed = store.deleteTimeLogs(ids);
+      if (removed.length) {
+        showToast(`${t('toast-logs-deleted')} (${removed.length})`, {
+          type: 'info',
+          actionLabel: t('toast-undo'),
+          onAction: () => store.restoreTimeLogs(removed)
         });
-        renderReports();
       }
+      renderReports();
     });
   }
-  
+
   if (logsContainer) {
     logsContainer.addEventListener('change', (e) => {
       if (e.target && e.target.classList.contains('log-row-checkbox')) {
@@ -634,7 +633,8 @@ export function initReports() {
       }
     });
   }
-  
+
   // Populates selector filters initially
   updateReportsDropdowns();
+  syncCustomRangeVisibility();
 }
