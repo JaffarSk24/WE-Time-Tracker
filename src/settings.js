@@ -78,4 +78,68 @@ export function initSettings() {
       setTimeout(() => window.location.reload(), 800);
     }
   });
+
+  initUpdates();
+}
+
+// Проверка/скачивание обновлений — только в десктоп-сборке (есть window.weUpdates)
+function initUpdates() {
+  const section = document.getElementById('settings-update-section');
+  if (!section || !window.weUpdates) return;
+
+  section.style.display = 'block';
+
+  const btn = document.getElementById('settings-update-btn');
+  const btnLabel = document.getElementById('settings-update-btn-label');
+  const status = document.getElementById('settings-update-status');
+  const detail = document.getElementById('settings-update-detail');
+
+  let pendingUrl = null;
+
+  window.weUpdates.onProgress((p) => {
+    btnLabel.textContent = `${t('update-downloading')} ${Math.round(p * 100)}%`;
+  });
+
+  btn.addEventListener('click', async () => {
+    // Второй режим кнопки — скачать найденное обновление
+    if (pendingUrl) {
+      btn.disabled = true;
+      btnLabel.textContent = t('update-downloading');
+      const res = await window.weUpdates.download(pendingUrl);
+      btn.disabled = false;
+      if (res.ok) {
+        status.textContent = t('update-open-hint');
+        btnLabel.textContent = t('update-download');
+      } else {
+        showToast(t('update-error') + (res.error ? `: ${res.error}` : ''), { type: 'error' });
+        btnLabel.textContent = t('update-download');
+      }
+      return;
+    }
+
+    // Первый режим — проверить наличие обновления
+    btn.disabled = true;
+    btnLabel.textContent = t('update-checking');
+    detail.textContent = '';
+    const res = await window.weUpdates.check();
+    btn.disabled = false;
+
+    if (!res.ok) {
+      status.textContent = t('update-error');
+      detail.textContent = res.error || '';
+      btnLabel.textContent = t('update-check');
+      return;
+    }
+
+    if (res.available) {
+      pendingUrl = res.downloadUrl;
+      status.textContent = `${t('update-available')}: v${res.latest}`;
+      detail.textContent = `${store.getSettings().language === 'ru' ? 'Текущая' : 'Current'}: v${res.current}`;
+      btnLabel.textContent = t('update-download');
+    } else {
+      status.textContent = t('update-current');
+      detail.textContent = `v${res.current}`;
+      btnLabel.textContent = t('update-check');
+    }
+  });
 }

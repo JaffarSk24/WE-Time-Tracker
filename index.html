@@ -458,7 +458,7 @@
             </div>
             
             <!-- Reset -->
-            <div class="data-action-box" style="border-color: rgba(244, 63, 94, 0.2); background: rgba(244, 63, 94, 0.02);">
+            <div class="data-action-box" style="border-color: rgba(244, 63, 94, 0.2); background: rgba(244, 63, 94, 0.02);" id="reset-data-box">
               <div class="data-action-text">
                 <div class="data-action-title" style="color: var(--danger);" data-i18n="settings-clear-btn">Сбросить все данные</div>
                 <div class="data-action-desc" data-i18n="settings-clear-desc">Удалить ВСЕ данные из приложения. Это действие необратимо!</div>
@@ -466,6 +466,24 @@
               <button class="btn btn-danger" id="settings-clear-btn">
                 <i data-lucide="trash-2"></i>
                 <span data-i18n="settings-clear-btn">Очистить</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- App Updates (only shown in desktop build) -->
+          <div class="settings-section" id="settings-update-section" style="display: none;">
+            <h3 class="settings-section-title">
+              <i data-lucide="download"></i>
+              <span data-i18n="update-title">Обновление приложения</span>
+            </h3>
+            <div class="data-action-box">
+              <div class="data-action-text">
+                <div class="data-action-title" id="settings-update-status" data-i18n="update-desc">Проверить наличие новой версии на GitHub и скачать её.</div>
+                <div class="data-action-desc" id="settings-update-detail"></div>
+              </div>
+              <button class="btn btn-secondary" id="settings-update-btn">
+                <i data-lucide="refresh-cw"></i>
+                <span id="settings-update-btn-label" data-i18n="update-check">Проверить обновления</span>
               </button>
             </div>
           </div>
@@ -538,6 +556,51 @@
       <div class="modal-actions">
         <button class="btn btn-secondary" id="project-modal-cancel" data-i18n="cancel">Отмена</button>
         <button class="btn btn-primary" id="project-modal-save" data-i18n="save">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payments / Deposits Modal -->
+  <div class="modal-overlay" id="payments-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <span data-i18n="payments-title">Платежи и баланс</span>: <span id="payments-modal-client-name"></span>
+        </h3>
+        <button class="modal-close" id="payments-modal-close"><i data-lucide="x"></i></button>
+      </div>
+
+      <div class="payments-summary">
+        <div class="payments-summary-item">
+          <span class="payments-summary-label" data-i18n="payments-billed">Наработано</span>
+          <span class="payments-summary-value" id="payments-billed">0.00 €</span>
+        </div>
+        <div class="payments-summary-item">
+          <span class="payments-summary-label" data-i18n="payments-received">Получено</span>
+          <span class="payments-summary-value" id="payments-paid">0.00 €</span>
+        </div>
+        <div class="payments-summary-item">
+          <span class="payments-summary-label" data-i18n="payments-balance">Баланс</span>
+          <span class="payments-summary-value" id="payments-balance">0.00 €</span>
+        </div>
+      </div>
+
+      <div class="payment-add-row">
+        <div class="form-group" style="flex: 0 0 130px;">
+          <label for="payment-amount" data-i18n="payment-amount-label">Сумма платежа (€)</label>
+          <input type="number" id="payment-amount" min="0" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label for="payment-note" data-i18n="payment-note-label">Комментарий (необязательно)</label>
+          <input type="text" id="payment-note">
+        </div>
+        <button class="btn btn-primary" id="payment-add-btn" style="align-self: flex-end;" data-i18n="payment-add">Добавить платёж</button>
+      </div>
+
+      <div id="payments-list" class="payments-list"></div>
+
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="payments-modal-done" data-i18n="payments-done">Готово</button>
       </div>
     </div>
   </div>

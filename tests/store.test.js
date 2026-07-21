@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { store } from '../src/store.js';
-import { billableHours, formatDurationShort, localDayKey, escapeHtml, csvCell, toLocalDatetimeString } from '../src/utils.js';
+import { billableHours, formatDurationShort, localDayKey, escapeHtml, csvCell, toLocalDatetimeString, logDurationMs } from '../src/utils.js';
 
 beforeEach(() => {
   store.clearAllData();
@@ -102,6 +102,91 @@ describe('timer', () => {
     expect(timer.isPaused).toBe(true);
     expect(timer.startTime).toBeNull();
     expect(timer.accumulatedTime).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('payments & deposits', () => {
+  it('debt = billed − paid (negative balance)', () => {
+    const c = store.addClient('Acme', 60);
+    // 1 час billable = 60 €
+    store.addTimeLog({ clientId: c.id, startTime: '2026-07-01T10:00:00Z', endTime: '2026-07-01T11:00:00Z' });
+    let bal = store.getClientBalance(c.id);
+    expect(bal.billed).toBeCloseTo(60);
+    expect(bal.paid).toBe(0);
+    expect(bal.balance).toBeCloseTo(-60); // долг 60
+  });
+
+  it('advance when payment exceeds billed work', () => {
+    const c = store.addClient('Acme', 60);
+    store.addTimeLog({ clientId: c.id, startTime: '2026-07-01T10:00:00Z', endTime: '2026-07-01T11:00:00Z' });
+    store.addPayment(c.id, 100);
+    const bal = store.getClientBalance(c.id);
+    expect(bal.balance).toBeCloseTo(40); // аванс 40
+  });
+
+  it('payment with no work is a pure deposit', () => {
+    const c = store.addClient('Acme', 60);
+    store.addPayment(c.id, 200, 'предоплата');
+    const bal = store.getClientBalance(c.id);
+    expect(bal.balance).toBeCloseTo(200);
+    expect(store.getPayments(c.id)).toHaveLength(1);
+  });
+
+  it('deletePayment updates balance', () => {
+    const c = store.addClient('Acme', 60);
+    const p = store.addPayment(c.id, 50);
+    store.deletePayment(c.id, p.id);
+    expect(store.getClientBalance(c.id).balance).toBe(0);
+  });
+
+  it('updateClient preserves payments ledger', () => {
+    const c = store.addClient('Acme', 60);
+    store.addPayment(c.id, 50);
+    store.updateClient(c.id, 'Acme Renamed', 80);
+    expect(store.getPayments(c.id)).toHaveLength(1);
+    expect(store.getClients().find(x => x.id === c.id).name).toBe('Acme Renamed');
+  });
+});
+
+describe('honest duration with pauses', () => {
+  it('stores durationMs when shorter than the start-end span', () => {
+    const c = store.addClient('Acme', 60);
+    // Интервал 2 часа, но отработано 1 час (была часовая пауза)
+    const log = store.addTimeLog({
+      clientId: c.id,
+      startTime: '2026-07-01T10:00:00Z',
+      endTime: '2026-07-01T12:00:00Z',
+      durationMs: 3600000
+    });
+    const stored = store.getTimeLogs().find(l => l.id === log.id);
+    expect(stored.durationMs).toBe(3600000);
+    expect(logDurationMs(stored)).toBe(3600000); // отработанное, не интервал
+  });
+
+  it('editing times clears stale durationMs', () => {
+    const c = store.addClient('Acme', 60);
+    const log = store.addTimeLog({
+      clientId: c.id,
+      startTime: '2026-07-01T10:00:00Z',
+      endTime: '2026-07-01T12:00:00Z',
+      durationMs: 3600000
+    });
+    store.updateTimeLog(log.id, { startTime: '2026-07-01T10:00:00Z', endTime: '2026-07-01T11:30:00Z' });
+    const stored = store.getTimeLogs().find(l => l.id === log.id);
+    expect(stored.durationMs).toBeUndefined();
+    expect(logDurationMs(stored)).toBe(90 * 60000);
+  });
+
+  it('does not store durationMs when it matches the span', () => {
+    const c = store.addClient('Acme', 60);
+    const log = store.addTimeLog({
+      clientId: c.id,
+      startTime: '2026-07-01T10:00:00Z',
+      endTime: '2026-07-01T11:00:00Z',
+      durationMs: 3600000
+    });
+    const stored = store.getTimeLogs().find(l => l.id === log.id);
+    expect(stored.durationMs).toBeUndefined();
   });
 });
 

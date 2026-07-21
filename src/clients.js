@@ -2,10 +2,11 @@
 import { store } from './store.js';
 import { t } from './i18n.js';
 import { showToast } from './toast.js';
-import { escapeHtml, billableHours } from './utils.js';
+import { escapeHtml } from './utils.js';
 
 let editingClientId = null;
 let editingProjectId = null;
+let paymentsClientId = null;
 
 // Populate project modal client select
 function populateProjectModalClients(selectedId = null) {
@@ -43,23 +44,20 @@ export function renderClients() {
     card.className = 'entity-card';
     
     const isRu = store.getSettings().language === 'ru';
-    
-    // Долг клиента = оплачиваемые, но ещё не оплаченные записи
-    // (длительность округляется вверх до 5-минутных блоков, как и в отчетах)
-    const logs = store.getTimeLogs();
-    let debt = 0;
-    logs.forEach(log => {
-      if (log.clientId === client.id && log.billable && !log.paid) {
-        const duration = new Date(log.endTime) - new Date(log.startTime);
-        debt += billableHours(duration) * (log.rateAtTime || 0);
-      }
-    });
 
-    const hasDebt = debt > 0.005;
-    const debtText = hasDebt 
-      ? `${t('client-debt')}<span style="font-weight: 700;">${debt.toFixed(2)} €</span>`
-      : t('no-debt');
-    const debtColor = hasDebt ? '#f97316' : '#22c55e'; // orange: #f97316, green: #22c55e
+    // Баланс клиента: получено − наработано. >0 аванс, <0 долг, ~0 закрыт.
+    const { balance } = store.getClientBalance(client.id);
+    let balanceText, balanceColor;
+    if (balance < -0.005) {
+      balanceText = `${t('client-debt')}<span style="font-weight: 700;">${Math.abs(balance).toFixed(2)} €</span>`;
+      balanceColor = 'var(--debt-color)';
+    } else if (balance > 0.005) {
+      balanceText = `${t('client-advance')}<span style="font-weight: 700;">${balance.toFixed(2)} €</span>`;
+      balanceColor = 'var(--deposit-color)';
+    } else {
+      balanceText = t('settled-up');
+      balanceColor = 'var(--settled-color)';
+    }
 
     card.innerHTML = `
       <div>
@@ -68,11 +66,14 @@ export function renderClients() {
       </div>
       <div>
         <div class="entity-rate">${client.defaultRate} € / ${isRu ? 'час' : 'hour'}</div>
-        <div style="font-size: 0.8rem; font-weight: 600; color: ${debtColor}; margin-top: 4px;">
-          ${debtText}
+        <div style="font-size: 0.8rem; font-weight: 600; color: ${balanceColor}; margin-top: 4px;">
+          ${balanceText}
         </div>
       </div>
       <div class="entity-actions">
+        <button class="btn-icon payments-client-btn" data-id="${client.id}" title="${t('payments-title')}">
+          <i data-lucide="wallet"></i>
+        </button>
         <button class="btn-icon edit-client-btn" data-id="${client.id}" title="${t('edit')}">
           <i data-lucide="edit-2"></i>
         </button>
@@ -83,8 +84,14 @@ export function renderClients() {
     `;
     grid.appendChild(card);
   });
-  
+
   // Attach card actions
+  document.querySelectorAll('.payments-client-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openPaymentsModal(btn.getAttribute('data-id'));
+    });
+  });
+
   document.querySelectorAll('.edit-client-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       openClientModal(btn.getAttribute('data-id'));
@@ -239,6 +246,83 @@ function closeProjectModal() {
   editingProjectId = null;
 }
 
+// ---------------- PAYMENTS / DEPOSITS MODAL ----------------
+function openPaymentsModal(clientId) {
+  paymentsClientId = clientId;
+  const modal = document.getElementById('payments-modal');
+  const client = store.getClients().find(c => c.id === clientId);
+  if (!client) return;
+
+  document.getElementById('payments-modal-client-name').textContent = client.name;
+  document.getElementById('payment-amount').value = '';
+  document.getElementById('payment-note').value = '';
+
+  renderPaymentsModal();
+  modal.classList.add('active');
+}
+
+function renderPaymentsModal() {
+  if (!paymentsClientId) return;
+  const lang = store.getSettings().language;
+  const locale = lang === 'ru' ? 'ru-RU' : 'en-US';
+  const { billed, paid, balance } = store.getClientBalance(paymentsClientId);
+
+  // Сводка баланса
+  document.getElementById('payments-billed').textContent = `${billed.toFixed(2)} €`;
+  document.getElementById('payments-paid').textContent = `${paid.toFixed(2)} €`;
+
+  const balanceEl = document.getElementById('payments-balance');
+  if (balance < -0.005) {
+    balanceEl.textContent = `${t('client-debt')}${Math.abs(balance).toFixed(2)} €`;
+    balanceEl.style.color = 'var(--debt-color)';
+  } else if (balance > 0.005) {
+    balanceEl.textContent = `${t('client-advance')}${balance.toFixed(2)} €`;
+    balanceEl.style.color = 'var(--deposit-color)';
+  } else {
+    balanceEl.textContent = t('settled-up');
+    balanceEl.style.color = 'var(--settled-color)';
+  }
+
+  // Список платежей (свежие сверху)
+  const listEl = document.getElementById('payments-list');
+  const payments = [...store.getPayments(paymentsClientId)].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  if (payments.length === 0) {
+    listEl.innerHTML = `<div class="payments-empty">${t('payments-empty')}</div>`;
+  } else {
+    listEl.innerHTML = '';
+    payments.forEach(p => {
+      const row = document.createElement('div');
+      row.className = 'payment-row';
+      const dateStr = new Date(p.date).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+      row.innerHTML = `
+        <div class="payment-info">
+          <span class="payment-amount">+${Number(p.amount).toFixed(2)} €</span>
+          <span class="payment-date">${dateStr}</span>
+          ${p.note ? `<span class="payment-note">${escapeHtml(p.note)}</span>` : ''}
+        </div>
+        <button class="btn-icon delete delete-payment-btn" data-id="${p.id}" title="${t('delete')}"><i data-lucide="x"></i></button>
+      `;
+      listEl.appendChild(row);
+    });
+
+    listEl.querySelectorAll('.delete-payment-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        store.deletePayment(paymentsClientId, btn.getAttribute('data-id'));
+        renderPaymentsModal();
+        renderClients();
+      });
+    });
+  }
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function closePaymentsModal() {
+  document.getElementById('payments-modal').classList.remove('active');
+  paymentsClientId = null;
+}
+
 export function initClients() {
   // Tabs management
   const tabClients = document.getElementById('tab-clients');
@@ -317,5 +401,29 @@ export function initClients() {
     closeProjectModal();
     showToast(t('toast-saved'), { type: 'success' });
     renderProjects();
+  });
+
+  // Payments Modal
+  document.getElementById('payments-modal-close').addEventListener('click', closePaymentsModal);
+  document.getElementById('payments-modal-done').addEventListener('click', closePaymentsModal);
+
+  document.getElementById('payment-add-btn').addEventListener('click', () => {
+    if (!paymentsClientId) return;
+    const amountVal = document.getElementById('payment-amount').value;
+    const amount = Number(amountVal);
+    const note = document.getElementById('payment-note').value;
+    const isRu = store.getSettings().language === 'ru';
+
+    if (!amountVal || isNaN(amount) || amount <= 0) {
+      showToast(isRu ? 'Введите сумму больше нуля!' : 'Enter an amount greater than zero!', { type: 'error' });
+      return;
+    }
+
+    store.addPayment(paymentsClientId, amount, note);
+    document.getElementById('payment-amount').value = '';
+    document.getElementById('payment-note').value = '';
+    renderPaymentsModal();
+    renderClients();
+    showToast(t('payment-added'), { type: 'success' });
   });
 }

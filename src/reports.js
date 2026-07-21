@@ -6,6 +6,7 @@ import {
   fillSelect,
   escapeHtml,
   billableHours,
+  logDurationMs,
   toLocalDatetimeString,
   localDayKey,
   dayKeyToLocalDate,
@@ -32,8 +33,7 @@ function formatDateReadable(dayKey, lang) {
 // Денежная сумма записи: округление длительности вверх до 5-минутных блоков.
 function logAmount(log) {
   if (!log.billable) return 0;
-  const durationMs = new Date(log.endTime) - new Date(log.startTime);
-  return billableHours(durationMs) * (log.rateAtTime || 0);
+  return billableHours(logDurationMs(log)) * (log.rateAtTime || 0);
 }
 
 // Update filter dropdowns
@@ -216,7 +216,7 @@ export function renderReports() {
   let totalEarnings = 0;
 
   filteredLogs.forEach(log => {
-    totalMs += new Date(log.endTime) - new Date(log.startTime);
+    totalMs += logDurationMs(log);
     totalEarnings += logAmount(log);
   });
 
@@ -260,7 +260,7 @@ export function renderReports() {
     let dayMs = 0;
     let dayEarnings = 0;
     dayLogs.forEach(l => {
-      dayMs += new Date(l.endTime) - new Date(l.startTime);
+      dayMs += logDurationMs(l);
       dayEarnings += logAmount(l);
     });
 
@@ -283,7 +283,7 @@ export function renderReports() {
 
     // Render individual log items
     dayLogs.forEach(log => {
-      const durationMs = new Date(log.endTime) - new Date(log.startTime);
+      const durationMs = logDurationMs(log);
       const amount = logAmount(log);
 
       const client = clients.find(c => c.id === log.clientId);
@@ -499,7 +499,7 @@ function exportToCSV() {
 
     const startStr = new Date(log.startTime).toLocaleString();
     const endStr = new Date(log.endTime).toLocaleString();
-    const durationHrs = ((new Date(log.endTime) - new Date(log.startTime)) / 3600000).toFixed(2);
+    const durationHrs = (logDurationMs(log) / 3600000).toFixed(2);
     const status = paymentStatus(log).title;
     const amount = logAmount(log).toFixed(2);
 

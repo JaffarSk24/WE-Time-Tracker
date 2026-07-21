@@ -72,6 +72,122 @@ function initStorageIpc() {
   });
 }
 
+// --- Проверка и скачивание обновлений с GitHub Releases ---
+// Полноценный «тихий» автоапдейт (electron-updater) на macOS требует валидной
+// Developer ID подписи; с ad-hoc он падает на проверке. Поэтому: сверяем версию
+// с последним релизом и, если новее, скачиваем dmg и открываем его для установки.
+const GITHUB_REPO = 'JaffarSk24/WE-Time-Tracker';
+const appVersion = () => app.getVersion();
+
+function compareVersions(a, b) {
+  const pa = String(a).replace(/^v/, '').split('.').map(Number);
+  const pb = String(b).replace(/^v/, '').split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    const x = pa[i] || 0, y = pb[i] || 0;
+    if (x > y) return 1;
+    if (x < y) return -1;
+  }
+  return 0;
+}
+
+function fetchLatestRelease() {
+  return new Promise((resolve, reject) => {
+    const https = require('https');
+    const req = https.request({
+      hostname: 'api.github.com',
+      path: `/repos/${GITHUB_REPO}/releases/latest`,
+      method: 'GET',
+      headers: { 'User-Agent': 'WE-Time-Tracker', 'Accept': 'application/vnd.github+json' }
+    }, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        reject(new Error(`GitHub API ${res.statusCode}`));
+        return;
+      }
+      let body = '';
+      res.on('data', c => body += c);
+      res.on('end', () => {
+        try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(15000, () => req.destroy(new Error('timeout')));
+    req.end();
+  });
+}
+
+function downloadFile(url, destPath, onProgress) {
+  return new Promise((resolve, reject) => {
+    const https = require('https');
+    const doGet = (u, redirects) => {
+      https.get(u, { headers: { 'User-Agent': 'WE-Time-Tracker' } }, (res) => {
+        if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+          if (redirects > 5) { reject(new Error('too many redirects')); return; }
+          res.resume();
+          doGet(res.headers.location, redirects + 1);
+          return;
+        }
+        if (res.statusCode !== 200) {
+          res.resume();
+          reject(new Error(`download ${res.statusCode}`));
+          return;
+        }
+        const total = parseInt(res.headers['content-length'] || '0', 10);
+        let received = 0;
+        const out = fs.createWriteStream(destPath);
+        res.on('data', chunk => {
+          received += chunk.length;
+          if (total && onProgress) onProgress(received / total);
+        });
+        res.pipe(out);
+        out.on('finish', () => out.close(() => resolve(destPath)));
+        out.on('error', reject);
+      }).on('error', reject);
+    };
+    doGet(url, 0);
+  });
+}
+
+function initUpdatesIpc() {
+  ipcMain.handle('updates:check', async () => {
+    try {
+      const release = await fetchLatestRelease();
+      const latest = release.tag_name || release.name || '';
+      const isNewer = compareVersions(latest, appVersion()) > 0;
+      const dmg = (release.assets || []).find(a => a.name && a.name.endsWith('.dmg'));
+      return {
+        ok: true,
+        current: appVersion(),
+        latest: latest.replace(/^v/, ''),
+        available: isNewer && !!dmg,
+        downloadUrl: dmg ? dmg.browser_download_url : null,
+        notes: release.body || ''
+      };
+    } catch (e) {
+      return { ok: false, error: String(e.message || e) };
+    }
+  });
+
+  ipcMain.handle('updates:download', async (event, url) => {
+    if (!url || typeof url !== 'string' || !url.startsWith('https://')) {
+      return { ok: false, error: 'invalid url' };
+    }
+    try {
+      const dest = path.join(app.getPath('temp'), `WE-Time-Tracker-update-${Date.now()}.dmg`);
+      await downloadFile(url, dest, (p) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('updates:progress', p);
+        }
+      });
+      // Открываем dmg — пользователь перетаскивает приложение в Applications
+      await shell.openPath(dest);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: String(e.message || e) };
+    }
+  });
+}
+
 // --- Menubar (tray) мини-таймер ---
 function formatTrayElapsed(state) {
   let elapsed = state.accumulatedTime || 0;
@@ -355,6 +471,7 @@ function createWindow(url) {
 
 app.whenReady().then(() => {
   initStorageIpc();
+  initUpdatesIpc();
   initTray();
 
   const isDev = process.env.NODE_ENV === 'development';

@@ -1,7 +1,7 @@
 // WE Time Tracker Dashboard Analytics Module
 import Chart from 'chart.js/auto';
 import { store } from './store.js';
-import { billableHours, formatDurationShort } from './utils.js';
+import { billableHours, formatDurationShort, logDurationMs } from './utils.js';
 
 let projectChartInstance = null;
 let clientChartInstance = null;
@@ -23,12 +23,30 @@ const CHART_BORDERS = [
   '#6366f1', '#00f2fe', '#10b981', '#f59e0b', '#f43f5e', '#a855f7', '#3b82f6'
 ];
 
+// Цвета для произвольного числа категорий: первые 7 — фирменная палитра,
+// далее — детерминированно по золотому углу (равномерно по цветовому кругу).
+function buildPalette(count) {
+  const fills = [];
+  const borders = [];
+  for (let i = 0; i < count; i++) {
+    if (i < CHART_COLORS.length) {
+      fills.push(CHART_COLORS[i]);
+      borders.push(CHART_BORDERS[i]);
+    } else {
+      const hue = (i * 137.508) % 360; // золотой угол
+      fills.push(`hsla(${hue}, 70%, 60%, 0.85)`);
+      borders.push(`hsl(${hue}, 70%, 55%)`);
+    }
+  }
+  return { fills, borders };
+}
+
 function calculateStats(logs) {
   let totalHours = 0;
   let totalEarnings = 0;
 
   logs.forEach(log => {
-    const durationMs = new Date(log.endTime) - new Date(log.startTime);
+    const durationMs = logDurationMs(log);
     totalHours += durationMs / 3600000;
 
     // Заработано = все оплачиваемые записи (и оплаченные, и ожидающие оплаты);
@@ -82,7 +100,7 @@ export function renderDashboard() {
   const projectTimes = {};
   logs.forEach(log => {
     const projId = log.projectId || 'none';
-    const duration = (new Date(log.endTime) - new Date(log.startTime)) / 3600000;
+    const duration = logDurationMs(log) / 3600000;
     
     if (!projectTimes[projId]) projectTimes[projId] = 0;
     projectTimes[projId] += duration;
@@ -105,7 +123,7 @@ export function renderDashboard() {
   const clientTimes = {};
   logs.forEach(log => {
     const clientId = log.clientId || 'none';
-    const duration = (new Date(log.endTime) - new Date(log.startTime)) / 3600000;
+    const duration = logDurationMs(log) / 3600000;
     
     if (!clientTimes[clientId]) clientTimes[clientId] = 0;
     clientTimes[clientId] += duration;
@@ -174,7 +192,7 @@ export function renderDashboard() {
       logs.forEach(log => {
         const logStart = new Date(log.startTime);
         if (logStart >= dayStart && logStart <= dayEnd) {
-          const duration = (new Date(log.endTime) - logStart) / 3600000;
+          const duration = logDurationMs(log) / 3600000;
           daySum += duration;
         }
       });
@@ -222,7 +240,7 @@ export function renderDashboard() {
       logs.forEach(log => {
         const logStart = new Date(log.startTime);
         if (logStart >= monthStart && logStart <= monthEnd) {
-          const duration = (new Date(log.endTime) - logStart) / 3600000;
+          const duration = logDurationMs(log) / 3600000;
           monthSum += duration;
         }
       });
@@ -290,8 +308,8 @@ function renderProjectChart(labels, data) {
       labels: labels,
       datasets: [{
         data: data,
-        backgroundColor: CHART_COLORS.slice(0, labels.length),
-        borderColor: CHART_BORDERS.slice(0, labels.length),
+        backgroundColor: buildPalette(labels.length).fills,
+        borderColor: buildPalette(labels.length).borders,
         borderWidth: 1.5,
         hoverOffset: 4
       }]
@@ -337,8 +355,8 @@ function renderClientChart(labels, data) {
       labels: labels,
       datasets: [{
         data: data,
-        backgroundColor: CHART_COLORS.slice(0, labels.length),
-        borderColor: CHART_BORDERS.slice(0, labels.length),
+        backgroundColor: buildPalette(labels.length).fills,
+        borderColor: buildPalette(labels.length).borders,
         borderWidth: 1.5,
         hoverOffset: 4
       }]

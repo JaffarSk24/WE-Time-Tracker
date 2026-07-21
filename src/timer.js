@@ -9,7 +9,8 @@ import {
   toLocalDatetimeString,
   localDayKey,
   formatDurationHMS,
-  formatDurationShort
+  formatDurationShort,
+  logDurationMs
 } from './utils.js';
 
 let timerInterval = null;
@@ -167,7 +168,7 @@ export function renderTodayLogs() {
   let totalMs = 0;
   let totalEarnings = 0;
   logs.forEach(l => {
-    const dur = new Date(l.endTime) - new Date(l.startTime);
+    const dur = logDurationMs(l);
     totalMs += dur;
     if (l.billable) {
       totalEarnings += billableHours(dur) * (l.rateAtTime || 0);
@@ -180,7 +181,7 @@ export function renderTodayLogs() {
 
   container.innerHTML = '';
   logs.forEach(log => {
-    const durationMs = new Date(log.endTime) - new Date(log.startTime);
+    const durationMs = logDurationMs(log);
     const client = clients.find(c => c.id === log.clientId);
     const proj = projects.find(p => p.id === log.projectId);
 

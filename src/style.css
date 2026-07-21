@@ -1,5 +1,5 @@
 /* WE Time Tracker Premium CSS Design System */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+/* Шрифты Inter/Outfit подключаются локально через @fontsource в src/app.js */
 
 :root {
   --bg-primary: #090b11;
@@ -42,6 +42,19 @@
   
   --sidebar-width: 260px;
   --bg-sidebar: rgba(10, 12, 18, 0.85);
+
+  /* Semantic surface tokens (flip between themes — см. AGENTS.md: тема только через переменные) */
+  --input-bg: rgba(10, 12, 18, 0.5);
+  --overlay-01: rgba(255, 255, 255, 0.01);
+  --overlay-02: rgba(255, 255, 255, 0.02);
+  --overlay-03: rgba(255, 255, 255, 0.03);
+  --overlay-04: rgba(255, 255, 255, 0.04);
+  --overlay-hover: rgba(255, 255, 255, 0.04);
+  --counter-color: #ffffff;
+  --counter-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+  --deposit-color: #3b82f6;
+  --debt-color: #f97316;
+  --settled-color: #22c55e;
 }
 
 [data-theme="light"] {
@@ -69,8 +82,18 @@
   --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.1);
   --shadow-glow: 0 0 15px rgba(79, 70, 229, 0.12);
-  
+
   --bg-sidebar: rgba(255, 255, 255, 0.85);
+
+  /* Light theme surface tokens */
+  --input-bg: #ffffff;
+  --overlay-01: rgba(15, 23, 42, 0.01);
+  --overlay-02: rgba(15, 23, 42, 0.02);
+  --overlay-03: rgba(15, 23, 42, 0.03);
+  --overlay-04: rgba(15, 23, 42, 0.04);
+  --overlay-hover: rgba(15, 23, 42, 0.04);
+  --counter-color: var(--text-primary);
+  --counter-shadow: none;
 }
 
 [data-theme="light"] body {
@@ -97,67 +120,11 @@
   background-color: rgba(15, 23, 42, 0.04);
 }
 
-[data-theme="light"] input[type="text"],
-[data-theme="light"] input[type="number"],
-[data-theme="light"] input[type="datetime-local"],
-[data-theme="light"] select,
-[data-theme="light"] textarea {
-  background-color: #ffffff;
-}
-
+/* Большинство светлых переопределений теперь через surface-токены выше.
+   Здесь остаются только структурно-специфичные для светлой темы правила. */
 [data-theme="light"] .timer-widget {
   background: var(--bg-card);
   border-color: var(--border-color);
-}
-
-[data-theme="light"] .timer-input-wrapper input,
-[data-theme="light"] .timer-select-wrapper select {
-  background-color: #ffffff;
-  border-color: var(--border-color);
-}
-
-[data-theme="light"] .timer-counter {
-  color: var(--text-primary);
-  text-shadow: none;
-}
-
-[data-theme="light"] .entity-card {
-  background: rgba(15, 23, 42, 0.02);
-}
-[data-theme="light"] .entity-card:hover {
-  background: rgba(15, 23, 42, 0.04);
-}
-
-[data-theme="light"] .reports-summary {
-  background-color: rgba(15, 23, 42, 0.02);
-}
-[data-theme="light"] .summary-value.hours {
-  color: var(--text-primary);
-}
-[data-theme="light"] .log-group-header {
-  background-color: rgba(15, 23, 42, 0.03);
-}
-[data-theme="light"] .log-group-total-time {
-  color: var(--text-primary);
-}
-[data-theme="light"] .log-item-row {
-  background-color: rgba(15, 23, 42, 0.01);
-  border: 1px solid rgba(15, 23, 42, 0.04);
-}
-[data-theme="light"] .log-item-row:hover {
-  background-color: rgba(15, 23, 42, 0.03);
-  border-color: rgba(15, 23, 42, 0.08);
-}
-[data-theme="light"] .data-action-box {
-  background-color: rgba(15, 23, 42, 0.01);
-}
-
-[data-theme="light"] .bulk-actions-bar {
-  background-color: rgba(0, 0, 0, 0.02);
-}
-
-[data-theme="light"] .dash-activity-select {
-  background-color: #ffffff;
 }
 
 [data-theme="light"] .promo-footer {
@@ -448,7 +415,7 @@ input[type="number"],
 input[type="datetime-local"],
 select,
 textarea {
-  background-color: rgba(10, 12, 18, 0.5);
+  background-color: var(--input-bg);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   padding: 10px 14px;
@@ -617,7 +584,7 @@ textarea:focus {
   font-size: 2.2rem;
   font-weight: 700;
   letter-spacing: 1px;
-  color: #fff;
+  color: var(--counter-color);
   min-width: 140px;
   text-align: right;
   text-shadow: 0 0 10px rgba(255, 255, 255, 0.15);
@@ -945,7 +912,7 @@ textarea:focus {
   justify-content: space-between;
   min-height: 140px;
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--overlay-02);
   border: 1px solid var(--border-color);
   padding: 18px;
   transition: var(--transition-fast);
@@ -1082,7 +1049,7 @@ textarea:focus {
   display: flex;
   gap: 32px;
   padding: 16px 24px;
-  background-color: rgba(255, 255, 255, 0.02);
+  background-color: var(--overlay-02);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
   flex-wrap: wrap;
@@ -1094,7 +1061,7 @@ textarea:focus {
   align-items: center;
   flex-wrap: wrap;
   gap: 16px;
-  background-color: rgba(255, 255, 255, 0.02);
+  background-color: var(--overlay-02);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   padding: 12px 16px;
@@ -1106,7 +1073,7 @@ textarea:focus {
   padding: 6px 12px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: var(--overlay-03);
   color: var(--text-primary);
   font-size: 0.85rem;
   font-family: inherit;
@@ -1155,7 +1122,7 @@ textarea:focus {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: var(--overlay-03);
   border-radius: 6px;
   margin-bottom: 8px;
   font-size: 0.85rem;
@@ -1184,8 +1151,8 @@ textarea:focus {
 .log-item-row {
   display: flex;
   align-items: center;
-  background-color: rgba(255, 255, 255, 0.01);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background-color: var(--overlay-01);
+  border: 1px solid var(--overlay-04);
   border-radius: 8px;
   padding: 12px 16px;
   margin-bottom: 6px;
@@ -1340,7 +1307,7 @@ textarea:focus {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: rgba(255, 255, 255, 0.01);
+  background-color: var(--overlay-01);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   padding: 16px;
@@ -1666,3 +1633,82 @@ textarea:focus {
 
 /* Статус "не оплачивается" в отчетах */
 .log-item-billable-icon.free-status { color: var(--text-muted, #64748b); }
+
+/* ==================== PAYMENTS / DEPOSITS MODAL ==================== */
+.payments-summary {
+  display: flex;
+  gap: 16px;
+  margin: 4px 0 18px;
+}
+.payments-summary-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background-color: var(--overlay-02);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+.payments-summary-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+.payments-summary-value {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.payment-add-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.payments-list {
+  max-height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.payments-empty {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 0.9rem;
+  padding: 12px 0;
+  text-align: center;
+}
+.payment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background-color: var(--overlay-01);
+  border: 1px solid var(--overlay-04);
+  border-radius: var(--radius-sm);
+}
+.payment-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.payment-amount {
+  font-weight: 700;
+  color: var(--settled-color);
+  font-variant-numeric: tabular-nums;
+}
+.payment-date {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.payment-note {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}

@@ -59,7 +59,7 @@ class Store {
         const parsed = JSON.parse(data);
         // Ensure all top-level keys exist
         return {
-          clients: parsed.clients || [],
+          clients: (parsed.clients || []).map(c => this.normalizeClient(c)),
           projects: parsed.projects || [],
           timeLogs: (parsed.timeLogs || []).map(l => this.normalizeLog(l)),
           settings: parsed.settings || { ...DEFAULT_SETTINGS },
@@ -93,6 +93,14 @@ class Store {
       return { ...log, billable: true, paid: log.billable === false };
     }
     return log;
+  }
+
+  // Гарантируем массив платежей у клиента (старые данные его не имели).
+  normalizeClient(client) {
+    if (!Array.isArray(client.payments)) {
+      return { ...client, payments: [] };
+    }
+    return client;
   }
 
   saveState() {
@@ -134,7 +142,7 @@ class Store {
 
   addClient(name, defaultRate) {
     const id = 'client_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    const newClient = { id, name: name.trim(), defaultRate: Number(defaultRate) || 0 };
+    const newClient = { id, name: name.trim(), defaultRate: Number(defaultRate) || 0, payments: [] };
     this.state.clients.push(newClient);
     this.saveState();
     return newClient;
@@ -143,8 +151,9 @@ class Store {
   updateClient(id, name, defaultRate) {
     const clientIndex = this.state.clients.findIndex(c => c.id === id);
     if (clientIndex !== -1) {
+      // Сохраняем леджер платежей — не пересоздаём объект с нуля
       this.state.clients[clientIndex] = {
-        id,
+        ...this.state.clients[clientIndex],
         name: name.trim(),
         defaultRate: Number(defaultRate) || 0
       };
@@ -230,6 +239,59 @@ class Store {
     return 0;
   }
 
+  // --- Payments / Deposits API ---
+  // Клиент ведёт леджер платежей. Баланс = получено − наработано (billable).
+  // balance < 0 → долг; balance > 0 → аванс/депозит; ~0 → расчёт закрыт.
+  addPayment(clientId, amount, note = '', date = null) {
+    const client = this.state.clients.find(c => c.id === clientId);
+    if (!client) return null;
+    if (!Array.isArray(client.payments)) client.payments = [];
+    const payment = {
+      id: 'pay_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+      amount: Number(amount) || 0,
+      note: (note || '').trim(),
+      date: date || new Date().toISOString()
+    };
+    client.payments.push(payment);
+    this.saveState();
+    return payment;
+  }
+
+  deletePayment(clientId, paymentId) {
+    const client = this.state.clients.find(c => c.id === clientId);
+    if (!client || !Array.isArray(client.payments)) return;
+    client.payments = client.payments.filter(p => p.id !== paymentId);
+    this.saveState();
+  }
+
+  getPayments(clientId) {
+    const client = this.state.clients.find(c => c.id === clientId);
+    return client && Array.isArray(client.payments) ? client.payments : [];
+  }
+
+  // Наработано клиентом (billable), с округлением до 5-минутных блоков.
+  getBilledAmount(clientId) {
+    const BLOCK = 5 * 60000;
+    let billed = 0;
+    this.state.timeLogs.forEach(log => {
+      if (log.clientId === clientId && log.billable) {
+        const durMs = (log.durationMs !== undefined && log.durationMs !== null)
+          ? log.durationMs
+          : (new Date(log.endTime) - new Date(log.startTime));
+        const hrs = durMs > 0 ? (Math.ceil(durMs / BLOCK) * BLOCK) / 3600000 : 0;
+        billed += hrs * (log.rateAtTime || 0);
+      }
+    });
+    return billed;
+  }
+
+  // Баланс клиента: {billed, paid, balance}. balance>0 — аванс, <0 — долг.
+  getClientBalance(clientId) {
+    const billed = this.getBilledAmount(clientId);
+    const paid = this.getPayments(clientId).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    return { billed, paid, balance: paid - billed };
+  }
+
   // --- Time Logs API ---
   getTimeLogs() {
     // Sort descending by start time
@@ -250,6 +312,15 @@ class Store {
       paid: log.paid !== undefined ? log.paid : false,
       rateAtTime
     };
+    // Честная отработанная длительность: если из-за пауз она короче
+    // интервала startTime..endTime, храним её явно (см. logDurationMs в utils).
+    if (log.durationMs !== undefined && log.durationMs !== null) {
+      const spanMs = new Date(log.endTime) - new Date(log.startTime);
+      // Сохраняем только если реально отличается от интервала (была пауза)
+      if (Math.abs(spanMs - log.durationMs) > 1000) {
+        newLog.durationMs = log.durationMs;
+      }
+    }
     this.state.timeLogs.push(newLog);
     this.saveState();
     return newLog;
@@ -268,7 +339,7 @@ class Store {
         rate = Number(updatedLog.rateAtTime);
       }
 
-      this.state.timeLogs[index] = {
+      const merged = {
         ...existing,
         description: updatedLog.description !== undefined ? updatedLog.description.trim() : existing.description,
         clientId: updatedLog.clientId !== undefined ? updatedLog.clientId : existing.clientId,
@@ -279,6 +350,12 @@ class Store {
         paid: updatedLog.paid !== undefined ? updatedLog.paid : existing.paid,
         rateAtTime: rate
       };
+      // Ручное редактирование времени задаёт непрерывный интервал —
+      // сбрасываем сохранённую durationMs (иначе она бы устарела).
+      if (updatedLog.startTime || updatedLog.endTime) {
+        delete merged.durationMs;
+      }
+      this.state.timeLogs[index] = merged;
       this.saveState();
       return true;
     }
@@ -332,11 +409,14 @@ class Store {
   }
 
   startTimer(description, clientId, projectId, billable = true) {
+    const nowIso = new Date().toISOString();
     this.state.activeTimer = {
       description: description.trim(),
       clientId: clientId || null,
       projectId: projectId || null,
-      startTime: new Date().toISOString(),
+      startTime: nowIso,
+      // Реальный момент старта — сохраняется через паузы для честного времени
+      originalStartTime: nowIso,
       billable,
       isPaused: false,
       accumulatedTime: 0
@@ -377,7 +457,10 @@ class Store {
     }
 
     const endTime = new Date().toISOString();
-    const startTime = new Date(new Date(endTime).getTime() - totalDuration).toISOString();
+    // Реальное время старта сохраняется (через паузы); durationMs несёт
+    // фактически отработанное время, если оно короче интервала из-за пауз.
+    const startTime = timer.originalStartTime
+      || new Date(new Date(endTime).getTime() - totalDuration).toISOString();
     const rateAtTime = this.getRate(timer.clientId, timer.projectId);
     const newLog = this.addTimeLog({
       description: timer.description,
@@ -386,6 +469,7 @@ class Store {
       startTime: startTime,
       endTime: endTime,
       billable: timer.billable,
+      durationMs: totalDuration,
       rateAtTime
     });
 
@@ -430,7 +514,7 @@ class Store {
       const parsed = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
       if (parsed && (parsed.clients || parsed.projects || parsed.timeLogs)) {
         this.state = {
-          clients: parsed.clients || [],
+          clients: (parsed.clients || []).map(c => this.normalizeClient(c)),
           projects: parsed.projects || [],
           timeLogs: (parsed.timeLogs || []).map(l => this.normalizeLog(l)),
           settings: parsed.settings || { ...DEFAULT_SETTINGS },

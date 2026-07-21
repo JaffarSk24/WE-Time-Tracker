@@ -5,6 +5,16 @@
 // до 5-минутных блоков при расчёте суммы (само время отображается точным).
 export const BILLING_ROUND_MINUTES = 5;
 
+// Фактически отработанная длительность записи в мс.
+// Если из-за пауз она короче интервала startTime..endTime — используем
+// сохранённую durationMs; иначе интервал.
+export function logDurationMs(log) {
+  if (log.durationMs !== undefined && log.durationMs !== null) {
+    return log.durationMs;
+  }
+  return new Date(log.endTime) - new Date(log.startTime);
+}
+
 // Округлённые часы для расчёта денег.
 export function billableHours(durationMs) {
   if (durationMs <= 0) return 0;

@@ -13,3 +13,9 @@ contextBridge.exposeInMainWorld('weTimer', {
   sync: (state) => ipcRenderer.send('timer:sync', state),
   onStopRequest: (callback) => ipcRenderer.on('timer:stop-request', () => callback())
 });
+
+contextBridge.exposeInMainWorld('weUpdates', {
+  check: () => ipcRenderer.invoke('updates:check'),
+  download: (url) => ipcRenderer.invoke('updates:download', url),
+  onProgress: (callback) => ipcRenderer.on('updates:progress', (_e, p) => callback(p))
+});
