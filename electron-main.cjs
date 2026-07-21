@@ -1,9 +1,61 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { spawn } = require('child_process');
 
 let viteProcess = null;
 let mainWindow = null;
+
+// --- Файловое хранилище данных пользователя ---
+// JSON-файл в userData переживает переустановку приложения и обновление версий
+// (в отличие от localStorage, привязанного к origin http://127.0.0.1:PORT).
+const dataFilePath = () => path.join(app.getPath('userData'), 'we-tracker-data.json');
+const backupsDir = () => path.join(app.getPath('userData'), 'backups');
+const BACKUPS_TO_KEEP = 14;
+
+// Раз в день перед первой перезаписью откладываем копию текущего файла.
+function makeDailyBackup() {
+  try {
+    const src = dataFilePath();
+    if (!fs.existsSync(src)) return;
+    fs.mkdirSync(backupsDir(), { recursive: true });
+    const stamp = new Date().toISOString().slice(0, 10);
+    const dest = path.join(backupsDir(), `we-tracker-data-${stamp}.json`);
+    if (fs.existsSync(dest)) return;
+    fs.copyFileSync(src, dest);
+    const old = fs.readdirSync(backupsDir())
+      .filter(f => f.startsWith('we-tracker-data-') && f.endsWith('.json'))
+      .sort();
+    while (old.length > BACKUPS_TO_KEEP) {
+      fs.unlinkSync(path.join(backupsDir(), old.shift()));
+    }
+  } catch (e) {
+    console.error('Backup failed:', e);
+  }
+}
+
+function initStorageIpc() {
+  ipcMain.on('storage:load', (event) => {
+    try {
+      event.returnValue = fs.readFileSync(dataFilePath(), 'utf8');
+    } catch (e) {
+      event.returnValue = null;
+    }
+  });
+
+  ipcMain.on('storage:save', (event, json) => {
+    if (typeof json !== 'string') return;
+    try {
+      makeDailyBackup();
+      // Атомарная запись: сначала во временный файл, затем rename.
+      const tmp = dataFilePath() + '.tmp';
+      fs.writeFileSync(tmp, json, 'utf8');
+      fs.renameSync(tmp, dataFilePath());
+    } catch (e) {
+      console.error('Failed to save data file:', e);
+    }
+  });
+}
 
 function createWindow(url) {
   mainWindow = new BrowserWindow({
@@ -13,7 +65,8 @@ function createWindow(url) {
     icon: path.join(__dirname, 'icon.png'),
     webPreferences: {
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.cjs')
     }
   });
 
@@ -53,6 +106,8 @@ function createWindow(url) {
 }
 
 app.whenReady().then(() => {
+  initStorageIpc();
+
   const isDev = process.env.NODE_ENV === 'development';
 
   if (isDev) {
@@ -69,7 +124,6 @@ app.whenReady().then(() => {
   } else {
     // In production build, we load the built static files via a lightweight HTTP server
     const http = require('http');
-    const fs = require('fs');
     const mime = {
       '.html': 'text/html',
       '.css': 'text/css',

@@ -34,7 +34,7 @@ The codebase represents a modern, lightweight SPA built with speed and long-term
 ### ⬇️ Option A: Download Compiled Desktop Application (Recommended)
 You do not need node.js or a terminal setup to run the application on macOS.
 1. Navigate to the **[Releases](https://github.com/JaffarSk24/WE-Time-Tracker/releases)** section of this repository.
-2. Download the latest **`WE Time Tracker-1.0.0.dmg`** or **`WE Time Tracker-1.0.0-mac.zip`**.
+2. Download the latest **`WE Time Tracker-<version>.dmg`** or **`WE Time Tracker-<version>-mac.zip`**.
 3. Open/mount the downloaded file, drag **WE Time Tracker** to your **Applications** folder.
 4. Open Terminal and run the following command to bypass the Gatekeeper security check for instant startup (avoiding the dock-bouncing delay):
    ```bash
@@ -87,13 +87,13 @@ You can compile a standalone, native macOS application with custom brand assets 
    ```bash
    npm run electron:pack
    ```
-   Compiles the app into a runnable macOS binary directory located in `dist/mac/WE Time Tracker.app`.
+   Compiles the app into a runnable macOS binary directory located in `release/mac/WE Time Tracker.app`.
 
 3. **Installer Distribution (`.dmg` and `.zip` bundle):**
    ```bash
    npm run electron:dist
    ```
-   Packages the application into a mountable disk image (`dist/WE Time Tracker-1.0.0.dmg`) and a zip file (`dist/WE Time Tracker-1.0.0-mac.zip`) with the custom White Eagles logo embedded as the application icon.
+   Packages the application into a mountable disk image (`release/WE Time Tracker-<version>.dmg`) and a zip file (`release/WE Time Tracker-<version>-mac.zip`) with the custom White Eagles logo embedded as the application icon.
 
 
 ### ⚠️ Note on macOS Gatekeeper (First Launch Delay)
@@ -103,7 +103,7 @@ To bypass this check and ensure the application launches instantly:
 1. Open your terminal.
 2. Run the following command to remove the macOS quarantine flag:
    ```bash
-   xattr -cr "dist/mac/WE Time Tracker.app"
+   xattr -cr "release/mac/WE Time Tracker.app"
    ```
    *(Or if you moved it to your Applications folder: `xattr -cr "/Applications/WE Time Tracker.app"`)*
 

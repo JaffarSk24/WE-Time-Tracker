@@ -1,7 +1,7 @@
 {
   "name": "we-time-tracker",
   "private": true,
-  "version": "1.2.2",
+  "version": "1.3.0",
   "type": "module",
   "main": "electron-main.cjs",
   "scripts": {
@@ -14,18 +14,25 @@
     "electron:dist": "npm run build && electron-builder"
   },
   "devDependencies": {
+    "chart.js": "^4.5.1",
     "electron": "^31.0.0",
     "electron-builder": "^24.13.0",
+    "lucide": "^1.25.0",
     "vite": "^5.0.0"
   },
   "build": {
     "appId": "com.whiteeagles.wetimetracker",
     "productName": "WE Time Tracker",
+    "directories": {
+      "output": "release"
+    },
     "files": [
       "dist/**/*",
       "electron-main.cjs",
+      "preload.cjs",
       "icon.png"
     ],
+    "afterPack": "./scripts/adhoc-sign.cjs",
     "mac": {
       "icon": "icon.png",
       "category": "public.app-category.productivity",

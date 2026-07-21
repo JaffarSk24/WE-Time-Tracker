@@ -14,10 +14,48 @@ class Store {
     this.listeners = [];
   }
 
-  loadState() {
+  // В Electron данные живут в JSON-файле (userData) через preload-мост weStorage:
+  // файл переживает переустановку приложения и смену версии/порта.
+  // localStorage остаётся fallback-ом для браузерного режима и источником
+  // одноразовой миграции данных старых версий.
+  hasFileStorage() {
+    return typeof window !== 'undefined' && !!window.weStorage;
+  }
+
+  // Пустое состояние (нет ни клиентов, ни проектов, ни логов) — не считается
+  // данными: сравнение нужно для самовосстанавливающейся миграции ниже.
+  isEmptyStateJson(json) {
     try {
-      const data = localStorage.getItem(STORAGE_KEY);
+      const p = JSON.parse(json);
+      return !(p.clients?.length || p.projects?.length || p.timeLogs?.length);
+    } catch (e) {
+      return true;
+    }
+  }
+
+  loadState() {
+    let hadData = false;
+    try {
+      let data = null;
+      if (this.hasFileStorage()) {
+        data = window.weStorage.load();
+        // Миграция со старых версий, хранивших данные в localStorage.
+        // Срабатывает и при пустом файле: если первый запуск случился на
+        // "чужом" порту (пустой localStorage), настоящие данные подхватятся
+        // при следующем запуске на правильном origin.
+        if (!data || this.isEmptyStateJson(data)) {
+          const legacy = localStorage.getItem(STORAGE_KEY);
+          if (legacy && !this.isEmptyStateJson(legacy)) {
+            data = legacy;
+            window.weStorage.save(legacy);
+            console.log('Migrated data from localStorage to file storage');
+          }
+        }
+      } else {
+        data = localStorage.getItem(STORAGE_KEY);
+      }
       if (data) {
+        hadData = true;
         const parsed = JSON.parse(data);
         // Ensure all top-level keys exist
         return {
@@ -29,7 +67,7 @@ class Store {
         };
       }
     } catch (e) {
-      console.error('Failed to load state from localStorage', e);
+      console.error('Failed to load state', e);
     }
     const emptyState = {
       clients: [],
@@ -38,7 +76,11 @@ class Store {
       settings: { ...DEFAULT_SETTINGS },
       activeTimer: null
     };
-    this.saveStateDirectly(emptyState);
+    // Не перезаписываем хранилище пустым состоянием, если данные существовали,
+    // но не смогли распарситься — иначе сбой чтения уничтожит базу.
+    if (!hadData) {
+      this.saveStateDirectly(emptyState);
+    }
     return emptyState;
   }
 
@@ -49,9 +91,17 @@ class Store {
 
   saveStateDirectly(state) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      const json = JSON.stringify(state);
+      if (this.hasFileStorage()) {
+        window.weStorage.save(json);
+        // Файл — единственный источник истины: подчищаем legacy-копию,
+        // чтобы миграция не «воскресила» данные после их явного сброса.
+        try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+      } else {
+        localStorage.setItem(STORAGE_KEY, json);
+      }
     } catch (e) {
-      console.error('Failed to save state to localStorage', e);
+      console.error('Failed to save state', e);
     }
   }
 

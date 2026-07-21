@@ -1,4 +1,5 @@
 // WE Time Tracker Dashboard Analytics Module
+import Chart from 'chart.js/auto';
 import { store } from './store.js';
 
 let projectChartInstance = null;

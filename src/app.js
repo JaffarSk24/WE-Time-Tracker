@@ -1,4 +1,5 @@
 // WE Time Tracker - Main Application entry point
+import { createIcons, icons } from 'lucide';
 import { store } from './store.js';
 import { translatePage, t } from './i18n.js';
 import { initTimer, updateTimerDropdowns, refreshTimerUI } from './timer.js';
@@ -6,6 +7,10 @@ import { initDashboard, renderDashboard } from './dashboard.js';
 import { initClients, renderClients } from './clients.js';
 import { initReports, renderReports, updateReportsDropdowns } from './reports.js';
 import { initSettings } from './settings.js';
+
+// Lucide бандлится локально (без CDN); сохраняем существующий глобальный API,
+// которым пользуются все модули через window.lucide.createIcons().
+window.lucide = { createIcons: () => createIcons({ icons }) };
 
 // Setup current date in header
 function updateHeaderDate() {
@@ -129,6 +134,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const yearEl = document.getElementById('current-year');
   if (yearEl) {
     yearEl.textContent = new Date().getFullYear();
+  }
+
+  // App version from package.json (injected by Vite)
+  const versionEl = document.getElementById('app-version');
+  if (versionEl && typeof __APP_VERSION__ !== 'undefined') {
+    versionEl.textContent = 'v' + __APP_VERSION__;
   }
 
   // Navigation
