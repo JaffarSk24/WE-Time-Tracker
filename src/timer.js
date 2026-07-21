@@ -173,11 +173,11 @@ export function refreshTimerUI() {
     pauseBtn.style.display = 'inline-flex';
     
     if (activeTimer.isPaused) {
-      pauseBtn.textContent = currentLang === 'ru' ? 'Продолжить' : 'Resume';
+      pauseBtn.textContent = t('timer-resume');
       pauseBtn.setAttribute('data-i18n', 'timer-resume');
       pauseBtn.className = 'btn btn-timer btn-timer-start';
     } else {
-      pauseBtn.textContent = currentLang === 'ru' ? 'Пауза' : 'Pause';
+      pauseBtn.textContent = t('timer-pause');
       pauseBtn.setAttribute('data-i18n', 'timer-pause');
       pauseBtn.className = 'btn btn-timer btn-timer-pause';
     }
