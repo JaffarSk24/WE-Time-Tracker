@@ -1,7 +1,7 @@
 // WE Time Tracker - Main Application entry point
 import { store } from './store.js';
 import { translatePage, t } from './i18n.js';
-import { initTimer, updateTimerDropdowns } from './timer.js';
+import { initTimer, updateTimerDropdowns, refreshTimerUI } from './timer.js';
 import { initDashboard, renderDashboard } from './dashboard.js';
 import { initClients, renderClients } from './clients.js';
 import { initReports, renderReports, updateReportsDropdowns } from './reports.js';
@@ -60,6 +60,7 @@ export function triggerViewRender(panelId) {
   switch (panelId) {
     case 'timer-view':
       updateHeaderDate();
+      refreshTimerUI();
       break;
     case 'dashboard-view':
       renderDashboard();

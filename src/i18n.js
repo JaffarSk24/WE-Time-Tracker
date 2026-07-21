@@ -12,14 +12,14 @@ export const translations = {
     'nav-settings': 'Настройки',
 
     // Timer
-    'timer-placeholder': 'Над чем вы работаете в данный момент?',
+    'timer-placeholder': 'Описание задачи',
     'timer-client-placeholder': 'Выберите клиента',
     'timer-project-placeholder': 'Выберите проект (опционально)',
     'timer-billable': 'Требует оплаты',
     'timer-start': 'Старт',
     'timer-stop': 'Стоп',
     'timer-pause': 'Пауза',
-    'timer-resume': 'Продолжить',
+    'timer-resume': 'Далее',
     'timer-cancel': 'Отмена',
     'timer-running': 'Таймер запущен...',
     'timer-manual-title': 'Ввод вручную',
@@ -149,7 +149,7 @@ export const translations = {
     'nav-settings': 'Settings',
 
     // Timer
-    'timer-placeholder': 'What are you working on right now?',
+    'timer-placeholder': 'Task description',
     'timer-client-placeholder': 'Select client',
     'timer-project-placeholder': 'Select project (optional)',
     'timer-billable': 'Requires Payment',

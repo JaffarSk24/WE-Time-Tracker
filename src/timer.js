@@ -70,18 +70,23 @@ export function updateTimerDropdowns() {
   
   // Save currently selected values
   const activeTimer = store.getActiveTimer();
-  const selectedTimerClient = activeTimer ? activeTimer.clientId : timerClient.value;
-  const selectedManualClient = manualClient.value;
+  const selectedTimerClient = activeTimer ? activeTimer.clientId : (timerClient ? timerClient.value : '');
+  const selectedManualClient = manualClient ? manualClient.value : '';
   
   fillSelect(timerClient, clients, clientPlaceholder, selectedTimerClient);
   fillSelect(manualClient, clients, clientPlaceholder, selectedManualClient);
   
   // Trigger project updates if client was selected
-  updateProjectDropdown('timer');
-  updateProjectDropdown('manual');
+  const timerProjSelect = document.getElementById('timer-project-select');
+  const manualProjSelect = document.getElementById('manual-project-select');
+  const selectedTimerProject = activeTimer ? activeTimer.projectId : (timerProjSelect ? timerProjSelect.value : '');
+  const selectedManualProject = manualProjSelect ? manualProjSelect.value : '';
+  
+  updateProjectDropdown('timer', selectedTimerProject);
+  updateProjectDropdown('manual', selectedManualProject);
 }
 
-function updateProjectDropdown(prefix) {
+function updateProjectDropdown(prefix, selectedProjectId = null) {
   const clientSelect = document.getElementById(`${prefix}-client-select`);
   const projSelect = document.getElementById(`${prefix}-project-select`);
   if (!clientSelect || !projSelect) return;
@@ -92,7 +97,7 @@ function updateProjectDropdown(prefix) {
   
   if (clientId) {
     const projects = store.getProjects(clientId);
-    fillSelect(projSelect, projects, projPlaceholder);
+    fillSelect(projSelect, projects, projPlaceholder, selectedProjectId);
     projSelect.disabled = false;
   } else {
     projSelect.innerHTML = `<option value="">${projPlaceholder}</option>`;
@@ -147,7 +152,7 @@ function stopTimerTicking() {
 }
 
 // Update the look of the start/stop button based on active timer status
-function refreshTimerUI() {
+export function refreshTimerUI() {
   const activeTimer = store.getActiveTimer();
   const toggleBtn = document.getElementById('timer-toggle-btn');
   const pauseBtn = document.getElementById('timer-pause-btn');
