@@ -15,7 +15,7 @@ import {
 
 let timerInterval = null;
 
-// Синхронизация состояния таймера с main-процессом (menubar/tray).
+// Sync timer state with the main process (menubar/tray).
 function syncTrayTimer() {
   if (!window.weTimer) return;
   const timer = store.getActiveTimer();
@@ -28,7 +28,7 @@ function syncTrayTimer() {
     isPaused: !!timer.isPaused,
     startTime: timer.startTime,
     accumulatedTime: timer.accumulatedTime || 0,
-    // Для остановки таймера из tray при закрытом окне (main пишет лог сам)
+    // For stopping the timer from the tray with the window closed (main writes the log itself)
     clientId: timer.clientId || null,
     projectId: timer.projectId || null,
     billable: timer.billable !== undefined ? timer.billable : true,
@@ -36,7 +36,7 @@ function syncTrayTimer() {
   });
 }
 
-// Set manual inputs default times (ЛОКАЛЬНОЕ время, не UTC)
+// Set manual inputs default times (LOCAL time, not UTC)
 function setDefaultManualTimes() {
   const startEl = document.getElementById('manual-start');
   const endEl = document.getElementById('manual-end');
@@ -195,7 +195,7 @@ export function renderTodayLogs() {
       <div class="today-log-meta">${escapeHtml(client ? client.name : '')}${proj ? ' · ' + escapeHtml(proj.name) : ''}</div>
       <div class="today-log-time">${startStr}–${endStr}</div>
       <div class="today-log-duration">${formatDurationHMS(durationMs)}</div>
-      <button class="btn-icon today-play-btn" data-id="${log.id}" title="${lang === 'ru' ? 'Запустить снова' : 'Start again'}"><i data-lucide="play"></i></button>
+      <button class="btn-icon today-play-btn" data-id="${log.id}" title="${t('restart-timer')}"><i data-lucide="play"></i></button>
     `;
     container.appendChild(row);
   });
@@ -350,9 +350,7 @@ export function initTimer() {
 
   // Cancel Timer Button
   cancelBtn.addEventListener('click', () => {
-    if (confirm(store.getSettings().language === 'ru'
-      ? 'Вы уверены, что хотите отменить текущий таймер? Время не сохранится.'
-      : 'Are you sure you want to cancel the current timer? Time will not be saved.')) {
+    if (confirm(t('cancel-timer-confirm'))) {
       store.cancelTimer();
       document.getElementById('timer-desc').value = '';
       refreshTimerUI();
@@ -404,7 +402,7 @@ export function initTimer() {
     renderTodayLogs();
   });
 
-  // Остановка таймера из tray-меню (main-процесс)
+  // Stop the timer from the tray menu (main process)
   if (window.weTimer && window.weTimer.onStopRequest) {
     window.weTimer.onStopRequest(() => {
       if (store.getActiveTimer()) {

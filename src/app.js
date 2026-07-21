@@ -1,5 +1,5 @@
 // WE Time Tracker - Main Application entry point
-// Локальные шрифты (без Google Fonts CDN — приложение работает офлайн)
+// Local fonts (no Google Fonts CDN — the app works offline)
 import '@fontsource/inter/300.css';
 import '@fontsource/inter/400.css';
 import '@fontsource/inter/500.css';
@@ -10,7 +10,14 @@ import '@fontsource/outfit/500.css';
 import '@fontsource/outfit/600.css';
 import '@fontsource/outfit/700.css';
 import '@fontsource/outfit/800.css';
-import { createIcons, icons } from 'lucide';
+// Import only the icons actually used (tree-shaken) instead of the whole Lucide set
+import {
+  createIcons,
+  BarChart3, Briefcase, Building, CalendarX, CheckCircle, Clock, Code, Database,
+  Download, DownloadCloud, Edit2, Euro, ExternalLink, FileSpreadsheet, Folder,
+  FolderGit2, Globe, Inbox, MinusCircle, Palette, Play, PlayCircle, Plus,
+  RefreshCw, Search, Settings, Trash2, UploadCloud, Users, Wallet, X
+} from 'lucide';
 import { store } from './store.js';
 import { translatePage } from './i18n.js';
 import { initTimer, updateTimerDropdowns, refreshTimerUI } from './timer.js';
@@ -19,9 +26,15 @@ import { initClients, renderClients } from './clients.js';
 import { initReports, renderReports, updateReportsDropdowns } from './reports.js';
 import { initSettings } from './settings.js';
 
-// Lucide бандлится локально (без CDN); сохраняем существующий глобальный API,
-// которым пользуются все модули через window.lucide.createIcons().
-window.lucide = { createIcons: () => createIcons({ icons }) };
+// Lucide is bundled locally (no CDN); keep the existing global API that all
+// modules use via window.lucide.createIcons(). Only the used icons are registered.
+const usedIcons = {
+  BarChart3, Briefcase, Building, CalendarX, CheckCircle, Clock, Code, Database,
+  Download, DownloadCloud, Edit2, Euro, ExternalLink, FileSpreadsheet, Folder,
+  FolderGit2, Globe, Inbox, MinusCircle, Palette, Play, PlayCircle, Plus,
+  RefreshCw, Search, Settings, Trash2, UploadCloud, Users, Wallet, X
+};
+window.lucide = { createIcons: () => createIcons({ icons: usedIcons }) };
 
 // Setup current date in header
 function updateHeaderDate() {
@@ -68,8 +81,8 @@ function initNavigation() {
         }
       });
 
-      // Сброс скролла: без этого при переходе с прокрученной вкладки
-      // новая открывалась "в середине" (видели чёрный экран)
+      // Reset scroll: without this, switching from a scrolled view opened the
+      // next one "in the middle" (users saw a black screen)
       window.scrollTo(0, 0);
       const main = document.querySelector('main');
       if (main) main.scrollTo(0, 0);
@@ -77,8 +90,8 @@ function initNavigation() {
   });
 }
 
-// Клавиатура и клик-мимо для модальных окон:
-// Esc — закрыть, Enter — сохранить, клик по затемнению — закрыть.
+// Keyboard and click-outside for modals:
+// Esc — close, Enter — save, click on the backdrop — close.
 function initModalUX() {
   const modals = document.querySelectorAll('.modal-overlay');
 

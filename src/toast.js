@@ -1,6 +1,6 @@
-// WE Time Tracker — лёгкие тосты вместо блокирующих alert().
+// WE Time Tracker — lightweight toasts instead of blocking alert().
 // showToast(message, { type: 'success'|'error'|'info', actionLabel, onAction, duration })
-// Кнопка действия (например «Отменить») даёт undo без confirm-диалогов.
+// An action button (e.g. 'Undo') provides undo without confirm dialogs.
 
 let container = null;
 

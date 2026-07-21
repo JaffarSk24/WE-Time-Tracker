@@ -14,16 +14,16 @@ class Store {
     this.listeners = [];
   }
 
-  // В Electron данные живут в JSON-файле (userData) через preload-мост weStorage:
-  // файл переживает переустановку приложения и смену версии/порта.
-  // localStorage остаётся fallback-ом для браузерного режима и источником
-  // одноразовой миграции данных старых версий.
+  // In Electron, data lives in a JSON file (userData) via the weStorage preload bridge:
+  // the file survives app reinstalls and version/port changes.
+  // localStorage remains a fallback for browser mode and a one-time migration
+  // source for data from older versions.
   hasFileStorage() {
     return typeof window !== 'undefined' && !!window.weStorage;
   }
 
-  // Пустое состояние (нет ни клиентов, ни проектов, ни логов) — не считается
-  // данными: сравнение нужно для самовосстанавливающейся миграции ниже.
+  // Empty state (no clients, projects or logs) is not treated as data:
+  // this check drives the self-healing migration below.
   isEmptyStateJson(json) {
     try {
       const p = JSON.parse(json);
@@ -39,10 +39,10 @@ class Store {
       let data = null;
       if (this.hasFileStorage()) {
         data = window.weStorage.load();
-        // Миграция со старых версий, хранивших данные в localStorage.
-        // Срабатывает и при пустом файле: если первый запуск случился на
-        // "чужом" порту (пустой localStorage), настоящие данные подхватятся
-        // при следующем запуске на правильном origin.
+        // Migration from older versions that stored data in localStorage.
+        // Also runs on an empty file: if the first launch happened on a
+        // "foreign" port (empty localStorage), the real data is picked up
+        // on the next launch at the correct origin.
         if (!data || this.isEmptyStateJson(data)) {
           const legacy = localStorage.getItem(STORAGE_KEY);
           if (legacy && !this.isEmptyStateJson(legacy)) {
@@ -76,18 +76,18 @@ class Store {
       settings: { ...DEFAULT_SETTINGS },
       activeTimer: null
     };
-    // Не перезаписываем хранилище пустым состоянием, если данные существовали,
-    // но не смогли распарситься — иначе сбой чтения уничтожит базу.
+    // Do not overwrite storage with empty state if data existed but failed to
+    // parse — otherwise a read failure would destroy the database.
     if (!hadData) {
       this.saveStateDirectly(emptyState);
     }
     return emptyState;
   }
 
-  // Миграция модели оплат: раньше «Пометить оплаченными» ставило billable=false,
-  // из-за чего оплаченные записи выпадали из «Всего заработано». Теперь paid —
-  // отдельное поле; старые записи с billable=false считаем оплаченными
-  // (в старом UI это был единственный смысл billable=false).
+  // Payment-model migration: 'Mark as paid' used to set billable=false, which
+  // dropped paid entries out of 'Total Earnings'. Now paid is a separate field;
+  // legacy entries with billable=false are treated as paid
+  // (that was the only meaning of billable=false in the old UI).
   normalizeLog(log) {
     if (log.paid === undefined) {
       return { ...log, billable: true, paid: log.billable === false };
@@ -95,7 +95,7 @@ class Store {
     return log;
   }
 
-  // Гарантируем массив платежей у клиента (старые данные его не имели).
+  // Ensure the client has a payments array (older data lacked it).
   normalizeClient(client) {
     if (!Array.isArray(client.payments)) {
       return { ...client, payments: [] };
@@ -113,9 +113,9 @@ class Store {
       const json = JSON.stringify(state);
       if (this.hasFileStorage()) {
         window.weStorage.save(json);
-        // Файл — единственный источник истины: подчищаем legacy-копию,
-        // чтобы миграция не «воскресила» данные после их явного сброса.
-        try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* браузерный fallback недоступен — не критично */ }
+        // The file is the single source of truth: clear the legacy copy so the
+        // migration doesn't 'resurrect' data after an explicit reset.
+        try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* browser fallback unavailable — non-critical */ }
       } else {
         localStorage.setItem(STORAGE_KEY, json);
       }
@@ -151,7 +151,7 @@ class Store {
   updateClient(id, name, defaultRate) {
     const clientIndex = this.state.clients.findIndex(c => c.id === id);
     if (clientIndex !== -1) {
-      // Сохраняем леджер платежей — не пересоздаём объект с нуля
+      // Preserve the payments ledger — don't rebuild the object from scratch
       this.state.clients[clientIndex] = {
         ...this.state.clients[clientIndex],
         name: name.trim(),
@@ -240,8 +240,8 @@ class Store {
   }
 
   // --- Payments / Deposits API ---
-  // Клиент ведёт леджер платежей. Баланс = получено − наработано (billable).
-  // balance < 0 → долг; balance > 0 → аванс/депозит; ~0 → расчёт закрыт.
+  // Each client keeps a payment ledger. Balance = received − billed work.
+  // balance < 0 → debt; balance > 0 → advance/deposit; ~0 → settled up.
   addPayment(clientId, amount, note = '', date = null) {
     const client = this.state.clients.find(c => c.id === clientId);
     if (!client) return null;
@@ -269,7 +269,7 @@ class Store {
     return client && Array.isArray(client.payments) ? client.payments : [];
   }
 
-  // Наработано клиентом (billable), с округлением до 5-минутных блоков.
+  // Billed to the client (billable), rounded up to 5-minute blocks.
   getBilledAmount(clientId) {
     const BLOCK = 5 * 60000;
     let billed = 0;
@@ -285,7 +285,7 @@ class Store {
     return billed;
   }
 
-  // Баланс клиента: {billed, paid, balance}. balance>0 — аванс, <0 — долг.
+  // Client balance: {billed, paid, balance}. balance>0 advance, <0 debt.
   getClientBalance(clientId) {
     const billed = this.getBilledAmount(clientId);
     const paid = this.getPayments(clientId).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
@@ -312,11 +312,11 @@ class Store {
       paid: log.paid !== undefined ? log.paid : false,
       rateAtTime
     };
-    // Честная отработанная длительность: если из-за пауз она короче
-    // интервала startTime..endTime, храним её явно (см. logDurationMs в utils).
+    // Honest worked duration: if pauses make it shorter than the
+    // startTime..endTime span, store it explicitly (see logDurationMs in utils).
     if (log.durationMs !== undefined && log.durationMs !== null) {
       const spanMs = new Date(log.endTime) - new Date(log.startTime);
-      // Сохраняем только если реально отличается от интервала (была пауза)
+      // Store only if it actually differs from the span (there was a pause)
       if (Math.abs(spanMs - log.durationMs) > 1000) {
         newLog.durationMs = log.durationMs;
       }
@@ -350,8 +350,8 @@ class Store {
         paid: updatedLog.paid !== undefined ? updatedLog.paid : existing.paid,
         rateAtTime: rate
       };
-      // Ручное редактирование времени задаёт непрерывный интервал —
-      // сбрасываем сохранённую durationMs (иначе она бы устарела).
+      // Manual time editing implies a continuous interval — clear the stored
+      // durationMs (otherwise it would go stale).
       if (updatedLog.startTime || updatedLog.endTime) {
         delete merged.durationMs;
       }
@@ -362,7 +362,7 @@ class Store {
     return false;
   }
 
-  // Возвращает удалённые записи — для undo через restoreTimeLogs().
+  // Returns the removed logs — for undo via restoreTimeLogs().
   deleteTimeLog(id) {
     return this.deleteTimeLogs([id]);
   }
@@ -376,7 +376,7 @@ class Store {
     return removed;
   }
 
-  // Восстановление ранее удалённых записей (undo) с исходными id.
+  // Restore previously deleted logs (undo) with their original ids.
   restoreTimeLogs(logs) {
     if (!logs || logs.length === 0) return;
     const existingIds = new Set(this.state.timeLogs.map(l => l.id));
@@ -388,7 +388,7 @@ class Store {
     this.saveState();
   }
 
-  // Батч-отметка «оплачено»: одна запись состояния вместо N.
+  // Batch 'paid' toggle: a single state write instead of N.
   setLogsPaid(ids, paid = true) {
     const idSet = new Set(ids);
     let changed = false;
@@ -415,7 +415,7 @@ class Store {
       clientId: clientId || null,
       projectId: projectId || null,
       startTime: nowIso,
-      // Реальный момент старта — сохраняется через паузы для честного времени
+      // Real start moment — preserved across pauses for honest timing
       originalStartTime: nowIso,
       billable,
       isPaused: false,
@@ -457,8 +457,8 @@ class Store {
     }
 
     const endTime = new Date().toISOString();
-    // Реальное время старта сохраняется (через паузы); durationMs несёт
-    // фактически отработанное время, если оно короче интервала из-за пауз.
+    // The real start time is preserved (across pauses); durationMs carries the
+    // actually worked time when it's shorter than the span due to pauses.
     const startTime = timer.originalStartTime
       || new Date(new Date(endTime).getTime() - totalDuration).toISOString();
     const rateAtTime = this.getRate(timer.clientId, timer.projectId);

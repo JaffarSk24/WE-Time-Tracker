@@ -43,9 +43,8 @@ export function renderClients() {
     const card = document.createElement('div');
     card.className = 'entity-card';
     
-    const isRu = store.getSettings().language === 'ru';
 
-    // Баланс клиента: получено − наработано. >0 аванс, <0 долг, ~0 закрыт.
+    // Client balance: received − billed. >0 advance, <0 debt, ~0 settled.
     const { balance } = store.getClientBalance(client.id);
     let balanceText, balanceColor;
     if (balance < -0.005) {
@@ -65,7 +64,7 @@ export function renderClients() {
         <div class="entity-meta">ID: ${client.id.substring(7, 15)}...</div>
       </div>
       <div>
-        <div class="entity-rate">${client.defaultRate} € / ${isRu ? 'час' : 'hour'}</div>
+        <div class="entity-rate">${client.defaultRate} € / ${t('per-hour')}</div>
         <div style="font-size: 0.8rem; font-weight: 600; color: ${balanceColor}; margin-top: 4px;">
           ${balanceText}
         </div>
@@ -132,10 +131,9 @@ export function renderProjects() {
     const client = clients.find(c => c.id === proj.clientId);
     const clientName = client ? client.name : t('unknown-client');
     
-    const isRu = store.getSettings().language === 'ru';
     const rateText = proj.rate > 0 
-      ? `${proj.rate} € / ${isRu ? 'час' : 'hour'}`
-      : `${t('edit')} (0) ➔ ${store.getRate(proj.clientId, null)} € (${isRu ? 'наследует' : 'inherits'})`;
+      ? `${proj.rate} € / ${t('per-hour')}`
+      : `${t('edit')} (0) ➔ ${store.getRate(proj.clientId, null)} € (${t('inherits')})`;
     
     card.innerHTML = `
       <div>
@@ -185,17 +183,16 @@ function openClientModal(id = null) {
   const nameInput = document.getElementById('client-modal-name');
   const rateInput = document.getElementById('client-modal-rate');
   
-  const isRu = store.getSettings().language === 'ru';
   
   if (id) {
-    title.textContent = isRu ? 'Редактировать клиента' : 'Edit Client';
+    title.textContent = t('edit-client-title');
     const client = store.getClients().find(c => c.id === id);
     if (client) {
       nameInput.value = client.name;
       rateInput.value = client.defaultRate;
     }
   } else {
-    title.textContent = isRu ? 'Добавить клиента' : 'Add Client';
+    title.textContent = t('add-client-title');
     nameInput.value = '';
     rateInput.value = '0';
   }
@@ -210,7 +207,6 @@ function closeClientModal() {
 
 function openProjectModal(id = null) {
   const clients = store.getClients();
-  const isRu = store.getSettings().language === 'ru';
   
   if (clients.length === 0) {
     alert(t('no-clients-warning'));
@@ -224,7 +220,7 @@ function openProjectModal(id = null) {
   const rateInput = document.getElementById('project-modal-rate');
   
   if (id) {
-    title.textContent = isRu ? 'Редактировать проект' : 'Edit Project';
+    title.textContent = t('edit-project-title');
     const proj = store.getProjects().find(p => p.id === id);
     if (proj) {
       nameInput.value = proj.name;
@@ -232,7 +228,7 @@ function openProjectModal(id = null) {
       rateInput.value = proj.rate;
     }
   } else {
-    title.textContent = isRu ? 'Добавить проект' : 'Add Project';
+    title.textContent = t('add-project-title');
     nameInput.value = '';
     populateProjectModalClients();
     rateInput.value = '0';
@@ -267,7 +263,7 @@ function renderPaymentsModal() {
   const locale = lang === 'ru' ? 'ru-RU' : 'en-US';
   const { billed, paid, balance } = store.getClientBalance(paymentsClientId);
 
-  // Сводка баланса
+  // Balance summary
   document.getElementById('payments-billed').textContent = `${billed.toFixed(2)} €`;
   document.getElementById('payments-paid').textContent = `${paid.toFixed(2)} €`;
 
@@ -283,7 +279,7 @@ function renderPaymentsModal() {
     balanceEl.style.color = 'var(--settled-color)';
   }
 
-  // Список платежей (свежие сверху)
+  // Payments list (newest first)
   const listEl = document.getElementById('payments-list');
   const payments = [...store.getPayments(paymentsClientId)].sort((a, b) => new Date(b.date) - new Date(a.date));
 
@@ -361,7 +357,7 @@ export function initClients() {
     const rate = document.getElementById('client-modal-rate').value;
     
     if (!name.trim()) {
-      showToast(store.getSettings().language === 'ru' ? 'Введите название клиента!' : 'Enter client name!', { type: 'error' });
+      showToast(t('enter-client-name'), { type: 'error' });
       return;
     }
 
@@ -388,7 +384,7 @@ export function initClients() {
     const rate = document.getElementById('project-modal-rate').value;
     
     if (!name.trim()) {
-      showToast(store.getSettings().language === 'ru' ? 'Введите название проекта!' : 'Enter project name!', { type: 'error' });
+      showToast(t('enter-project-name'), { type: 'error' });
       return;
     }
 
@@ -412,10 +408,9 @@ export function initClients() {
     const amountVal = document.getElementById('payment-amount').value;
     const amount = Number(amountVal);
     const note = document.getElementById('payment-note').value;
-    const isRu = store.getSettings().language === 'ru';
 
     if (!amountVal || isNaN(amount) || amount <= 0) {
-      showToast(isRu ? 'Введите сумму больше нуля!' : 'Enter an amount greater than zero!', { type: 'error' });
+      showToast(t('enter-positive-amount'), { type: 'error' });
       return;
     }
 

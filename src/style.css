@@ -1,5 +1,5 @@
 /* WE Time Tracker Premium CSS Design System */
-/* Шрифты Inter/Outfit подключаются локально через @fontsource в src/app.js */
+/* Inter/Outfit fonts are loaded locally via @fontsource in src/app.js */
 
 :root {
   --bg-primary: #090b11;
@@ -43,7 +43,7 @@
   --sidebar-width: 260px;
   --bg-sidebar: rgba(10, 12, 18, 0.85);
 
-  /* Semantic surface tokens (flip between themes — см. AGENTS.md: тема только через переменные) */
+  /* Semantic surface tokens (flip between themes; theming happens only through variables) */
   --input-bg: rgba(10, 12, 18, 0.5);
   --overlay-01: rgba(255, 255, 255, 0.01);
   --overlay-02: rgba(255, 255, 255, 0.02);
@@ -120,8 +120,8 @@
   background-color: rgba(15, 23, 42, 0.04);
 }
 
-/* Большинство светлых переопределений теперь через surface-токены выше.
-   Здесь остаются только структурно-специфичные для светлой темы правила. */
+/* Most light-theme overrides now go through the surface tokens above.
+   Only structurally light-specific rules remain here. */
 [data-theme="light"] .timer-widget {
   background: var(--bg-card);
   border-color: var(--border-color);
@@ -1631,7 +1631,7 @@ textarea:focus {
   font-size: 0.88rem;
 }
 
-/* Статус "не оплачивается" в отчетах */
+/* "Non-billable" status in reports */
 .log-item-billable-icon.free-status { color: var(--text-muted, #64748b); }
 
 /* ==================== PAYMENTS / DEPOSITS MODAL ==================== */
@@ -1642,6 +1642,7 @@ textarea:focus {
 }
 .payments-summary-item {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1655,11 +1656,13 @@ textarea:focus {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-muted);
+  white-space: nowrap;
 }
 .payments-summary-value {
   font-family: 'Outfit', sans-serif;
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 1rem;
+  white-space: nowrap;
 }
 
 .payment-add-row {
@@ -1668,6 +1671,14 @@ textarea:focus {
   align-items: flex-end;
   margin-bottom: 16px;
   flex-wrap: wrap;
+}
+/* Drop field bottom-margin inside the row so the button bottom-aligns with the inputs */
+.payment-add-row .form-group {
+  margin-bottom: 0;
+}
+.payment-add-row .btn {
+  margin-bottom: 0;
+  white-space: nowrap;
 }
 
 .payments-list {
@@ -1711,4 +1722,23 @@ textarea:focus {
 .payment-note {
   font-size: 0.85rem;
   color: var(--text-secondary);
+}
+
+/* Input with a currency suffix (e.g. € inside the amount field) */
+.input-with-suffix {
+  position: relative;
+  display: block;
+}
+.input-with-suffix input {
+  padding-right: 30px;
+  width: 100%;
+}
+.input-with-suffix .input-suffix {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  pointer-events: none;
 }

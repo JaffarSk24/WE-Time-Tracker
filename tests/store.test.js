@@ -108,12 +108,12 @@ describe('timer', () => {
 describe('payments & deposits', () => {
   it('debt = billed − paid (negative balance)', () => {
     const c = store.addClient('Acme', 60);
-    // 1 час billable = 60 €
+    // 1 hour billable = 60 €
     store.addTimeLog({ clientId: c.id, startTime: '2026-07-01T10:00:00Z', endTime: '2026-07-01T11:00:00Z' });
     let bal = store.getClientBalance(c.id);
     expect(bal.billed).toBeCloseTo(60);
     expect(bal.paid).toBe(0);
-    expect(bal.balance).toBeCloseTo(-60); // долг 60
+    expect(bal.balance).toBeCloseTo(-60); // debt 60
   });
 
   it('advance when payment exceeds billed work', () => {
@@ -121,12 +121,12 @@ describe('payments & deposits', () => {
     store.addTimeLog({ clientId: c.id, startTime: '2026-07-01T10:00:00Z', endTime: '2026-07-01T11:00:00Z' });
     store.addPayment(c.id, 100);
     const bal = store.getClientBalance(c.id);
-    expect(bal.balance).toBeCloseTo(40); // аванс 40
+    expect(bal.balance).toBeCloseTo(40); // advance 40
   });
 
   it('payment with no work is a pure deposit', () => {
     const c = store.addClient('Acme', 60);
-    store.addPayment(c.id, 200, 'предоплата');
+    store.addPayment(c.id, 200, 'prepayment');
     const bal = store.getClientBalance(c.id);
     expect(bal.balance).toBeCloseTo(200);
     expect(store.getPayments(c.id)).toHaveLength(1);
@@ -151,7 +151,7 @@ describe('payments & deposits', () => {
 describe('honest duration with pauses', () => {
   it('stores durationMs when shorter than the start-end span', () => {
     const c = store.addClient('Acme', 60);
-    // Интервал 2 часа, но отработано 1 час (была часовая пауза)
+    // 2-hour span, but 1 hour worked (there was a one-hour pause)
     const log = store.addTimeLog({
       clientId: c.id,
       startTime: '2026-07-01T10:00:00Z',
@@ -160,7 +160,7 @@ describe('honest duration with pauses', () => {
     });
     const stored = store.getTimeLogs().find(l => l.id === log.id);
     expect(stored.durationMs).toBe(3600000);
-    expect(logDurationMs(stored)).toBe(3600000); // отработанное, не интервал
+    expect(logDurationMs(stored)).toBe(3600000); // worked time, not the span
   });
 
   it('editing times clears stale durationMs', () => {
@@ -211,20 +211,20 @@ describe('import safety', () => {
 describe('utils', () => {
   it('billableHours rounds UP to 5-minute blocks', () => {
     expect(billableHours(0)).toBe(0);
-    expect(billableHours(60000)).toBeCloseTo(5 / 60);       // 1 мин -> 5 мин
-    expect(billableHours(5 * 60000)).toBeCloseTo(5 / 60);   // ровно 5 мин
-    expect(billableHours(6 * 60000)).toBeCloseTo(10 / 60);  // 6 мин -> 10 мин
-    expect(billableHours(3600000)).toBeCloseTo(1);          // ровно час
+    expect(billableHours(60000)).toBeCloseTo(5 / 60);       // 1 min -> 5 min
+    expect(billableHours(5 * 60000)).toBeCloseTo(5 / 60);   // exactly 5 min
+    expect(billableHours(6 * 60000)).toBeCloseTo(10 / 60);  // 6 min -> 10 min
+    expect(billableHours(3600000)).toBeCloseTo(1);          // exactly one hour
   });
 
   it('formatDurationShort never yields 60 minutes', () => {
     expect(formatDurationShort(1.9999, 'en')).toBe('2h 0m');
-    expect(formatDurationShort(1.999, 'ru')).toBe('2ч 0м');
+    expect(formatDurationShort(1.999, 'ru')).toBe('2ч 0м'); // RU localized output
     expect(formatDurationShort(2.25, 'en')).toBe('2h 15m');
   });
 
   it('localDayKey uses local date parts', () => {
-    const d = new Date(2026, 6, 21, 0, 30); // 21 июля 00:30 локального времени
+    const d = new Date(2026, 6, 21, 0, 30); // July 21, 00:30 local time
     expect(localDayKey(d)).toBe('2026-07-21');
   });
 

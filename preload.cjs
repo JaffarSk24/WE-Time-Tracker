@@ -1,10 +1,10 @@
-// Preload: безопасный мост между рендерером и main-процессом.
-// weStorage — файловое хранилище данных (userData/we-tracker-data.json),
-// weTimer — синхронизация активного таймера с menubar (tray).
+// Preload: safe bridge between the renderer and the main process.
+// weStorage — file-based data storage (userData/we-tracker-data.json),
+// weTimer — syncs the active timer with the menubar (tray).
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('weStorage', {
-  // Синхронное чтение при старте: store.js инициализируется до первого рендера.
+  // Synchronous read at startup: store.js initializes before the first render.
   load: () => ipcRenderer.sendSync('storage:load'),
   save: (json) => ipcRenderer.send('storage:save', json)
 });

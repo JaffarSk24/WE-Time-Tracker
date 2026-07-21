@@ -30,7 +30,7 @@ function formatDateReadable(dayKey, lang) {
   }
 }
 
-// Денежная сумма записи: округление длительности вверх до 5-минутных блоков.
+// Entry amount: duration rounded up to 5-minute blocks.
 function logAmount(log) {
   if (!log.billable) return 0;
   return billableHours(logDurationMs(log)) * (log.rateAtTime || 0);
@@ -63,7 +63,7 @@ function updateReportsProjectDropdown(prefix) {
 
   if (clientId) {
     const projects = store.getProjects(clientId);
-    // Сохраняем текущий выбор: раньше фильтр проектов молча сбрасывался
+    // Keep the current selection: the project filter used to reset silently
     const selected = projSelect.value;
     const stillValid = projects.some(p => p.id === selected);
     fillSelect(projSelect, projects, placeholder, stillValid ? selected : null);
@@ -75,15 +75,6 @@ function updateReportsProjectDropdown(prefix) {
     opt.textContent = placeholder;
     projSelect.appendChild(opt);
     projSelect.disabled = true;
-  }
-}
-
-// Показ/скрытие полей произвольного периода
-function syncCustomRangeVisibility() {
-  const range = document.getElementById('filter-range-select').value;
-  const wrap = document.getElementById('custom-range-wrap');
-  if (wrap) {
-    wrap.style.display = range === 'custom' ? 'flex' : 'none';
   }
 }
 
@@ -115,7 +106,7 @@ function getFilteredLogs() {
     logs = logs.filter(l => !l.billable);
   }
 
-  // Date Range Filter (локальные границы дней)
+  // Date Range Filter (local day boundaries)
   const now = new Date();
   let startLimit = null;
   let endLimit = null;
@@ -131,17 +122,8 @@ function getFilteredLogs() {
     startLimit = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diff);
   } else if (range === 'month') {
     startLimit = new Date(now.getFullYear(), now.getMonth(), 1);
-  } else if (range === 'custom') {
-    const fromVal = document.getElementById('filter-range-from').value;
-    const toVal = document.getElementById('filter-range-to').value;
-    if (fromVal) {
-      startLimit = dayKeyToLocalDate(fromVal);
-    }
-    if (toVal) {
-      const toDate = dayKeyToLocalDate(toVal);
-      endLimit = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate() + 1, 0, 0, 0, -1);
-    }
   }
+  // 'all' — no limits
 
   if (startLimit) {
     logs = logs.filter(l => new Date(l.startTime) >= startLimit);
@@ -165,9 +147,8 @@ export function updateBulkState() {
 
   const count = checkedBoxes.length;
   const total = rowCheckboxes.length;
-  const lang = store.getSettings().language;
 
-  selectedCountEl.textContent = lang === 'ru' ? `Выбрано: ${count}` : `Selected: ${count}`;
+  selectedCountEl.textContent = `${t('selected-label')}: ${count}`;
 
   markPaidBtn.disabled = count === 0;
   deleteBtn.disabled = count === 0;
@@ -188,7 +169,7 @@ function getCheckedIds() {
   return [...document.querySelectorAll('.log-row-checkbox:checked')].map(cb => cb.getAttribute('data-id'));
 }
 
-// Иконка и подпись статуса оплаты записи
+// Icon and label for an entry's payment status
 function paymentStatus(log) {
   if (!log.billable) {
     return { icon: 'minus-circle', cls: 'free-status', title: t('not-billable') };
@@ -209,7 +190,6 @@ export function renderReports() {
   const projects = store.getProjects();
 
   const bulkBar = document.getElementById('bulk-actions-bar');
-  syncCustomRangeVisibility();
 
   // 1. Update Summary Stats
   let totalMs = 0;
@@ -231,7 +211,7 @@ export function renderReports() {
     container.innerHTML = `
       <div class="dash-empty-state card">
         <i data-lucide="calendar-x"></i>
-        <span>${lang === 'ru' ? 'Записи времени не найдены' : 'No time logs found'}</span>
+        <span>${t('no-logs-found')}</span>
       </div>
     `;
     if (window.lucide) window.lucide.createIcons();
@@ -242,7 +222,7 @@ export function renderReports() {
     bulkBar.style.display = 'flex';
   }
 
-  // Group logs by LOCAL day (не UTC-срез: записи у полуночи попадали не в тот день)
+  // Group logs by LOCAL day (not a UTC slice: midnight entries landed on the wrong day)
   const grouped = {};
   filteredLogs.forEach(log => {
     const dayKey = localDayKey(log.startTime);
@@ -327,7 +307,7 @@ export function renderReports() {
           ${log.billable ? `<span class="log-item-rate">${log.rateAtTime} €/h</span>` : ''}
         </div>
         <div class="log-item-actions">
-          <button class="btn-icon play-log-btn" data-id="${log.id}" title="${lang === 'ru' ? 'Запустить снова' : 'Start again'}"><i data-lucide="play"></i></button>
+          <button class="btn-icon play-log-btn" data-id="${log.id}" title="${t('restart-timer')}"><i data-lucide="play"></i></button>
           <button class="btn-icon edit-log-btn" data-id="${log.id}" title="${t('edit')}"><i data-lucide="edit-2"></i></button>
           <button class="btn-icon delete delete-log-btn" data-id="${log.id}" title="${t('delete')}"><i data-lucide="trash-2"></i></button>
         </div>
@@ -345,7 +325,7 @@ export function renderReports() {
       const id = btn.getAttribute('data-id');
       const log = store.getTimeLogs().find(l => l.id === id);
       if (log) {
-        // Сохраняем текущий активный таймер (если был) и запускаем новый
+        // Keep the current active timer (if any) and start a new one
         if (store.getActiveTimer()) {
           store.stopTimer();
         }
@@ -490,7 +470,7 @@ function exportToCSV() {
 
   // Headers
   let csvContent = isRu
-    ? 'Описание,Клиент,Проект,Начало,Конец,Длительность (Часы),Статус,Ставка (EUR/ч),Сумма (EUR)\r\n'
+    ? 'Описание,Клиент,Проект,Начало,Конец,Длительность (Часы),Статус,Ставка (EUR/ч),Сумма (EUR)\r\n' // RU CSV header (localized export content)
     : 'Description,Client,Project,Start,End,Duration (Hours),Status,Rate (EUR/h),Amount (EUR)\r\n';
 
   logs.forEach(log => {
@@ -548,8 +528,6 @@ export function initReports() {
   const projectFilter = document.getElementById('filter-project-select');
   const billableFilter = document.getElementById('filter-billable-select');
   const rangeFilter = document.getElementById('filter-range-select');
-  const rangeFrom = document.getElementById('filter-range-from');
-  const rangeTo = document.getElementById('filter-range-to');
 
   const editClient = document.getElementById('edit-log-client');
 
@@ -562,8 +540,6 @@ export function initReports() {
   projectFilter.addEventListener('change', renderReports);
   billableFilter.addEventListener('change', renderReports);
   rangeFilter.addEventListener('change', renderReports);
-  if (rangeFrom) rangeFrom.addEventListener('change', renderReports);
-  if (rangeTo) rangeTo.addEventListener('change', renderReports);
 
   // Edit modal event
   editClient.addEventListener('change', () => {
@@ -636,5 +612,4 @@ export function initReports() {
 
   // Populates selector filters initially
   updateReportsDropdowns();
-  syncCustomRangeVisibility();
 }

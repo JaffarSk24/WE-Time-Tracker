@@ -2,6 +2,7 @@
 import Chart from 'chart.js/auto';
 import { store } from './store.js';
 import { billableHours, formatDurationShort, logDurationMs } from './utils.js';
+import { t } from './i18n.js';
 
 let projectChartInstance = null;
 let clientChartInstance = null;
@@ -23,8 +24,8 @@ const CHART_BORDERS = [
   '#6366f1', '#00f2fe', '#10b981', '#f59e0b', '#f43f5e', '#a855f7', '#3b82f6'
 ];
 
-// Цвета для произвольного числа категорий: первые 7 — фирменная палитра,
-// далее — детерминированно по золотому углу (равномерно по цветовому кругу).
+// Colors for any number of categories: first 7 from the brand palette,
+// then deterministically by the golden angle (evenly around the color wheel).
 function buildPalette(count) {
   const fills = [];
   const borders = [];
@@ -33,7 +34,7 @@ function buildPalette(count) {
       fills.push(CHART_COLORS[i]);
       borders.push(CHART_BORDERS[i]);
     } else {
-      const hue = (i * 137.508) % 360; // золотой угол
+      const hue = (i * 137.508) % 360; // golden angle
       fills.push(`hsla(${hue}, 70%, 60%, 0.85)`);
       borders.push(`hsl(${hue}, 70%, 55%)`);
     }
@@ -49,8 +50,8 @@ function calculateStats(logs) {
     const durationMs = logDurationMs(log);
     totalHours += durationMs / 3600000;
 
-    // Заработано = все оплачиваемые записи (и оплаченные, и ожидающие оплаты);
-    // сумма считается с округлением до 5-минутных блоков.
+    // Earned = all billable entries (both paid and awaiting payment);
+    // the amount is rounded to 5-minute blocks.
     if (log.billable) {
       totalEarnings += billableHours(durationMs) * (log.rateAtTime || 0);
     }
@@ -111,10 +112,10 @@ export function renderDashboard() {
   
   Object.keys(projectTimes).forEach(projId => {
     if (projId === 'none') {
-      projectLabels.push(lang === 'ru' ? 'Без проекта' : 'No Project');
+      projectLabels.push(t('no-project'));
     } else {
       const proj = projects.find(p => p.id === projId);
-      projectLabels.push(proj ? proj.name : (lang === 'ru' ? 'Удаленный проект' : 'Deleted Project'));
+      projectLabels.push(proj ? proj.name : t('deleted-project'));
     }
     projectData.push(Number(projectTimes[projId].toFixed(2)));
   });
@@ -134,10 +135,10 @@ export function renderDashboard() {
   
   Object.keys(clientTimes).forEach(cId => {
     if (cId === 'none') {
-      clientLabels.push(lang === 'ru' ? 'Без клиента' : 'No Client');
+      clientLabels.push(t('no-client'));
     } else {
       const client = clients.find(c => c.id === cId);
-      clientLabels.push(client ? client.name : (lang === 'ru' ? 'Удаленный клиент' : 'Deleted Client'));
+      clientLabels.push(client ? client.name : t('deleted-client'));
     }
     clientData.push(Number(clientTimes[cId].toFixed(2)));
   });
@@ -177,10 +178,7 @@ export function renderDashboard() {
     daysList.forEach(date => {
       // Format label
       if (selectedActivityPeriod === '7') {
-        const weekdayNames = lang === 'ru' 
-          ? ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб']
-          : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        activityLabels.push(weekdayNames[date.getDay()]);
+        activityLabels.push(new Intl.DateTimeFormat(lang === 'ru' ? 'ru-RU' : 'en-US', { weekday: 'short' }).format(date));
       } else {
         activityLabels.push(new Intl.DateTimeFormat(lang === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short' }).format(date));
       }
@@ -271,7 +269,7 @@ function showEmptyState(show) {
         emptyEl.className = 'dash-empty-state';
         emptyEl.innerHTML = `
           <i data-lucide="inbox"></i>
-          <span data-i18n="dash-no-data">Нет данных за выбранный период</span>
+          <span data-i18n="dash-no-data">No data for the selected period</span>
         `;
         container.appendChild(emptyEl);
         if (window.lucide) window.lucide.createIcons();

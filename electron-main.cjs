@@ -12,19 +12,19 @@ let trayTickInterval = null;
 
 const STORAGE_KEY = 'we_time_tracker_data';
 
-// Кастомная схема app:// вместо HTTP-сервера: стабильный origin (данные не
-// привязаны к порту) и никакого открытого localhost-порта (path traversal закрыт).
+// Custom app:// scheme instead of an HTTP server: stable origin (data not tied
+// to a port) and no open localhost port (path traversal closed).
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } }
 ]);
 
-// --- Файловое хранилище данных пользователя ---
-// JSON-файл в userData переживает переустановку приложения и обновление версий.
+// --- File-based user data storage ---
+// The JSON file in userData survives app reinstalls and version updates.
 const dataFilePath = () => path.join(app.getPath('userData'), 'we-tracker-data.json');
 const backupsDir = () => path.join(app.getPath('userData'), 'backups');
 const BACKUPS_TO_KEEP = 14;
 
-// Раз в день перед первой перезаписью откладываем копию текущего файла.
+// Once a day, before the first overwrite, keep a copy of the current file.
 function makeDailyBackup() {
   try {
     const src = dataFilePath();
@@ -47,7 +47,7 @@ function makeDailyBackup() {
 
 function saveDataFile(json) {
   makeDailyBackup();
-  // Атомарная запись: сначала во временный файл, затем rename.
+  // Atomic write: to a temp file first, then rename.
   const tmp = dataFilePath() + '.tmp';
   fs.writeFileSync(tmp, json, 'utf8');
   fs.renameSync(tmp, dataFilePath());
@@ -72,10 +72,10 @@ function initStorageIpc() {
   });
 }
 
-// --- Проверка и скачивание обновлений с GitHub Releases ---
-// Полноценный «тихий» автоапдейт (electron-updater) на macOS требует валидной
-// Developer ID подписи; с ad-hoc он падает на проверке. Поэтому: сверяем версию
-// с последним релизом и, если новее, скачиваем dmg и открываем его для установки.
+// --- Check and download updates from GitHub Releases ---
+// A fully silent auto-update (electron-updater) on macOS needs a valid Developer
+// ID signature; with ad-hoc it fails the check. So: compare the version with the
+// latest release and, if newer, download the dmg and open it for install.
 const GITHUB_REPO = 'JaffarSk24/WE-Time-Tracker';
 const appVersion = () => app.getVersion();
 
@@ -179,7 +179,7 @@ function initUpdatesIpc() {
           mainWindow.webContents.send('updates:progress', p);
         }
       });
-      // Открываем dmg — пользователь перетаскивает приложение в Applications
+      // Open the dmg — the user drags the app into Applications
       await shell.openPath(dest);
       return { ok: true };
     } catch (e) {
@@ -188,7 +188,7 @@ function initUpdatesIpc() {
   });
 }
 
-// --- Menubar (tray) мини-таймер ---
+// --- Menubar (tray) mini-timer ---
 function formatTrayElapsed(state) {
   let elapsed = state.accumulatedTime || 0;
   if (!state.isPaused && state.startTime) {
@@ -259,8 +259,8 @@ function initTray() {
   });
 }
 
-// Остановка таймера из tray: если окно живо — стопим через рендерер (одна
-// логика в store.js); если окна нет — main сам дописывает запись в файл.
+// Stop the timer from the tray: if the window is alive, stop via the renderer
+// (single logic in store.js); if there's no window, main writes the log itself.
 function stopTimerFromTray() {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('timer:stop-request');
@@ -303,7 +303,7 @@ function stopTimerFromTray() {
   }
 }
 
-// --- Раздача статики через app:// (только внутри dist, без сервера) ---
+// --- Serve static files via app:// (inside dist only, no server) ---
 const MIME = {
   '.html': 'text/html',
   '.css': 'text/css',
@@ -325,7 +325,7 @@ function registerAppProtocol() {
       if (!pathname || pathname === '/') pathname = '/index.html';
 
       let file = path.normalize(path.join(distRoot, pathname));
-      // Жёсткое ограничение путей корнем dist
+      // Hard-restrict paths to the dist root
       if (file !== distRoot && !file.startsWith(distRoot + path.sep)) {
         return new Response('Forbidden', { status: 403 });
       }
@@ -342,9 +342,9 @@ function registerAppProtocol() {
   });
 }
 
-// --- Одноразовая миграция localStorage со старого origin http://127.0.0.1:<port> ---
-// Версии <= 1.2.x держали данные в localStorage, привязанном к порту сервера.
-// Поднимаем этот origin в скрытом окне, забираем данные и переносим в файл.
+// --- One-time localStorage migration from the old origin http://127.0.0.1:<port> ---
+// Versions <= 1.2.x kept data in localStorage tied to the server port.
+// Spin up that origin in a hidden window, read the data and move it to the file.
 function migrateLegacyLocalStorage(done) {
   if (fs.existsSync(dataFilePath())) {
     done();
@@ -359,13 +359,13 @@ function migrateLegacyLocalStorage(done) {
       if (!isNaN(parsed) && parsed > 1024 && parsed < 65535) {
         port = parsed;
       }
-    } catch (e) { /* используем дефолтный порт */ }
+    } catch (e) { /* use the default port */ }
   }
 
   const http = require('http');
   const distRoot = path.join(__dirname, 'dist');
   const server = http.createServer((req, res) => {
-    // Минимальный безопасный ответ: нам нужен только документ с нужным origin
+    // Minimal safe response: we only need a document with the right origin
     let file = path.normalize(path.join(distRoot, req.url.split('?')[0] === '/' ? 'index.html' : req.url.split('?')[0]));
     if (!file.startsWith(distRoot) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
       file = path.join(distRoot, 'index.html');
@@ -383,10 +383,10 @@ function migrateLegacyLocalStorage(done) {
     done();
   };
 
-  server.once('error', () => finish(null)); // порт занят — мигрировать неоткуда
+  server.once('error', () => finish(null)); // port busy — nothing to migrate from
   server.listen(port, '127.0.0.1', () => {
     const win = new BrowserWindow({ show: false, webPreferences: { contextIsolation: true } });
-    // Загружаем картинку, а не index.html — origin тот же, но код приложения не выполняется
+    // Load an image, not index.html — same origin, but the app code does not run
     win.loadURL(`http://127.0.0.1:${port}/white-eagles-logo-white.webp`)
       .then(() => win.webContents.executeJavaScript(`localStorage.getItem(${JSON.stringify(STORAGE_KEY)})`))
       .then(data => {
@@ -407,7 +407,7 @@ function migrateLegacyLocalStorage(done) {
       .then(() => finish(win));
   });
 
-  // Страховка от зависания миграции
+  // Safety net against a hung migration
   setTimeout(() => finish(null), 10000);
 }
 
@@ -495,8 +495,8 @@ app.whenReady().then(() => {
   }
 });
 
-// macOS: клик по иконке в доке заново открывает окно
-// (раньше после закрытия окна приложение оставалось висеть без способа открыть его)
+// macOS: clicking the dock icon reopens the window
+// (previously the app lingered with no way to reopen it after the window closed)
 app.on('activate', () => {
   showMainWindow();
 });

@@ -1,5 +1,5 @@
-// Vitest setup: store.js работает в браузерном окружении — даём минимальные
-// заглушки localStorage/window для node-окружения тестов.
+// Vitest setup: store.js runs in a browser environment — provide minimal
+// localStorage/window stubs for the node test environment.
 class LocalStorageMock {
   constructor() { this.map = new Map(); }
   getItem(k) { return this.map.has(k) ? this.map.get(k) : null; }

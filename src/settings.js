@@ -46,7 +46,6 @@ export function initSettings() {
     const file = e.target.files[0];
     if (!file) return;
     
-    const isRu = store.getSettings().language === 'ru';
     const reader = new FileReader();
     
     reader.onload = (event) => {
@@ -55,14 +54,14 @@ export function initSettings() {
         const result = store.importData(data);
         
         if (result && result.success) {
-          showToast(isRu ? 'Данные успешно импортированы!' : 'Data successfully imported!', { type: 'success' });
+          showToast(t('import-success'), { type: 'success' });
           // reload the page to refresh charts and everything clean
           setTimeout(() => window.location.reload(), 800);
         } else {
-          showToast((isRu ? 'Не удалось импортировать данные: ' : 'Failed to import data: ') + (result.error || ''), { type: 'error' });
+          showToast(t('import-failed') + (result.error || ''), { type: 'error' });
         }
       } catch (err) {
-        showToast((isRu ? 'Ошибка чтения файла JSON: ' : 'Error reading JSON file: ') + err.message, { type: 'error' });
+        showToast(t('json-read-error') + err.message, { type: 'error' });
       }
       importInput.value = ''; // clear input
     };
@@ -74,7 +73,7 @@ export function initSettings() {
   clearBtn.addEventListener('click', () => {
     if (confirm(t('settings-clear-confirm'))) {
       store.clearAllData();
-      showToast(store.getSettings().language === 'ru' ? 'Все данные стерты!' : 'All data cleared!', { type: 'info' });
+      showToast(t('all-data-cleared'), { type: 'info' });
       setTimeout(() => window.location.reload(), 800);
     }
   });
@@ -82,7 +81,7 @@ export function initSettings() {
   initUpdates();
 }
 
-// Проверка/скачивание обновлений — только в десктоп-сборке (есть window.weUpdates)
+// Check/download updates — desktop build only (window.weUpdates present)
 function initUpdates() {
   const section = document.getElementById('settings-update-section');
   if (!section || !window.weUpdates) return;
@@ -101,7 +100,7 @@ function initUpdates() {
   });
 
   btn.addEventListener('click', async () => {
-    // Второй режим кнопки — скачать найденное обновление
+    // Second button mode — download the found update
     if (pendingUrl) {
       btn.disabled = true;
       btnLabel.textContent = t('update-downloading');
@@ -117,7 +116,7 @@ function initUpdates() {
       return;
     }
 
-    // Первый режим — проверить наличие обновления
+    // First mode — check for an available update
     btn.disabled = true;
     btnLabel.textContent = t('update-checking');
     detail.textContent = '';
@@ -134,7 +133,7 @@ function initUpdates() {
     if (res.available) {
       pendingUrl = res.downloadUrl;
       status.textContent = `${t('update-available')}: v${res.latest}`;
-      detail.textContent = `${store.getSettings().language === 'ru' ? 'Текущая' : 'Current'}: v${res.current}`;
+      detail.textContent = `${t('current-label')}: v${res.current}`;
       btnLabel.textContent = t('update-download');
     } else {
       status.textContent = t('update-current');
