@@ -238,23 +238,53 @@ class Store {
       clientId: clientId || null,
       projectId: projectId || null,
       startTime: new Date().toISOString(),
-      billable
+      billable,
+      isPaused: false,
+      accumulatedTime: 0
     };
     this.saveState();
     return this.state.activeTimer;
+  }
+
+  pauseTimer() {
+    const timer = this.state.activeTimer;
+    if (!timer || timer.isPaused) return;
+
+    const duration = Date.now() - new Date(timer.startTime).getTime();
+    timer.accumulatedTime = (timer.accumulatedTime || 0) + duration;
+    timer.isPaused = true;
+    timer.pausedAt = new Date().toISOString();
+    timer.startTime = null;
+    this.saveState();
+  }
+
+  resumeTimer() {
+    const timer = this.state.activeTimer;
+    if (!timer || !timer.isPaused) return;
+
+    timer.isPaused = false;
+    timer.startTime = new Date().toISOString();
+    timer.pausedAt = null;
+    this.saveState();
   }
 
   stopTimer() {
     const timer = this.state.activeTimer;
     if (!timer) return null;
 
+    let totalDuration = timer.accumulatedTime || 0;
+    if (!timer.isPaused && timer.startTime) {
+      totalDuration += Date.now() - new Date(timer.startTime).getTime();
+    }
+
     const endTime = new Date().toISOString();
+    const startTime = new Date(new Date(endTime).getTime() - totalDuration).toISOString();
     const rateAtTime = this.getRate(timer.clientId, timer.projectId);
     const newLog = this.addTimeLog({
       description: timer.description,
       clientId: timer.clientId,
       projectId: timer.projectId,
-      startTime: timer.startTime,
+      startTime: startTime,
       endTime: endTime,
       billable: timer.billable,
       rateAtTime

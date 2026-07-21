@@ -110,7 +110,10 @@ function tick() {
   
   const clockEl = document.getElementById('timer-clock');
   if (clockEl) {
-    const elapsed = Date.now() - new Date(timer.startTime).getTime();
+    let elapsed = timer.accumulatedTime || 0;
+    if (!timer.isPaused && timer.startTime) {
+      elapsed += Date.now() - new Date(timer.startTime).getTime();
+    }
     clockEl.textContent = formatTime(elapsed);
   }
 }
@@ -121,7 +124,14 @@ function startTimerTicking() {
   timerInterval = setInterval(tick, 500);
   
   const clockEl = document.getElementById('timer-clock');
-  if (clockEl) clockEl.classList.add('running');
+  const timer = store.getActiveTimer();
+  if (clockEl) {
+    if (timer && timer.isPaused) {
+      clockEl.classList.remove('running');
+    } else {
+      clockEl.classList.add('running');
+    }
+  }
 }
 
 function stopTimerTicking() {
@@ -140,6 +150,7 @@ function stopTimerTicking() {
 function refreshTimerUI() {
   const activeTimer = store.getActiveTimer();
   const toggleBtn = document.getElementById('timer-toggle-btn');
+  const pauseBtn = document.getElementById('timer-pause-btn');
   const cancelBtn = document.getElementById('timer-cancel-btn');
   
   const descInput = document.getElementById('timer-desc');
@@ -154,6 +165,17 @@ function refreshTimerUI() {
     toggleBtn.textContent = currentLang === 'ru' ? 'Стоп' : 'Stop';
     toggleBtn.className = 'btn btn-timer btn-timer-stop';
     cancelBtn.style.display = 'inline-flex';
+    pauseBtn.style.display = 'inline-flex';
+    
+    if (activeTimer.isPaused) {
+      pauseBtn.textContent = currentLang === 'ru' ? 'Продолжить' : 'Resume';
+      pauseBtn.setAttribute('data-i18n', 'timer-resume');
+      pauseBtn.className = 'btn btn-timer btn-timer-start';
+    } else {
+      pauseBtn.textContent = currentLang === 'ru' ? 'Пауза' : 'Pause';
+      pauseBtn.setAttribute('data-i18n', 'timer-pause');
+      pauseBtn.className = 'btn btn-timer btn-timer-pause';
+    }
     
     // Sync values with active timer state
     descInput.value = activeTimer.description;
@@ -178,6 +200,7 @@ function refreshTimerUI() {
     toggleBtn.textContent = currentLang === 'ru' ? 'Старт' : 'Start';
     toggleBtn.className = 'btn btn-timer btn-timer-start';
     cancelBtn.style.display = 'none';
+    pauseBtn.style.display = 'none';
     
     // Enable inputs
     descInput.disabled = false;
@@ -196,6 +219,7 @@ function refreshTimerUI() {
 
 export function initTimer() {
   const toggleBtn = document.getElementById('timer-toggle-btn');
+  const pauseBtn = document.getElementById('timer-pause-btn');
   const cancelBtn = document.getElementById('timer-cancel-btn');
   
   const timerClientSelect = document.getElementById('timer-client-select');
@@ -243,6 +267,19 @@ export function initTimer() {
       store.startTimer(desc, clientId, projectId, billable);
     }
     
+    refreshTimerUI();
+  });
+  
+  // Pause / Resume Button
+  pauseBtn.addEventListener('click', () => {
+    const activeTimer = store.getActiveTimer();
+    if (!activeTimer) return;
+    
+    if (activeTimer.isPaused) {
+      store.resumeTimer();
+    } else {
+      store.pauseTimer();
+    }
     refreshTimerUI();
   });
   

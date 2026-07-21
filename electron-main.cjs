@@ -91,10 +91,42 @@ app.whenReady().then(() => {
       fs.createReadStream(filePath).pipe(res);
     });
 
-    server.listen(0, '127.0.0.1', () => {
-      const port = server.address().port;
-      createWindow(`http://127.0.0.1:${port}`);
-    });
+    const portFile = path.join(app.getPath('userData'), 'port.txt');
+    let savedPort = 39103;
+    if (fs.existsSync(portFile)) {
+      try {
+        const fileContent = fs.readFileSync(portFile, 'utf8').trim();
+        const parsed = parseInt(fileContent, 10);
+        if (!isNaN(parsed) && parsed > 1024 && parsed < 65535) {
+          savedPort = parsed;
+        }
+      } catch (e) {
+        console.error('Failed to read saved port, using default', e);
+      }
+    }
+
+    function listen(port) {
+      server.once('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          console.log(`Port ${port} in use, trying next...`);
+          listen(port + 1);
+        } else {
+          console.error('Server error:', err);
+        }
+      });
+
+      server.listen(port, '127.0.0.1', () => {
+        const actualPort = server.address().port;
+        try {
+          fs.writeFileSync(portFile, actualPort.toString(), 'utf8');
+        } catch (e) {
+          console.error('Failed to save port to file', e);
+        }
+        createWindow(`http://127.0.0.1:${actualPort}`);
+      });
+    }
+
+    listen(savedPort);
   }
 });
 

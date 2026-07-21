@@ -333,6 +333,7 @@ export function renderReports() {
           ${log.billable ? `<span class="log-item-rate">${log.rateAtTime} €/h</span>` : ''}
         </div>
         <div class="log-item-actions">
+          <button class="btn-icon play-log-btn" data-id="${log.id}" title="${lang === 'ru' ? 'Запустить снова' : 'Start again'}"><i data-lucide="play"></i></button>
           <button class="btn-icon edit-log-btn" data-id="${log.id}" title="Edit"><i data-lucide="edit-2"></i></button>
           <button class="btn-icon delete delete-log-btn" data-id="${log.id}" title="Delete"><i data-lucide="trash-2"></i></button>
         </div>
@@ -345,6 +346,33 @@ export function renderReports() {
   });
   
   // Attach Log Row Actions
+  document.querySelectorAll('.play-log-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-id');
+      const log = store.getTimeLogs().find(l => l.id === id);
+      if (log) {
+        // If there's an active timer, stop it first or warn user?
+        // Let's stop it automatically to start the new one, like a quick restart.
+        // Actually, if we just call startTimer, it overrides it. But let's check store.js.
+        // In store.js, startTimer replaces activeTimer directly. Let's make sure it is safe.
+        // Wait, to preserve current active timer data, it's safer to cancel or stop it?
+        // The standard behavior for a play button is to stop/save the currently running timer,
+        // and start the new one. Or just start the new one.
+        // Let's call store.stopTimer() if there's an active timer running, to avoid losing time.
+        if (store.getActiveTimer()) {
+          store.stopTimer();
+        }
+        store.startTimer(log.description || '', log.clientId, log.projectId, log.billable);
+        
+        // Switch to timer view
+        const timerNavItem = document.querySelector('nav .nav-item[data-target="timer-view"]');
+        if (timerNavItem) {
+          timerNavItem.click();
+        }
+      }
+    });
+  });
+
   document.querySelectorAll('.edit-log-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       openEditLogModal(btn.getAttribute('data-id'));
