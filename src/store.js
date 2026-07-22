@@ -269,16 +269,15 @@ class Store {
     return client && Array.isArray(client.payments) ? client.payments : [];
   }
 
-  // Billed to the client (billable), rounded up to 5-minute blocks.
+  // Billed to the client (billable), minute-precise (same rule as billableHours).
   getBilledAmount(clientId) {
-    const BLOCK = 5 * 60000;
     let billed = 0;
     this.state.timeLogs.forEach(log => {
       if (log.clientId === clientId && log.billable) {
         const durMs = (log.durationMs !== undefined && log.durationMs !== null)
           ? log.durationMs
           : (new Date(log.endTime) - new Date(log.startTime));
-        const hrs = durMs > 0 ? (Math.ceil(durMs / BLOCK) * BLOCK) / 3600000 : 0;
+        const hrs = durMs > 0 ? Math.round(durMs / 60000) / 60 : 0;
         billed += hrs * (log.rateAtTime || 0);
       }
     });

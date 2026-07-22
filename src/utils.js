@@ -1,9 +1,10 @@
 // WE Time Tracker — shared utilities (dates are always local; user input goes
 // into the DOM only via escapeHtml/textContent).
 
-// Billing rounding step: each entry's duration is rounded UP to 5-minute
-// blocks when computing the amount (the displayed time stays exact).
-export const BILLING_ROUND_MINUTES = 5;
+// Billing granularity: amounts are computed from the hourly rate with
+// minute precision (duration rounded to the nearest minute). No block
+// rounding — a 52-minute entry bills exactly 52 minutes.
+export const BILLING_GRANULARITY_MS = 60000;
 
 // Actually worked duration of an entry in ms.
 // If pauses make it shorter than the startTime..endTime span, use the stored
@@ -15,11 +16,11 @@ export function logDurationMs(log) {
   return new Date(log.endTime) - new Date(log.startTime);
 }
 
-// Rounded hours for money calculations.
+// Billable hours for money calculations: minute-precise, no block rounding.
 export function billableHours(durationMs) {
   if (durationMs <= 0) return 0;
-  const blockMs = BILLING_ROUND_MINUTES * 60000;
-  return (Math.ceil(durationMs / blockMs) * blockMs) / 3600000;
+  const minutes = Math.round(durationMs / BILLING_GRANULARITY_MS);
+  return minutes / 60;
 }
 
 // Escape user strings before inserting into innerHTML.

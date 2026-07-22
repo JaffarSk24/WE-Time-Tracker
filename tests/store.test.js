@@ -209,12 +209,19 @@ describe('import safety', () => {
 });
 
 describe('utils', () => {
-  it('billableHours rounds UP to 5-minute blocks', () => {
+  it('billableHours is minute-precise (no block rounding)', () => {
     expect(billableHours(0)).toBe(0);
-    expect(billableHours(60000)).toBeCloseTo(5 / 60);       // 1 min -> 5 min
-    expect(billableHours(5 * 60000)).toBeCloseTo(5 / 60);   // exactly 5 min
-    expect(billableHours(6 * 60000)).toBeCloseTo(10 / 60);  // 6 min -> 10 min
-    expect(billableHours(3600000)).toBeCloseTo(1);          // exactly one hour
+    expect(billableHours(60000)).toBeCloseTo(1 / 60);        // 1 min
+    expect(billableHours(52 * 60000)).toBeCloseTo(52 / 60);  // 52 min bills 52 min
+    expect(billableHours(3600000)).toBeCloseTo(1);           // exactly one hour
+    expect(billableHours(531000)).toBeCloseTo(9 / 60);       // 8:51 -> 9 min
+  });
+
+  it('bills real screenshot cases at 35 EUR/h', () => {
+    const rate = 35;
+    expect(billableHours(52 * 60000) * rate).toBeCloseTo(30.33, 2);  // 00:52:00
+    expect(billableHours(531000) * rate).toBeCloseTo(5.25, 2);       // 00:08:51
+    expect(billableHours(16000) * rate).toBeCloseTo(0, 2);           // 00:00:16
   });
 
   it('formatDurationShort never yields 60 minutes', () => {
