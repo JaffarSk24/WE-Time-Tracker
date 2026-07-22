@@ -277,7 +277,7 @@ class Store {
         const durMs = (log.durationMs !== undefined && log.durationMs !== null)
           ? log.durationMs
           : (new Date(log.endTime) - new Date(log.startTime));
-        const hrs = durMs > 0 ? Math.round(durMs / 60000) / 60 : 0;
+        const hrs = durMs > 0 ? Math.max(1, Math.round(durMs / 60000)) / 60 : 0;
         billed += hrs * (log.rateAtTime || 0);
       }
     });

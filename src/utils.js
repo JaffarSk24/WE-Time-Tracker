@@ -4,7 +4,9 @@
 // Billing granularity: amounts are computed from the hourly rate with
 // minute precision (duration rounded to the nearest minute). No block
 // rounding — a 52-minute entry bills exactly 52 minutes.
+// Any non-zero entry bills at least one minute.
 export const BILLING_GRANULARITY_MS = 60000;
+export const BILLING_MIN_MINUTES = 1;
 
 // Actually worked duration of an entry in ms.
 // If pauses make it shorter than the startTime..endTime span, use the stored
@@ -16,10 +18,11 @@ export function logDurationMs(log) {
   return new Date(log.endTime) - new Date(log.startTime);
 }
 
-// Billable hours for money calculations: minute-precise, no block rounding.
+// Billable hours for money calculations: minute-precise, no block rounding,
+// minimum one minute for any started entry.
 export function billableHours(durationMs) {
   if (durationMs <= 0) return 0;
-  const minutes = Math.round(durationMs / BILLING_GRANULARITY_MS);
+  const minutes = Math.max(BILLING_MIN_MINUTES, Math.round(durationMs / BILLING_GRANULARITY_MS));
   return minutes / 60;
 }
 

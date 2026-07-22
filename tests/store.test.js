@@ -217,11 +217,17 @@ describe('utils', () => {
     expect(billableHours(531000)).toBeCloseTo(9 / 60);       // 8:51 -> 9 min
   });
 
+  it('bills a minimum of one minute for any started entry', () => {
+    expect(billableHours(16000)).toBeCloseTo(1 / 60);  // 16 s -> 1 min
+    expect(billableHours(1000)).toBeCloseTo(1 / 60);   // 1 s  -> 1 min
+    expect(billableHours(0)).toBe(0);                  // nothing tracked -> 0
+  });
+
   it('bills real screenshot cases at 35 EUR/h', () => {
     const rate = 35;
     expect(billableHours(52 * 60000) * rate).toBeCloseTo(30.33, 2);  // 00:52:00
     expect(billableHours(531000) * rate).toBeCloseTo(5.25, 2);       // 00:08:51
-    expect(billableHours(16000) * rate).toBeCloseTo(0, 2);           // 00:00:16
+    expect(billableHours(16000) * rate).toBeCloseTo(0.58, 2);        // 00:00:16
   });
 
   it('formatDurationShort never yields 60 minutes', () => {
