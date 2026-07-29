@@ -269,11 +269,11 @@ class Store {
     return client && Array.isArray(client.payments) ? client.payments : [];
   }
 
-  // Billed to the client (billable), minute-precise (same rule as billableHours).
+  // Billed to the client (billable & unpaid), minute-precise (same rule as billableHours).
   getBilledAmount(clientId) {
     let billed = 0;
     this.state.timeLogs.forEach(log => {
-      if (log.clientId === clientId && log.billable) {
+      if (log.clientId === clientId && log.billable && !log.paid) {
         const durMs = (log.durationMs !== undefined && log.durationMs !== null)
           ? log.durationMs
           : (new Date(log.endTime) - new Date(log.startTime));

@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, protocol, Tray, Menu, nativeImage, shell } 
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
+const gdriveSync = require('./gdrive-sync.cjs');
 
 let viteProcess = null;
 let mainWindow = null;
@@ -464,14 +465,47 @@ function createWindow(url) {
 
   mainWindow.loadURL(url);
 
+  mainWindow.webContents.on('did-finish-load', async () => {
+    if (gdriveSync.isLoggedIn()) {
+      try {
+        await gdriveSync.pull(mainWindow);
+      } catch (err) {
+        console.error('[GDrive] Startup auto-pull failed:', err);
+      }
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+}
+
+function initGDriveIpc() {
+  ipcMain.handle('gdrive:login', async () => {
+    return await gdriveSync.login(mainWindow);
+  });
+
+  ipcMain.handle('gdrive:logout', async () => {
+    return await gdriveSync.logout(mainWindow);
+  });
+
+  ipcMain.handle('gdrive:status', async () => {
+    return gdriveSync.getUserProfile();
+  });
+
+  ipcMain.handle('gdrive:push', async () => {
+    return await gdriveSync.push(mainWindow);
+  });
+
+  ipcMain.handle('gdrive:pull', async () => {
+    return await gdriveSync.pull(mainWindow);
   });
 }
 
 app.whenReady().then(() => {
   initStorageIpc();
   initUpdatesIpc();
+  initGDriveIpc();
   initTray();
 
   const isDev = process.env.NODE_ENV === 'development';
@@ -501,7 +535,12 @@ app.on('activate', () => {
   showMainWindow();
 });
 
-app.on('window-all-closed', () => {
+app.on('window-all-closed', async () => {
+  if (gdriveSync.isLoggedIn()) {
+    try {
+      await gdriveSync.push(null);
+    } catch (e) {}
+  }
   if (viteProcess) {
     try {
       viteProcess.kill();
@@ -512,7 +551,12 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('will-quit', () => {
+app.on('will-quit', async () => {
+  if (gdriveSync.isLoggedIn()) {
+    try {
+      await gdriveSync.push(null);
+    } catch (e) {}
+  }
   if (viteProcess) {
     try {
       viteProcess.kill();

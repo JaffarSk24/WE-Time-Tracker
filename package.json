@@ -36,6 +36,7 @@
     "files": [
       "dist/**/*",
       "electron-main.cjs",
+      "gdrive-sync.cjs",
       "preload.cjs",
       "icon.png"
     ],
