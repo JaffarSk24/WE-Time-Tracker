@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, protocol, Tray, Menu, nativeImage, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, protocol, Tray, Menu, nativeImage, shell, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -115,7 +115,7 @@ function initStorageIpc() {
 // --- Check and download updates from GitHub Releases ---
 // A fully silent auto-update (electron-updater) on macOS needs a valid Developer
 // ID signature; with ad-hoc it fails the check. So: compare the version with the
-// latest release and, if newer, download the dmg and open it for install.
+// latest release and, if newer, download the installer and open it.
 const GITHUB_REPO = 'JaffarSk24/WE-Time-Tracker';
 const appVersion = () => app.getVersion();
 
@@ -194,13 +194,15 @@ function initUpdatesIpc() {
       const release = await fetchLatestRelease();
       const latest = release.tag_name || release.name || '';
       const isNewer = compareVersions(latest, appVersion()) > 0;
-      const dmg = (release.assets || []).find(a => a.name && a.name.endsWith('.dmg'));
+      // Pick the installer for the platform we are running on.
+      const wanted = process.platform === 'win32' ? '.exe' : '.dmg';
+      const installer = (release.assets || []).find(a => a.name && a.name.endsWith(wanted));
       return {
         ok: true,
         current: appVersion(),
         latest: latest.replace(/^v/, ''),
-        available: isNewer && !!dmg,
-        downloadUrl: dmg ? dmg.browser_download_url : null,
+        available: isNewer && !!installer,
+        downloadUrl: installer ? installer.browser_download_url : null,
         notes: release.body || ''
       };
     } catch (e) {
@@ -213,13 +215,15 @@ function initUpdatesIpc() {
       return { ok: false, error: 'invalid url' };
     }
     try {
-      const dest = path.join(app.getPath('temp'), `WE-Time-Tracker-update-${Date.now()}.dmg`);
+      const ext = process.platform === 'win32' ? 'exe' : 'dmg';
+      const dest = path.join(app.getPath('temp'), `WE-Time-Tracker-update-${Date.now()}.${ext}`);
       await downloadFile(url, dest, (p) => {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('updates:progress', p);
         }
       });
-      // Open the dmg — the user drags the app into Applications
+      // Open the installer: the Windows setup runs, on macOS the user drags
+      // the app into Applications.
       await shell.openPath(dest);
       return { ok: true };
     } catch (e) {
@@ -241,16 +245,24 @@ function formatTrayElapsed(state) {
   return `${h}:${m}:${s}`;
 }
 
+// Only macOS can show text next to the tray icon; elsewhere the elapsed time
+// goes into the tooltip, which is what the Windows taskbar tray can display.
 function updateTrayTitle() {
   if (!tray) return;
+  const isMac = process.platform === 'darwin';
+
   if (!trayTimerState) {
-    tray.setTitle('🦅');
+    if (isMac) tray.setTitle('🦅');
     tray.setToolTip('WE Time Tracker');
     return;
   }
-  const prefix = trayTimerState.isPaused ? '🦅 ⏸' : '🦅 ▶';
-  tray.setTitle(`${prefix} ${formatTrayElapsed(trayTimerState)}`);
-  tray.setToolTip(trayTimerState.description || 'WE Time Tracker');
+
+  const elapsed = formatTrayElapsed(trayTimerState);
+  const marker = trayTimerState.isPaused ? '⏸' : '▶';
+  if (isMac) tray.setTitle(`🦅 ${marker} ${elapsed}`);
+  tray.setToolTip(
+    `${marker} ${elapsed}${trayTimerState.description ? ' — ' + trayTimerState.description : ''}`
+  );
 }
 
 function getAppLanguage() {
@@ -278,7 +290,13 @@ function rebuildTrayMenu() {
 }
 
 function initTray() {
-  tray = new Tray(nativeImage.createEmpty());
+  // macOS shows the timer as menu-bar text, so an empty image keeps it clean.
+  // Windows and Linux need a real icon or the tray entry is invisible.
+  const trayImage = process.platform === 'darwin'
+    ? nativeImage.createEmpty()
+    : nativeImage.createFromPath(path.join(__dirname, 'icon.png')).resize({ width: 16, height: 16 });
+
+  tray = new Tray(trayImage);
   tray.on('click', () => showMainWindow());
   rebuildTrayMenu();
   updateTrayTitle();
@@ -462,9 +480,18 @@ function showMainWindow() {
 
 function createWindow(url) {
   lastUrl = url;
+  // Open filling the whole usable screen area. workArea excludes the macOS
+  // menu bar and Dock (and the Windows taskbar), so this is a normal maximized
+  // window — not native fullscreen, which would hide those.
+  const { workArea } = screen.getPrimaryDisplay();
+
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    x: workArea.x,
+    y: workArea.y,
+    width: workArea.width,
+    height: workArea.height,
+    minWidth: 900,
+    minHeight: 600,
     title: 'WE Time Tracker',
     icon: path.join(__dirname, 'icon.png'),
     webPreferences: {
