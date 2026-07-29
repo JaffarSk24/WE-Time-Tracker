@@ -531,8 +531,6 @@ function initGDriveIpc() {
   });
 
   ipcMain.handle('gdrive:status', () => gdriveSync.getStatus());
-  ipcMain.handle('gdrive:set-credentials', (event, clientId, clientSecret) =>
-    gdriveSync.setCredentials(clientId, clientSecret));
   ipcMain.handle('gdrive:login', async () => await gdriveSync.login(mainWindow));
   ipcMain.handle('gdrive:logout', async () => await gdriveSync.logout(mainWindow));
   ipcMain.handle('gdrive:sync', async () => await gdriveSync.sync(mainWindow));

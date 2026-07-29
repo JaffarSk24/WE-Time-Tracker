@@ -35,3 +35,6 @@ release/
 
 # Internal dev notes — not for the public repo
 AGENTS.md
+
+# Bundled OAuth client for the packaged app — never committed
+oauth-credentials.json

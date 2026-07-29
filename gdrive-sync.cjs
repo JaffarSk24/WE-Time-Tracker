@@ -1,13 +1,16 @@
 // Google Drive sync for the user's data file.
 //
 // Design notes:
-// - OAuth credentials are NOT hardcoded: the user creates their own OAuth
-//   client in Google Cloud Console and enters it in Settings. Credentials are
-//   stored in userData, never in the repository.
+// - The app ships with its own OAuth client so signing in is a single click.
+//   Per Google's OAuth documentation for installed apps, the client ID and
+//   secret are embedded in the application source and "the client secret is
+//   obviously not treated as a secret" in this context — it grants nothing on
+//   its own, only the ability to ask a user for consent.
 // - The authorization code flow uses PKCE and a loopback redirect on an
 //   ephemeral port (Google allows any port for Desktop clients).
 // - Data lives in the Drive "appDataFolder", a hidden per-app folder: the file
-//   does not clutter the user's Drive and other apps cannot read it.
+//   does not clutter the user's Drive and other apps cannot read it. That
+//   scope is non-sensitive, so no OAuth verification review is required.
 // - Local writes always go through the injected writer so the app's atomic
 //   write and daily backups apply. A pull never discards local work without
 //   first writing a conflict snapshot.
@@ -18,6 +21,13 @@ const https = require('https');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+
+// The OAuth client that ships with the app lives in oauth-credentials.json,
+// which is bundled into the package but kept out of the repository: public
+// repositories get scraped, and Google revokes credentials it finds there.
+// Builds without that file simply have no built-in client — a
+// google-credentials.json file in userData can still supply one.
+const BUNDLED_CREDENTIALS_FILE = 'oauth-credentials.json';
 
 const REMOTE_FILE_NAME = 'we-tracker-data.json';
 const SCOPES = [
@@ -48,7 +58,15 @@ class GDriveSync {
     this.readLocal = readLocal;
     this.writeLocal = writeLocal;
     this.backupLocal = backupLocal;
-    this.credentials = this.readJson(this.credentialsPath);
+    // A user-supplied client in userData wins; otherwise use the one bundled
+    // with the app (packaged next to this file, or in the project root in dev).
+    const override = this.readJson(this.credentialsPath);
+    const bundled = this.readJson(path.join(__dirname, BUNDLED_CREDENTIALS_FILE));
+    const pick = [override, bundled].find(c => c && c.clientId && c.clientSecret);
+    this.credentials = pick || null;
+    if (!this.credentials) {
+      console.warn('[GDrive] No OAuth client available — Drive sync is disabled in this build');
+    }
     this.tokens = this.readJson(this.tokensPath);
     this.syncState = this.readJson(this.syncStatePath) || {};
   }
@@ -78,26 +96,12 @@ class GDriveSync {
     return Boolean(this.tokens && this.tokens.refresh_token);
   }
 
-  setCredentials(clientId, clientSecret) {
-    const creds = {
-      clientId: String(clientId || '').trim(),
-      clientSecret: String(clientSecret || '').trim()
-    };
-    if (!creds.clientId || !creds.clientSecret) {
-      return { ok: false, error: 'empty_credentials' };
-    }
-    this.credentials = creds;
-    this.writeJson(this.credentialsPath, creds);
-    return { ok: true, status: this.getStatus() };
-  }
-
   getStatus() {
     return {
       configured: this.isConfigured(),
       loggedIn: this.isLoggedIn(),
       email: (this.tokens && this.tokens.email) || '',
-      lastSync: this.syncState ? this.syncState.lastSync || null : null,
-      clientId: (this.credentials && this.credentials.clientId) || ''
+      lastSync: this.syncState ? this.syncState.lastSync || null : null
     };
   }
 

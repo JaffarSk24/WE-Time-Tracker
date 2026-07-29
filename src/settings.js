@@ -87,17 +87,11 @@ function initGDrive() {
   const section = document.getElementById('settings-gdrive-section');
   if (!section || !window.weGDrive) return;
 
-  section.style.display = 'block';
-
   const statusTitle = document.getElementById('gdrive-status-title');
   const statusDetail = document.getElementById('gdrive-status-detail');
   const loginBtn = document.getElementById('gdrive-login-btn');
   const logoutBtn = document.getElementById('gdrive-logout-btn');
   const syncBtn = document.getElementById('gdrive-sync-btn');
-  const credsBox = document.getElementById('gdrive-credentials-box');
-  const clientIdInput = document.getElementById('gdrive-client-id');
-  const clientSecretInput = document.getElementById('gdrive-client-secret');
-  const saveCredsBtn = document.getElementById('gdrive-save-creds-btn');
 
   const formatSync = (iso) => {
     if (!iso) return t('gdrive-never-synced');
@@ -108,25 +102,18 @@ function initGDrive() {
 
   const render = (status) => {
     if (!status) return;
-    if (status.clientId && clientIdInput.value !== status.clientId) {
-      clientIdInput.value = status.clientId;
-    }
-
-    // Credentials only need to be visible until the connection works.
-    credsBox.style.display = status.loggedIn ? 'none' : 'flex';
-    loginBtn.style.display = status.configured && !status.loggedIn ? 'inline-flex' : 'none';
+    // Builds without a bundled OAuth client hide the feature entirely.
+    section.style.display = status.configured ? 'block' : 'none';
+    loginBtn.style.display = status.loggedIn ? 'none' : 'inline-flex';
     logoutBtn.style.display = status.loggedIn ? 'inline-flex' : 'none';
     syncBtn.style.display = status.loggedIn ? 'inline-flex' : 'none';
 
     if (status.loggedIn) {
       statusTitle.textContent = t('gdrive-signed-in-as') + status.email;
       statusDetail.textContent = formatSync(status.lastSync);
-    } else if (status.configured) {
-      statusTitle.textContent = t('gdrive-desc');
-      statusDetail.textContent = '';
     } else {
       statusTitle.textContent = t('gdrive-desc');
-      statusDetail.textContent = t('gdrive-not-configured');
+      statusDetail.textContent = '';
     }
     if (window.lucide) window.lucide.createIcons();
   };
@@ -142,16 +129,6 @@ function initGDrive() {
       duration: info && info.conflict ? 9000 : 4000
     });
     setTimeout(() => window.location.reload(), info && info.conflict ? 2500 : 1200);
-  });
-
-  saveCredsBtn.addEventListener('click', async () => {
-    const res = await window.weGDrive.setCredentials(clientIdInput.value, clientSecretInput.value);
-    if (res.ok) {
-      showToast(t('gdrive-creds-saved'), { type: 'success' });
-      render(res.status);
-    } else {
-      showToast(t('gdrive-creds-invalid'), { type: 'error' });
-    }
   });
 
   loginBtn.addEventListener('click', async () => {

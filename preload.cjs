@@ -29,8 +29,6 @@ contextBridge.exposeInMainWorld('weUpdates', {
 
 contextBridge.exposeInMainWorld('weGDrive', {
   getStatus: () => ipcRenderer.invoke('gdrive:status'),
-  setCredentials: (clientId, clientSecret) =>
-    ipcRenderer.invoke('gdrive:set-credentials', clientId, clientSecret),
   login: () => ipcRenderer.invoke('gdrive:login'),
   logout: () => ipcRenderer.invoke('gdrive:logout'),
   sync: () => ipcRenderer.invoke('gdrive:sync'),
