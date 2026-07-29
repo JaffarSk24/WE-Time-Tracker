@@ -459,6 +459,53 @@
             </div>
           </div>
 
+          <!-- Google Drive sync (only shown in desktop build) -->
+          <div class="settings-section" id="settings-gdrive-section" style="display: none;">
+            <h3 class="settings-section-title">
+              <i data-lucide="cloud"></i>
+              <span data-i18n="gdrive-title">Синхронизация с Google Drive</span>
+            </h3>
+
+            <div class="data-action-box">
+              <div class="data-action-text">
+                <div class="data-action-title" id="gdrive-status-title" data-i18n="gdrive-desc">Данные синхронизируются между компьютерами через ваш Google Drive.</div>
+                <div class="data-action-desc" id="gdrive-status-detail"></div>
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+                <button class="btn btn-secondary" id="gdrive-sync-btn" style="display: none;">
+                  <i data-lucide="refresh-cw"></i>
+                  <span data-i18n="gdrive-sync-now">Синхронизировать</span>
+                </button>
+                <button class="btn btn-primary" id="gdrive-login-btn" style="display: none;">
+                  <i data-lucide="log-in"></i>
+                  <span data-i18n="gdrive-login">Войти через Google</span>
+                </button>
+                <button class="btn btn-secondary" id="gdrive-logout-btn" style="display: none;">
+                  <i data-lucide="log-out"></i>
+                  <span data-i18n="gdrive-logout">Выйти</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="data-action-box" id="gdrive-credentials-box" style="flex-direction: column; align-items: stretch; gap: 12px;">
+              <div class="data-action-text">
+                <div class="data-action-title" data-i18n="gdrive-creds-title">Подключение Google (разовая настройка)</div>
+                <div class="data-action-desc" data-i18n="gdrive-creds-desc">Вставьте Client ID и Client secret из Google Cloud Console. Они хранятся только на этом компьютере.</div>
+              </div>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;">
+                <div class="form-group" style="flex: 2; min-width: 220px; margin-bottom: 0;">
+                  <label for="gdrive-client-id">Client ID</label>
+                  <input type="text" id="gdrive-client-id" placeholder="...apps.googleusercontent.com">
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 160px; margin-bottom: 0;">
+                  <label for="gdrive-client-secret">Client secret</label>
+                  <input type="password" id="gdrive-client-secret" placeholder="GOCSPX-...">
+                </div>
+                <button class="btn btn-secondary" id="gdrive-save-creds-btn" data-i18n="save">Сохранить</button>
+              </div>
+            </div>
+          </div>
+
           <!-- App Updates (only shown in desktop build) -->
           <div class="settings-section" id="settings-update-section" style="display: none;">
             <h3 class="settings-section-title">

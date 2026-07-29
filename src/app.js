@@ -13,9 +13,9 @@ import '@fontsource/outfit/800.css';
 // Import only the icons actually used (tree-shaken) instead of the whole Lucide set
 import {
   createIcons,
-  BarChart3, Briefcase, Building, CalendarX, CheckCircle, Clock, Code, Database,
+  BarChart3, Briefcase, Building, CalendarX, CheckCircle, Clock, Cloud, Code, Database,
   Download, DownloadCloud, Edit2, Euro, ExternalLink, FileSpreadsheet, Folder,
-  FolderGit2, Globe, Inbox, MinusCircle, Palette, Play, PlayCircle, Plus,
+  FolderGit2, Globe, Inbox, LogIn, LogOut, MinusCircle, Palette, Play, PlayCircle, Plus,
   RefreshCw, Search, Settings, Trash2, UploadCloud, Users, Wallet, X
 } from 'lucide';
 import { store } from './store.js';
@@ -29,9 +29,9 @@ import { initSettings } from './settings.js';
 // Lucide is bundled locally (no CDN); keep the existing global API that all
 // modules use via window.lucide.createIcons(). Only the used icons are registered.
 const usedIcons = {
-  BarChart3, Briefcase, Building, CalendarX, CheckCircle, Clock, Code, Database,
+  BarChart3, Briefcase, Building, CalendarX, CheckCircle, Clock, Cloud, Code, Database,
   Download, DownloadCloud, Edit2, Euro, ExternalLink, FileSpreadsheet, Folder,
-  FolderGit2, Globe, Inbox, MinusCircle, Palette, Play, PlayCircle, Plus,
+  FolderGit2, Globe, Inbox, LogIn, LogOut, MinusCircle, Palette, Play, PlayCircle, Plus,
   RefreshCw, Search, Settings, Trash2, UploadCloud, Users, Wallet, X
 };
 window.lucide = { createIcons: () => createIcons({ icons: usedIcons }) };

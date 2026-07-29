@@ -31,7 +31,7 @@ export default [
     }
   },
   {
-    files: ['electron-main.cjs', 'preload.cjs', 'scripts/**/*.cjs'],
+    files: ['electron-main.cjs', 'preload.cjs', 'gdrive-sync.cjs', 'scripts/**/*.cjs'],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: 'commonjs',
@@ -45,6 +45,8 @@ export default [
         setInterval: 'readonly',
         clearInterval: 'readonly',
         URL: 'readonly',
+        URLSearchParams: 'readonly',
+        Buffer: 'readonly',
         Response: 'readonly'
       }
     },

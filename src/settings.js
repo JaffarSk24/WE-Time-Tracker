@@ -79,6 +79,118 @@ export function initSettings() {
   });
 
   initUpdates();
+  initGDrive();
+}
+
+// Google Drive sync — desktop build only (window.weGDrive present).
+function initGDrive() {
+  const section = document.getElementById('settings-gdrive-section');
+  if (!section || !window.weGDrive) return;
+
+  section.style.display = 'block';
+
+  const statusTitle = document.getElementById('gdrive-status-title');
+  const statusDetail = document.getElementById('gdrive-status-detail');
+  const loginBtn = document.getElementById('gdrive-login-btn');
+  const logoutBtn = document.getElementById('gdrive-logout-btn');
+  const syncBtn = document.getElementById('gdrive-sync-btn');
+  const credsBox = document.getElementById('gdrive-credentials-box');
+  const clientIdInput = document.getElementById('gdrive-client-id');
+  const clientSecretInput = document.getElementById('gdrive-client-secret');
+  const saveCredsBtn = document.getElementById('gdrive-save-creds-btn');
+
+  const formatSync = (iso) => {
+    if (!iso) return t('gdrive-never-synced');
+    const lang = store.getSettings().language;
+    const d = new Date(iso);
+    return t('gdrive-last-sync') + d.toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-US');
+  };
+
+  const render = (status) => {
+    if (!status) return;
+    if (status.clientId && clientIdInput.value !== status.clientId) {
+      clientIdInput.value = status.clientId;
+    }
+
+    // Credentials only need to be visible until the connection works.
+    credsBox.style.display = status.loggedIn ? 'none' : 'flex';
+    loginBtn.style.display = status.configured && !status.loggedIn ? 'inline-flex' : 'none';
+    logoutBtn.style.display = status.loggedIn ? 'inline-flex' : 'none';
+    syncBtn.style.display = status.loggedIn ? 'inline-flex' : 'none';
+
+    if (status.loggedIn) {
+      statusTitle.textContent = t('gdrive-signed-in-as') + status.email;
+      statusDetail.textContent = formatSync(status.lastSync);
+    } else if (status.configured) {
+      statusTitle.textContent = t('gdrive-desc');
+      statusDetail.textContent = '';
+    } else {
+      statusTitle.textContent = t('gdrive-desc');
+      statusDetail.textContent = t('gdrive-not-configured');
+    }
+    if (window.lucide) window.lucide.createIcons();
+  };
+
+  window.weGDrive.getStatus().then(render);
+  window.weGDrive.onStatus(render);
+
+  // Cloud data replaced the local file: reload so the UI cannot overwrite it
+  // with the stale state it still holds in memory.
+  window.weGDrive.onPulled((info) => {
+    showToast(info && info.conflict ? t('gdrive-conflict') : t('gdrive-pulled'), {
+      type: info && info.conflict ? 'info' : 'success',
+      duration: info && info.conflict ? 9000 : 4000
+    });
+    setTimeout(() => window.location.reload(), info && info.conflict ? 2500 : 1200);
+  });
+
+  saveCredsBtn.addEventListener('click', async () => {
+    const res = await window.weGDrive.setCredentials(clientIdInput.value, clientSecretInput.value);
+    if (res.ok) {
+      showToast(t('gdrive-creds-saved'), { type: 'success' });
+      render(res.status);
+    } else {
+      showToast(t('gdrive-creds-invalid'), { type: 'error' });
+    }
+  });
+
+  loginBtn.addEventListener('click', async () => {
+    loginBtn.disabled = true;
+    const res = await window.weGDrive.login();
+    loginBtn.disabled = false;
+    if (res.ok) {
+      showToast(t('gdrive-synced'), { type: 'success' });
+      render(res.status);
+      await window.weGDrive.sync();
+    } else if (res.error !== 'timeout') {
+      showToast(t('gdrive-login-failed') + (res.error || ''), { type: 'error' });
+    }
+  });
+
+  logoutBtn.addEventListener('click', async () => {
+    const res = await window.weGDrive.logout();
+    showToast(t('gdrive-logged-out'), { type: 'info' });
+    render(res.status);
+  });
+
+  syncBtn.addEventListener('click', async () => {
+    const label = syncBtn.querySelector('span');
+    const original = label.textContent;
+    syncBtn.disabled = true;
+    label.textContent = t('gdrive-syncing');
+    const res = await window.weGDrive.sync();
+    syncBtn.disabled = false;
+    label.textContent = original;
+
+    if (!res.ok) {
+      showToast(t('gdrive-sync-failed') + (res.error || ''), { type: 'error' });
+    } else if (res.upToDate) {
+      showToast(t('gdrive-up-to-date'), { type: 'info' });
+    } else if (res.pushed) {
+      showToast(t('gdrive-synced'), { type: 'success' });
+    }
+    // A successful pull reports itself through onPulled (with a reload).
+  });
 }
 
 // Check/download updates — desktop build only (window.weUpdates present)

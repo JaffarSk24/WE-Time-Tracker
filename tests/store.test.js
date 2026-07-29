@@ -139,6 +139,87 @@ describe('payments & deposits', () => {
     expect(store.getClientBalance(c.id).balance).toBe(0);
   });
 
+  it('marking logs paid closes the debt without hiding the work', () => {
+    const c = store.addClient('Acme', 35);
+    // 2 h of billable work = 70 EUR
+    store.addTimeLog({ clientId: c.id, startTime: '2026-07-21T10:00:00Z', endTime: '2026-07-21T12:00:00Z' });
+    expect(store.getClientBalance(c.id).balance).toBeCloseTo(-70);
+
+    store.setLogsPaid(store.getTimeLogs().map(l => l.id), true);
+    const bal = store.getClientBalance(c.id);
+    expect(bal.billed).toBeCloseTo(70);   // work done is still reported
+    expect(bal.paid).toBeCloseTo(70);     // recorded as a linked payment
+    expect(bal.balance).toBeCloseTo(0);   // settled up
+    expect(store.getPayments(c.id)).toHaveLength(1);
+    expect(store.getPayments(c.id)[0].auto).toBe(true);
+  });
+
+  it('does not double count when the payment was already recorded by hand', () => {
+    const c = store.addClient('Acme', 35);
+    store.addTimeLog({ clientId: c.id, startTime: '2026-07-21T10:00:00Z', endTime: '2026-07-21T12:00:00Z' });
+    store.addPayment(c.id, 70, 'client transfer');   // money already in the ledger
+    store.setLogsPaid(store.getTimeLogs().map(l => l.id), true);
+    // nothing left uncovered -> no second payment, no phantom advance
+    expect(store.getPayments(c.id)).toHaveLength(1);
+    expect(store.getClientBalance(c.id).balance).toBeCloseTo(0);
+  });
+
+  it('marking paid covers only the outstanding part of the debt', () => {
+    const c = store.addClient('Acme', 35);
+    store.addTimeLog({ clientId: c.id, startTime: '2026-07-21T10:00:00Z', endTime: '2026-07-21T12:00:00Z' });
+    store.addPayment(c.id, 30, 'partial');
+    const ids = store.getTimeLogs().map(l => l.id);
+    store.setLogsPaid(ids, true);
+    expect(store.getClientBalance(c.id).paid).toBeCloseTo(70);  // 30 by hand + 40 linked
+    expect(store.getClientBalance(c.id).balance).toBeCloseTo(0);
+    store.setLogsPaid(ids, false);
+    expect(store.getClientBalance(c.id).balance).toBeCloseTo(-40); // manual 30 stays
+  });
+
+  it('unmarking paid reopens the debt and removes the linked payment', () => {
+    const c = store.addClient('Acme', 35);
+    store.addTimeLog({ clientId: c.id, startTime: '2026-07-21T10:00:00Z', endTime: '2026-07-21T12:00:00Z' });
+    const ids = store.getTimeLogs().map(l => l.id);
+    store.setLogsPaid(ids, true);
+    store.setLogsPaid(ids, false);
+    expect(store.getPayments(c.id)).toHaveLength(0);
+    expect(store.getClientBalance(c.id).balance).toBeCloseTo(-70);
+  });
+
+  it('deleting a paid log removes its payment (no phantom advance)', () => {
+    const c = store.addClient('Acme', 35);
+    store.addTimeLog({ clientId: c.id, startTime: '2026-07-21T10:00:00Z', endTime: '2026-07-21T12:00:00Z' });
+    const ids = store.getTimeLogs().map(l => l.id);
+    store.setLogsPaid(ids, true);
+    const removed = store.deleteTimeLogs(ids);
+    expect(store.getClientBalance(c.id).balance).toBeCloseTo(0);
+    store.restoreTimeLogs(removed);   // undo restores both log and payment
+    expect(store.getClientBalance(c.id).balance).toBeCloseTo(0);
+    expect(store.getPayments(c.id)).toHaveLength(1);
+  });
+
+  it('partial unmark keeps the rest of the linked payment', () => {
+    const c = store.addClient('Acme', 60);
+    const a = store.addTimeLog({ clientId: c.id, startTime: '2026-07-21T10:00:00Z', endTime: '2026-07-21T11:00:00Z' });
+    const b = store.addTimeLog({ clientId: c.id, startTime: '2026-07-22T10:00:00Z', endTime: '2026-07-22T11:00:00Z' });
+    store.setLogsPaid([a.id, b.id], true);
+    store.setLogsPaid([a.id], false);
+    expect(store.getPayments(c.id)).toHaveLength(1);
+    expect(store.getPayments(c.id)[0].amount).toBeCloseTo(60);
+    expect(store.getClientBalance(c.id).balance).toBeCloseTo(-60);
+  });
+
+  it('migrates legacy paid logs that have no linked payment', () => {
+    const c = store.addClient('Acme', 35);
+    store.addTimeLog({ clientId: c.id, startTime: '2026-07-21T10:00:00Z', endTime: '2026-07-21T12:00:00Z' });
+    // simulate old data: paid flag set directly, ledger empty
+    store.state.timeLogs[0].paid = true;
+    expect(store.migrateAutoPaymentsForPaidLogs()).toBe(true);
+    expect(store.getClientBalance(c.id).balance).toBeCloseTo(0);
+    // idempotent
+    expect(store.migrateAutoPaymentsForPaidLogs()).toBe(false);
+  });
+
   it('updateClient preserves payments ledger', () => {
     const c = store.addClient('Acme', 60);
     store.addPayment(c.id, 50);

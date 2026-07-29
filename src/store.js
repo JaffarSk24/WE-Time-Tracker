@@ -12,6 +12,30 @@ class Store {
   constructor() {
     this.state = this.loadState();
     this.listeners = [];
+    if (this.migrateAutoPaymentsForPaidLogs()) {
+      this.saveStateDirectly(this.state);
+    }
+  }
+
+  // Data written before the linked-payment model has logs marked paid but no
+  // matching payment, which would make settled work look like debt again.
+  // Create the missing payments once; idempotent, so it is safe on every load.
+  migrateAutoPaymentsForPaidLogs() {
+    const covered = new Set();
+    this.state.clients.forEach(client => {
+      (client.payments || []).forEach(p => {
+        if (p.auto && p.logAmounts) Object.keys(p.logAmounts).forEach(id => covered.add(id));
+      });
+    });
+
+    const orphaned = this.state.timeLogs.filter(
+      l => l.paid && l.billable && l.clientId && !covered.has(l.id)
+    );
+    if (orphaned.length === 0) return false;
+
+    this.createAutoPayment(orphaned);
+    console.log(`Linked ${orphaned.length} paid log(s) to payments`);
+    return true;
   }
 
   // In Electron, data lives in a JSON file (userData) via the weStorage preload bridge:
@@ -114,8 +138,16 @@ class Store {
       if (this.hasFileStorage()) {
         window.weStorage.save(json);
         // The file is the single source of truth: clear the legacy copy so the
-        // migration doesn't 'resurrect' data after an explicit reset.
-        try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* browser fallback unavailable — non-critical */ }
+        // migration doesn't 'resurrect' data after an explicit reset. Anything
+        // real found there is archived first — a build that lost the storage
+        // bridge would have written the user's work to localStorage instead.
+        try {
+          const legacy = localStorage.getItem(STORAGE_KEY);
+          if (legacy && legacy !== json && !this.isEmptyStateJson(legacy) && window.weStorage.saveRecovery) {
+            window.weStorage.saveRecovery(legacy);
+          }
+          localStorage.removeItem(STORAGE_KEY);
+        } catch (e) { /* browser fallback unavailable — non-critical */ }
       } else {
         localStorage.setItem(STORAGE_KEY, json);
       }
@@ -269,19 +301,104 @@ class Store {
     return client && Array.isArray(client.payments) ? client.payments : [];
   }
 
-  // Billed to the client (billable & unpaid), minute-precise (same rule as billableHours).
+  // Amount billed for a single log: minute-precise, minimum one minute
+  // (same rule as billableHours in utils.js).
+  logAmount(log) {
+    if (!log || !log.billable) return 0;
+    const durMs = (log.durationMs !== undefined && log.durationMs !== null)
+      ? log.durationMs
+      : (new Date(log.endTime) - new Date(log.startTime));
+    const hrs = durMs > 0 ? Math.max(1, Math.round(durMs / 60000)) / 60 : 0;
+    return hrs * (log.rateAtTime || 0);
+  }
+
+  // Billed to the client: ALL billable work, paid or not. Money actually
+  // received lives in the payments ledger, so "billed" always tells the truth
+  // about how much work was done.
   getBilledAmount(clientId) {
     let billed = 0;
     this.state.timeLogs.forEach(log => {
-      if (log.clientId === clientId && log.billable && !log.paid) {
-        const durMs = (log.durationMs !== undefined && log.durationMs !== null)
-          ? log.durationMs
-          : (new Date(log.endTime) - new Date(log.startTime));
-        const hrs = durMs > 0 ? Math.max(1, Math.round(durMs / 60000)) / 60 : 0;
-        billed += hrs * (log.rateAtTime || 0);
+      if (log.clientId === clientId && log.billable) {
+        billed += this.logAmount(log);
       }
     });
     return billed;
+  }
+
+  // Marking a log as paid records that money as a linked ("auto") payment, so
+  // the balance (received − billed) closes without double counting and the user
+  // sees the payment in the ledger instead of entering it a second time.
+  createAutoPayment(logs) {
+    const byClient = new Map();
+    logs.forEach(log => {
+      if (!log.clientId || !log.billable) return;
+      if (!byClient.has(log.clientId)) byClient.set(log.clientId, []);
+      byClient.get(log.clientId).push(log);
+    });
+
+    byClient.forEach((clientLogs, clientId) => {
+      const client = this.state.clients.find(c => c.id === clientId);
+      if (!client) return;
+      if (!Array.isArray(client.payments)) client.payments = [];
+
+      const rawAmounts = {};
+      let total = 0;
+      clientLogs.forEach(log => {
+        const amount = this.logAmount(log);
+        rawAmounts[log.id] = amount;
+        total += amount;
+      });
+      if (total <= 0) return;
+
+      // Only record what is not covered by money already in the ledger, so
+      // "client paid 70 €" entered by hand plus "mark as paid" never adds up
+      // to a phantom 140 €. Callers run this while the logs are still counted
+      // as billed, so the deficit below is the client's current debt.
+      const received = client.payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      const deficit = this.getBilledAmount(clientId) - received;
+      const applied = Math.min(total, Math.max(0, deficit));
+      if (applied <= 0.005) return;
+
+      // Scale per-log shares to what was actually recorded, so unmarking
+      // reverses exactly this payment and nothing else.
+      const ratio = applied / total;
+      const logAmounts = {};
+      Object.keys(rawAmounts).forEach(logId => {
+        logAmounts[logId] = rawAmounts[logId] * ratio;
+      });
+
+      client.payments.push({
+        id: 'pay_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        amount: applied,
+        note: '',
+        date: new Date().toISOString(),
+        auto: true,
+        logAmounts
+      });
+    });
+  }
+
+  // Removes the given logs' contribution from linked payments (used when
+  // unmarking as paid, deleting a paid log, or before re-applying an edit).
+  reverseAutoPayments(ids) {
+    const idSet = new Set(ids);
+    this.state.clients.forEach(client => {
+      if (!Array.isArray(client.payments)) return;
+      client.payments = client.payments
+        .map(p => {
+          if (!p.auto || !p.logAmounts) return p;
+          let removed = 0;
+          const rest = {};
+          Object.keys(p.logAmounts).forEach(logId => {
+            if (idSet.has(logId)) removed += p.logAmounts[logId];
+            else rest[logId] = p.logAmounts[logId];
+          });
+          if (removed === 0) return p;
+          if (Object.keys(rest).length === 0) return null;
+          return { ...p, amount: Math.max(0, p.amount - removed), logAmounts: rest };
+        })
+        .filter(Boolean);
+    });
   }
 
   // Client balance: {billed, paid, balance}. balance>0 advance, <0 debt.
@@ -355,6 +472,15 @@ class Store {
         delete merged.durationMs;
       }
       this.state.timeLogs[index] = merged;
+
+      // Keep the linked payment in sync: drop the old contribution and, if the
+      // log is (still) paid, record it again at the new amount. This covers
+      // toggling "paid" as well as editing duration/rate of a paid entry.
+      this.reverseAutoPayments([id]);
+      if (merged.paid) {
+        this.createAutoPayment([merged]);
+      }
+
       this.saveState();
       return true;
     }
@@ -370,6 +496,9 @@ class Store {
     const idSet = new Set(ids);
     const removed = this.state.timeLogs.filter(l => idSet.has(l.id));
     if (removed.length === 0) return [];
+    // Deleting paid work must also drop the payment it generated,
+    // otherwise the client would show a phantom advance.
+    this.reverseAutoPayments(removed.filter(l => l.paid).map(l => l.id));
     this.state.timeLogs = this.state.timeLogs.filter(l => !idSet.has(l.id));
     this.saveState();
     return removed;
@@ -379,27 +508,36 @@ class Store {
   restoreTimeLogs(logs) {
     if (!logs || logs.length === 0) return;
     const existingIds = new Set(this.state.timeLogs.map(l => l.id));
+    const restored = [];
     logs.forEach(log => {
       if (!existingIds.has(log.id)) {
         this.state.timeLogs.push(log);
+        restored.push(log);
       }
     });
+    // Re-create the linked payment for restored paid logs (mirrors delete).
+    this.createAutoPayment(restored.filter(l => l.paid));
     this.saveState();
   }
 
   // Batch 'paid' toggle: a single state write instead of N.
+  // Marking as paid also records a linked payment; unmarking reverses it.
   setLogsPaid(ids, paid = true) {
     const idSet = new Set(ids);
-    let changed = false;
-    this.state.timeLogs = this.state.timeLogs.map(l => {
-      if (idSet.has(l.id) && l.paid !== paid) {
-        changed = true;
-        return { ...l, paid };
-      }
-      return l;
-    });
-    if (changed) this.saveState();
-    return changed;
+    const targets = this.state.timeLogs.filter(l => idSet.has(l.id) && !!l.paid !== !!paid);
+    if (targets.length === 0) return false;
+
+    const targetIds = targets.map(l => l.id);
+    if (paid) {
+      this.createAutoPayment(targets);
+    } else {
+      this.reverseAutoPayments(targetIds);
+    }
+
+    const targetSet = new Set(targetIds);
+    this.state.timeLogs = this.state.timeLogs.map(l => (targetSet.has(l.id) ? { ...l, paid } : l));
+    this.saveState();
+    return true;
   }
 
   // --- Active Timer API ---
@@ -519,6 +657,7 @@ class Store {
           settings: parsed.settings || { ...DEFAULT_SETTINGS },
           activeTimer: parsed.activeTimer || null
         };
+        this.migrateAutoPaymentsForPaidLogs();
         this.saveState();
         return { success: true };
       }

@@ -54,6 +54,31 @@ function saveDataFile(json) {
   fs.renameSync(tmp, dataFilePath());
 }
 
+// Tagged snapshot of the current data file, used before a cloud pull replaces
+// it. Returns the backup path so the user can be told where their data went.
+function snapshotDataFile(tag) {
+  try {
+    const src = dataFilePath();
+    if (!fs.existsSync(src)) return null;
+    fs.mkdirSync(backupsDir(), { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const dest = path.join(backupsDir(), `we-tracker-data-${tag}-${stamp}.json`);
+    fs.copyFileSync(src, dest);
+    return dest;
+  } catch (e) {
+    console.error('Snapshot failed:', e);
+    return null;
+  }
+}
+
+function readDataFile() {
+  try {
+    return fs.readFileSync(dataFilePath(), 'utf8');
+  } catch (e) {
+    return null;
+  }
+}
+
 function initStorageIpc() {
   ipcMain.on('storage:load', (event) => {
     try {
@@ -69,6 +94,20 @@ function initStorageIpc() {
       saveDataFile(json);
     } catch (e) {
       console.error('Failed to save data file:', e);
+    }
+  });
+
+  // Data found in localStorage that is not in the data file is never thrown
+  // away — it is written next to the backups so it can be imported manually.
+  ipcMain.on('storage:save-recovery', (event, json) => {
+    if (typeof json !== 'string' || !json) return;
+    try {
+      fs.mkdirSync(backupsDir(), { recursive: true });
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      fs.writeFileSync(path.join(backupsDir(), `recovered-localstorage-${stamp}.json`), json, 'utf8');
+      console.log('Saved leftover localStorage data to backups');
+    } catch (e) {
+      console.error('Failed to save recovery copy:', e);
     }
   });
 }
@@ -465,41 +504,38 @@ function createWindow(url) {
 
   mainWindow.loadURL(url);
 
-  mainWindow.webContents.on('did-finish-load', async () => {
-    if (gdriveSync.isLoggedIn()) {
-      try {
-        await gdriveSync.pull(mainWindow);
-      } catch (err) {
-        console.error('[GDrive] Startup auto-pull failed:', err);
-      }
-    }
+  // Pull cloud data right after the UI is ready. The renderer reloads itself
+  // when data actually arrives, so it never keeps a stale copy in memory.
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (!gdriveSync.isLoggedIn()) return;
+    gdriveSync.sync(mainWindow, { silent: true }).catch(err => {
+      console.error('[GDrive] Startup sync failed:', err);
+    });
   });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    // On macOS closing the window keeps the app running in the menu bar, so
+    // upload here too — otherwise a session could sit unsynced for days.
+    if (gdriveSync.isLoggedIn()) {
+      gdriveSync.push(null).catch(err => console.error('[GDrive] Close push failed:', err));
+    }
   });
 }
 
 function initGDriveIpc() {
-  ipcMain.handle('gdrive:login', async () => {
-    return await gdriveSync.login(mainWindow);
+  gdriveSync.init({
+    readLocal: readDataFile,
+    writeLocal: saveDataFile,
+    backupLocal: snapshotDataFile
   });
 
-  ipcMain.handle('gdrive:logout', async () => {
-    return await gdriveSync.logout(mainWindow);
-  });
-
-  ipcMain.handle('gdrive:status', async () => {
-    return gdriveSync.getUserProfile();
-  });
-
-  ipcMain.handle('gdrive:push', async () => {
-    return await gdriveSync.push(mainWindow);
-  });
-
-  ipcMain.handle('gdrive:pull', async () => {
-    return await gdriveSync.pull(mainWindow);
-  });
+  ipcMain.handle('gdrive:status', () => gdriveSync.getStatus());
+  ipcMain.handle('gdrive:set-credentials', (event, clientId, clientSecret) =>
+    gdriveSync.setCredentials(clientId, clientSecret));
+  ipcMain.handle('gdrive:login', async () => await gdriveSync.login(mainWindow));
+  ipcMain.handle('gdrive:logout', async () => await gdriveSync.logout(mainWindow));
+  ipcMain.handle('gdrive:sync', async () => await gdriveSync.sync(mainWindow));
 }
 
 app.whenReady().then(() => {
@@ -535,12 +571,27 @@ app.on('activate', () => {
   showMainWindow();
 });
 
-app.on('window-all-closed', async () => {
-  if (gdriveSync.isLoggedIn()) {
-    try {
-      await gdriveSync.push(null);
-    } catch (e) {}
-  }
+// Electron does not await async listeners on quit events, so the upload has to
+// hold the quit open explicitly — otherwise the process dies mid-request and
+// the last working session never reaches the cloud.
+// The wait is capped: a slow or missing network must never trap the user in an
+// app that refuses to close. Unsent data stays local and goes up on next sync.
+const QUIT_UPLOAD_TIMEOUT_MS = 8000;
+let pendingQuitUpload = false;
+
+app.on('before-quit', (event) => {
+  if (pendingQuitUpload || !gdriveSync.isLoggedIn()) return;
+  event.preventDefault();
+  pendingQuitUpload = true;
+
+  const upload = gdriveSync.push(null)
+    .catch(err => console.error('[GDrive] Quit push failed:', err));
+  const deadline = new Promise(resolve => setTimeout(resolve, QUIT_UPLOAD_TIMEOUT_MS));
+
+  Promise.race([upload, deadline]).then(() => app.quit());
+});
+
+app.on('window-all-closed', () => {
   if (viteProcess) {
     try {
       viteProcess.kill();
@@ -551,12 +602,7 @@ app.on('window-all-closed', async () => {
   }
 });
 
-app.on('will-quit', async () => {
-  if (gdriveSync.isLoggedIn()) {
-    try {
-      await gdriveSync.push(null);
-    } catch (e) {}
-  }
+app.on('will-quit', () => {
   if (viteProcess) {
     try {
       viteProcess.kill();
