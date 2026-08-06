@@ -218,8 +218,13 @@ class GDriveSync {
         res.on('end', () => {
           try {
             const parsed = JSON.parse(data);
-            if (res.statusCode === 200) resolve(parsed);
-            else reject(new Error(parsed.error_description || parsed.error || `token ${res.statusCode}`));
+            if (res.statusCode === 200) {
+              resolve(parsed);
+            } else {
+              const err = new Error(parsed.error_description || parsed.error || `token ${res.statusCode}`);
+              err.code = parsed.error;
+              reject(err);
+            }
           } catch (e) { reject(e); }
         });
       });
@@ -230,19 +235,49 @@ class GDriveSync {
     });
   }
 
+  // Google's own guidance is to expect a refresh token to stop working at any
+  // time: the user can revoke access, and while the OAuth consent screen is in
+  // "Testing" status Google expires refresh tokens after 7 days. When that
+  // happens the stored token is useless, so drop it and report that a fresh
+  // sign-in is needed instead of failing with a raw API message forever.
+  isAuthInvalid(err) {
+    if (!err) return false;
+    if (err.code === 'invalid_grant' || err.code === 'unauthorized_client') return true;
+    return /expired or revoked|invalid_grant/i.test(err.message || '');
+  }
+
+  forgetTokens() {
+    this.tokens = null;
+    try {
+      if (this.tokensPath && fs.existsSync(this.tokensPath)) fs.unlinkSync(this.tokensPath);
+    } catch (e) {
+      console.error('[GDrive] Failed to remove expired tokens:', e.message);
+    }
+  }
+
   async getAccessToken() {
     if (!this.isLoggedIn()) throw new Error('not_logged_in');
     if (this.tokens.access_token && Date.now() < this.tokens.expiry - 60000) {
       return this.tokens.access_token;
     }
-    const refreshed = await this.requestTokens({
-      grant_type: 'refresh_token',
-      refresh_token: this.tokens.refresh_token
-    });
-    this.tokens.access_token = refreshed.access_token;
-    this.tokens.expiry = Date.now() + (refreshed.expires_in || 3600) * 1000;
-    this.writeJson(this.tokensPath, this.tokens);
-    return this.tokens.access_token;
+    try {
+      const refreshed = await this.requestTokens({
+        grant_type: 'refresh_token',
+        refresh_token: this.tokens.refresh_token
+      });
+      this.tokens.access_token = refreshed.access_token;
+      this.tokens.expiry = Date.now() + (refreshed.expires_in || 3600) * 1000;
+      this.writeJson(this.tokensPath, this.tokens);
+      return this.tokens.access_token;
+    } catch (e) {
+      if (this.isAuthInvalid(e)) {
+        this.forgetTokens();
+        const reauth = new Error('reauth_required');
+        reauth.reauth = true;
+        throw reauth;
+      }
+      throw e;
+    }
   }
 
   fetchEmail(accessToken) {
@@ -355,7 +390,8 @@ class GDriveSync {
       return { ok: true, pushed: true, status: this.getStatus() };
     } catch (e) {
       console.error('[GDrive] push failed:', e.message);
-      return { ok: false, error: e.message };
+      if (e.reauth) this.notifyStatus(win);
+      return { ok: false, error: e.message, reauth: Boolean(e.reauth) };
     } finally {
       this.isSyncing = false;
     }
@@ -420,7 +456,8 @@ class GDriveSync {
       return { ok: true, pulled: true, conflict: Boolean(localChanged), status: this.getStatus() };
     } catch (e) {
       console.error('[GDrive] sync failed:', e.message);
-      return { ok: false, error: e.message };
+      if (e.reauth) this.notifyStatus(win);
+      return { ok: false, error: e.message, reauth: Boolean(e.reauth) };
     } finally {
       this.isSyncing = false;
     }

@@ -160,7 +160,10 @@ function initGDrive() {
     label.textContent = original;
 
     if (!res.ok) {
-      showToast(t('gdrive-sync-failed') + (res.error || ''), { type: 'error' });
+      // An expired or revoked token already cleared itself; ask for a new sign-in
+      // instead of repeating a raw API message.
+      showToast(res.reauth ? t('gdrive-reauth') : t('gdrive-sync-failed') + (res.error || ''),
+        { type: res.reauth ? 'info' : 'error', duration: res.reauth ? 7000 : 4500 });
     } else if (res.upToDate) {
       showToast(t('gdrive-up-to-date'), { type: 'info' });
     } else if (res.pushed) {
