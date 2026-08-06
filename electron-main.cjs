@@ -188,6 +188,69 @@ function downloadFile(url, destPath, onProgress) {
   });
 }
 
+// Unmounts disk images opened from our downloaded installers. Matching is done
+// on the file name, not the full path: hdiutil reports the resolved location
+// (/private/var/...) while Electron hands out the symlinked one (/var/...), and
+// the image can still be attached after its file is gone.
+function detachUpdateImages(isOurs) {
+  try {
+    const { execFileSync } = require('child_process');
+    const info = execFileSync('hdiutil', ['info'], { encoding: 'utf8' });
+    // Each attached image is one block listing its source path and devices.
+    info.split(/^=+$/m).forEach(block => {
+      const imagePath = (block.match(/^image-path\s*:\s*(.+)$/m) || [])[1];
+      if (!imagePath || !isOurs(path.basename(imagePath.trim()))) return;
+      const device = (block.match(/^\s*(\/dev\/disk\d+)\s/m) || [])[1];
+      if (!device) return;
+      try {
+        execFileSync('hdiutil', ['detach', device, '-quiet']);
+      } catch (e) {
+        execFileSync('hdiutil', ['detach', device, '-force', '-quiet']);
+      }
+      console.log('Detached update image', path.basename(imagePath.trim()));
+    });
+  } catch (e) {
+    console.error('Could not detach update image:', e.message);
+  }
+}
+
+// Installers downloaded by the in-app updater are ~100 MB each and would
+// otherwise pile up in the temp folder. On macOS the disk image usually stays
+// mounted after the user drags the app across, and the space is only released
+// once that volume is detached — so unmount first, then delete.
+function cleanupDownloadedUpdates() {
+  const isOurs = (name) => /^WE-Time-Tracker-update-\d+\.(dmg|exe)$/.test(name);
+
+  // Run this first and unconditionally: an image can stay attached even after
+  // its file was removed, and it holds the disk space until it is detached.
+  if (process.platform === 'darwin') {
+    detachUpdateImages(isOurs);
+  }
+  let dir;
+  try {
+    dir = app.getPath('temp');
+  } catch (e) {
+    return;
+  }
+
+  let leftovers;
+  try {
+    leftovers = fs.readdirSync(dir).filter(isOurs).map(f => path.join(dir, f));
+  } catch (e) {
+    return;
+  }
+  if (leftovers.length === 0) return;
+
+  leftovers.forEach(file => {
+    try {
+      fs.unlinkSync(file);
+      console.log('Removed downloaded installer', path.basename(file));
+    } catch (e) {
+      console.error('Could not remove installer:', e.message);
+    }
+  });
+}
+
 function initUpdatesIpc() {
   ipcMain.handle('updates:check', async () => {
     try {
@@ -215,6 +278,8 @@ function initUpdatesIpc() {
       return { ok: false, error: 'invalid url' };
     }
     try {
+      // Drop whatever a previous update left behind before fetching another.
+      cleanupDownloadedUpdates();
       const ext = process.platform === 'win32' ? 'exe' : 'dmg';
       const dest = path.join(app.getPath('temp'), `WE-Time-Tracker-update-${Date.now()}.${ext}`);
       await downloadFile(url, dest, (p) => {
@@ -564,6 +629,9 @@ function initGDriveIpc() {
 }
 
 app.whenReady().then(() => {
+  // A leftover installer here means the previous update is finished (or was
+  // abandoned) — either way the file is dead weight now.
+  cleanupDownloadedUpdates();
   initStorageIpc();
   initUpdatesIpc();
   initGDriveIpc();
