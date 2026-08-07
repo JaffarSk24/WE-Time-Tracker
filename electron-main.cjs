@@ -10,6 +10,7 @@ let lastUrl = null;
 let tray = null;
 let trayTimerState = null;
 let trayTickInterval = null;
+let mainWindowHasOpened = false;
 
 const STORAGE_KEY = 'we_time_tracker_data';
 
@@ -357,9 +358,12 @@ function rebuildTrayMenu() {
 function initTray() {
   // macOS shows the timer as menu-bar text, so an empty image keeps it clean.
   // Windows and Linux need a real icon or the tray entry is invisible.
+  // The icon is read by native code, which cannot look inside app.asar — the
+  // build unpacks it, so point at the unpacked copy when running packaged.
+  const iconFile = path.join(__dirname, 'icon.png').replace('app.asar', 'app.asar.unpacked');
   const trayImage = process.platform === 'darwin'
     ? nativeImage.createEmpty()
-    : nativeImage.createFromPath(path.join(__dirname, 'icon.png')).resize({ width: 16, height: 16 });
+    : nativeImage.createFromPath(iconFile).resize({ width: 16, height: 16 });
 
   tray = new Tray(trayImage);
   tray.on('click', () => showMainWindow());
@@ -469,7 +473,11 @@ function registerAppProtocol() {
 // Versions <= 1.2.x kept data in localStorage tied to the server port.
 // Spin up that origin in a hidden window, read the data and move it to the file.
 function migrateLegacyLocalStorage(done) {
-  if (fs.existsSync(dataFilePath())) {
+  // Only macOS ever ran the versions that kept data in localStorage behind a
+  // local HTTP server, so elsewhere there is nothing to migrate. It also uses a
+  // throwaway window that would be the only open one during startup — closing
+  // it fires 'window-all-closed', which quits the app off macOS.
+  if (process.platform !== 'darwin' || fs.existsSync(dataFilePath())) {
     done();
     return;
   }
@@ -594,6 +602,7 @@ function createWindow(url) {
     return { action: 'deny' };
   });
 
+  mainWindowHasOpened = true;
   mainWindow.loadURL(url);
 
   // Pull cloud data right after the UI is ready. The renderer reloads itself
@@ -635,7 +644,13 @@ app.whenReady().then(() => {
   initStorageIpc();
   initUpdatesIpc();
   initGDriveIpc();
-  initTray();
+  // A tray failure (a missing or unreadable icon on Windows, for instance)
+  // must never prevent the main window from being created.
+  try {
+    initTray();
+  } catch (e) {
+    console.error('Tray unavailable:', e.message);
+  }
 
   const isDev = process.env.NODE_ENV === 'development';
 
@@ -690,7 +705,10 @@ app.on('window-all-closed', () => {
       viteProcess.kill();
     } catch (e) { /* ignore */ }
   }
-  if (process.platform !== 'darwin') {
+  // Off macOS, closing the last window quits the app — but during startup a
+  // helper window can open and close before the main one exists, and quitting
+  // then would kill the app before it ever showed anything.
+  if (process.platform !== 'darwin' && mainWindowHasOpened) {
     app.quit();
   }
 });
