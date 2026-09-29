@@ -30,10 +30,8 @@ const path = require('path');
 const BUNDLED_CREDENTIALS_FILE = 'oauth-credentials.json';
 
 const REMOTE_FILE_NAME = 'we-tracker-data.json';
-const SCOPES = [
-  'https://www.googleapis.com/auth/drive.appdata',
-  'https://www.googleapis.com/auth/userinfo.email'
-].join(' ');
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+const SCOPES = [DRIVE_SCOPE, 'https://www.googleapis.com/auth/userinfo.email'].join(' ');
 
 class GDriveSync {
   constructor() {
@@ -159,6 +157,14 @@ class GDriveSync {
             code_verifier: verifier,
             redirect_uri: redirectUri
           });
+          // Google lets people approve permissions one by one, so a sign-in can
+          // come back without Drive access. Storing that token would leave the
+          // account looking connected while every sync fails with a 403.
+          if (!String(tokenData.scope || '').split(' ').includes(DRIVE_SCOPE)) {
+            finish({ ok: false, error: 'scope_denied', scopeDenied: true });
+            return;
+          }
+
           const email = await this.fetchEmail(tokenData.access_token);
           this.tokens = {
             access_token: tokenData.access_token,
@@ -301,8 +307,14 @@ class GDriveSync {
         let data = '';
         res.on('data', c => data += c);
         res.on('end', () => {
-          if (res.statusCode >= 200 && res.statusCode < 300) resolve(data);
-          else reject(new Error(`drive ${res.statusCode}: ${data.slice(0, 200)}`));
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(data);
+            return;
+          }
+          const err = new Error(`drive ${res.statusCode}: ${data.slice(0, 200)}`);
+          // Drive access was never granted (or was taken away afterwards).
+          err.scopeDenied = res.statusCode === 403 && /insufficient|Insufficient Permission/i.test(data);
+          reject(err);
         });
       });
       req.on('error', reject);
@@ -390,8 +402,14 @@ class GDriveSync {
       return { ok: true, pushed: true, status: this.getStatus() };
     } catch (e) {
       console.error('[GDrive] push failed:', e.message);
-      if (e.reauth) this.notifyStatus(win);
-      return { ok: false, error: e.message, reauth: Boolean(e.reauth) };
+      if (e.scopeDenied) this.forgetTokens();
+      if (e.reauth || e.scopeDenied) this.notifyStatus(win);
+      return {
+        ok: false,
+        error: e.message,
+        reauth: Boolean(e.reauth),
+        scopeDenied: Boolean(e.scopeDenied)
+      };
     } finally {
       this.isSyncing = false;
     }
@@ -456,8 +474,14 @@ class GDriveSync {
       return { ok: true, pulled: true, conflict: Boolean(localChanged), status: this.getStatus() };
     } catch (e) {
       console.error('[GDrive] sync failed:', e.message);
-      if (e.reauth) this.notifyStatus(win);
-      return { ok: false, error: e.message, reauth: Boolean(e.reauth) };
+      if (e.scopeDenied) this.forgetTokens();
+      if (e.reauth || e.scopeDenied) this.notifyStatus(win);
+      return {
+        ok: false,
+        error: e.message,
+        reauth: Boolean(e.reauth),
+        scopeDenied: Boolean(e.scopeDenied)
+      };
     } finally {
       this.isSyncing = false;
     }

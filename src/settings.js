@@ -139,6 +139,8 @@ function initGDrive() {
       showToast(t('gdrive-synced'), { type: 'success' });
       render(res.status);
       await window.weGDrive.sync();
+    } else if (res.scopeDenied) {
+      showToast(t('gdrive-scope-denied'), { type: 'error', duration: 10000 });
     } else if (res.error !== 'timeout') {
       showToast(t('gdrive-login-failed') + (res.error || ''), { type: 'error' });
     }
@@ -162,8 +164,18 @@ function initGDrive() {
     if (!res.ok) {
       // An expired or revoked token already cleared itself; ask for a new sign-in
       // instead of repeating a raw API message.
-      showToast(res.reauth ? t('gdrive-reauth') : t('gdrive-sync-failed') + (res.error || ''),
-        { type: res.reauth ? 'info' : 'error', duration: res.reauth ? 7000 : 4500 });
+      let message = t('gdrive-sync-failed') + (res.error || '');
+      let type = 'error';
+      let duration = 4500;
+      if (res.scopeDenied) {
+        message = t('gdrive-scope-denied');
+        duration = 10000;
+      } else if (res.reauth) {
+        message = t('gdrive-reauth');
+        type = 'info';
+        duration = 7000;
+      }
+      showToast(message, { type, duration });
     } else if (res.upToDate) {
       showToast(t('gdrive-up-to-date'), { type: 'info' });
     } else if (res.pushed) {
