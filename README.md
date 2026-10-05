@@ -53,7 +53,7 @@ You do not need node.js or a terminal setup to run the application on macOS.
 1. Navigate to the **[Releases](https://github.com/JaffarSk24/WE-Time-Tracker/releases)** section of this repository.
 2. Download the latest **`WE Time Tracker-<version>.dmg`** or **`WE Time Tracker-<version>-mac.zip`**.
 3. Open/mount the downloaded file, drag **WE Time Tracker** to your **Applications** folder.
-4. Open Terminal and run the following command to bypass the Gatekeeper security check for instant startup (avoiding the dock-bouncing delay):
+4. Open Terminal and run the command below once. A `.dmg` fetched with a browser arrives carrying macOS's quarantine flag, and without a paid Apple notarisation Gatekeeper refuses to open what it marks, usually saying the app is damaged. The command clears that flag and nothing else:
    ```bash
    xattr -cr "/Applications/WE Time Tracker.app"
    ```
@@ -113,16 +113,21 @@ You can compile a standalone, native macOS application with custom brand assets 
    Packages the application into a mountable disk image (`release/WE Time Tracker-<version>.dmg`) and a zip file (`release/WE Time Tracker-<version>-mac.zip`) with the custom White Eagles logo embedded as the application icon.
 
 
-### ⚠️ Note on macOS Gatekeeper (First Launch Delay)
-Since local builds are packaged without a paid Apple Developer certificate, macOS Gatekeeper may run an extensive background verification check on the unsigned `.app` bundle during the very first launch. This can cause the application icon to bounce in the Dock for up to a minute before starting.
+### ⚠️ Note on macOS Gatekeeper
 
-To bypass this check and ensure the application launches instantly:
-1. Open your terminal.
-2. Run the following command to remove the macOS quarantine flag:
-   ```bash
-   xattr -cr "release/mac/WE Time Tracker.app"
-   ```
-   *(Or if you moved it to your Applications folder: `xattr -cr "/Applications/WE Time Tracker.app"`)*
+There is no paid Apple Developer ID for this project, so the app cannot be notarised and is only ad-hoc signed. Gatekeeper treats that as unsigned. On its own that is harmless, but macOS marks anything a browser downloads with a quarantine flag, and for a file carrying that flag Gatekeeper refuses to open an app it cannot verify, normally with a message claiming the app is damaged. The app is intact; the flag is what is being refused.
+
+Clearing the flag takes one command, which changes nothing beyond that folder:
+
+```bash
+xattr -cr "/Applications/WE Time Tracker.app"
+```
+
+Running a build straight from `release/`? Point it there instead: `xattr -cr "release/mac/WE Time Tracker.app"`.
+
+Without a terminal, the same thing is done in System Settings, Privacy & Security: scroll to the message about WE Time Tracker being blocked and choose Open Anyway. On recent macOS versions, right-clicking the app and choosing Open no longer works for unsigned apps.
+
+**Updates installed from inside the app do not need any of this.** The quarantine flag is set by the program doing the downloading, and browsers are what set it. The in-app updater writes the file itself, so neither the downloaded disk image nor the app inside it is ever flagged.
 
 ---
 
