@@ -15,6 +15,8 @@ export const updateState = {
   phase: 'idle',
   progress: 0,
   last: null,
+  // Windows installs the update as the app closes, so the wording differs.
+  installsOnQuit: false,
   // Version the user chose to skip; the banner stays hidden until a newer one.
   dismissed: null
 };
@@ -64,8 +66,9 @@ export async function downloadUpdate() {
   updateState.progress = 0;
   notify();
   const result = await bridge.download(r.downloadUrl);
-  // The main process opens the installer itself, so there is nothing left for
-  // the app to do but tell the user where it went.
+  updateState.installsOnQuit = Boolean(result.installsOnQuit);
+  // The main process takes it from here: on macOS it opens the disk image, on
+  // Windows it runs the setup once the app closes.
   updateState.phase = result.ok ? 'opened' : 'idle';
   notify();
   return result;
@@ -80,7 +83,7 @@ export function updateStatusText() {
     case 'downloading':
       return `${t('update-downloading')} ${Math.round(updateState.progress * 100)}%`;
     case 'opened':
-      return t('update-open-hint');
+      return updateState.installsOnQuit ? t('update-quit-hint') : t('update-open-hint');
     default:
       if (!r) return '';
       if (!r.ok) return t('update-error');

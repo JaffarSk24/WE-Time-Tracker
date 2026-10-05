@@ -288,8 +288,14 @@ function initUpdatesIpc() {
           mainWindow.webContents.send('updates:progress', p);
         }
       });
-      // Open the installer: the Windows setup runs, on macOS the user drags
-      // the app into Applications.
+      if (process.platform === 'win32') {
+        // The Windows setup replaces files this very process is running from,
+        // so it starts once the app is closing, after the final sync. Silent,
+        // and it brings the new version back up by itself.
+        pendingWindowsInstaller = dest;
+        return { ok: true, installsOnQuit: true };
+      }
+      // On macOS the disk image opens and the user drags the app across.
       await shell.openPath(dest);
       return { ok: true };
     } catch (e) {
@@ -687,6 +693,24 @@ app.on('activate', () => {
 // app that refuses to close. Unsent data stays local and goes up on next sync.
 const QUIT_UPLOAD_TIMEOUT_MS = 8000;
 let pendingQuitUpload = false;
+// A downloaded Windows installer, run once this process is on its way out.
+let pendingWindowsInstaller = null;
+
+function runPendingWindowsInstaller() {
+  if (!pendingWindowsInstaller) return;
+  const installer = pendingWindowsInstaller;
+  pendingWindowsInstaller = null;
+  try {
+    const { spawn } = require('child_process');
+    // --updated tells the NSIS script this is an upgrade, /S keeps it silent,
+    // --force-run starts the new version afterwards.
+    spawn(installer, ['--updated', '/S', '--force-run'], { detached: true, stdio: 'ignore' }).unref();
+  } catch (e) {
+    console.error('Could not start the installer:', e.message);
+    // Leave the user a way forward rather than a silent no-op.
+    shell.openPath(installer);
+  }
+}
 
 app.on('before-quit', (event) => {
   if (pendingQuitUpload || !gdriveSync.isLoggedIn()) return;
@@ -715,6 +739,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+  runPendingWindowsInstaller();
   if (viteProcess) {
     try {
       viteProcess.kill();

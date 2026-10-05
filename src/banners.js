@@ -102,7 +102,7 @@ function updateBanner() {
   }
 
   if (updateState.phase === 'opened') {
-    return banner('update', 'check-circle', t('update-open-hint'), [
+    return banner('update', 'check-circle', updateStatusText(), [
       button(t('update-later'), { onClick: dismissUpdate })
     ]);
   }
