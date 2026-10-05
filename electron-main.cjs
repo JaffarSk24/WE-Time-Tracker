@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const gdriveSync = require('./gdrive-sync.cjs');
+const updater = require('./updater.cjs');
 
 let viteProcess = null;
 let mainWindow = null;
@@ -113,81 +114,11 @@ function initStorageIpc() {
   });
 }
 
-// --- Check and download updates from GitHub Releases ---
-// A fully silent auto-update (electron-updater) on macOS needs a valid Developer
-// ID signature; with ad-hoc it fails the check. So: compare the version with the
-// latest release and, if newer, download the installer and open it.
-const GITHUB_REPO = 'JaffarSk24/WE-Time-Tracker';
-const appVersion = () => app.getVersion();
-
-function compareVersions(a, b) {
-  const pa = String(a).replace(/^v/, '').split('.').map(Number);
-  const pb = String(b).replace(/^v/, '').split('.').map(Number);
-  for (let i = 0; i < 3; i++) {
-    const x = pa[i] || 0, y = pb[i] || 0;
-    if (x > y) return 1;
-    if (x < y) return -1;
-  }
-  return 0;
-}
-
-function fetchLatestRelease() {
-  return new Promise((resolve, reject) => {
-    const https = require('https');
-    const req = https.request({
-      hostname: 'api.github.com',
-      path: `/repos/${GITHUB_REPO}/releases/latest`,
-      method: 'GET',
-      headers: { 'User-Agent': 'WE-Time-Tracker', 'Accept': 'application/vnd.github+json' }
-    }, (res) => {
-      if (res.statusCode !== 200) {
-        res.resume();
-        reject(new Error(`GitHub API ${res.statusCode}`));
-        return;
-      }
-      let body = '';
-      res.on('data', c => body += c);
-      res.on('end', () => {
-        try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
-      });
-    });
-    req.on('error', reject);
-    req.setTimeout(15000, () => req.destroy(new Error('timeout')));
-    req.end();
-  });
-}
-
-function downloadFile(url, destPath, onProgress) {
-  return new Promise((resolve, reject) => {
-    const https = require('https');
-    const doGet = (u, redirects) => {
-      https.get(u, { headers: { 'User-Agent': 'WE-Time-Tracker' } }, (res) => {
-        if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
-          if (redirects > 5) { reject(new Error('too many redirects')); return; }
-          res.resume();
-          doGet(res.headers.location, redirects + 1);
-          return;
-        }
-        if (res.statusCode !== 200) {
-          res.resume();
-          reject(new Error(`download ${res.statusCode}`));
-          return;
-        }
-        const total = parseInt(res.headers['content-length'] || '0', 10);
-        let received = 0;
-        const out = fs.createWriteStream(destPath);
-        res.on('data', chunk => {
-          received += chunk.length;
-          if (total && onProgress) onProgress(received / total);
-        });
-        res.pipe(out);
-        out.on('finish', () => out.close(() => resolve(destPath)));
-        out.on('error', reject);
-      }).on('error', reject);
-    };
-    doGet(url, 0);
-  });
-}
+// --- Updates from GitHub Releases ---
+// The updater itself lives in updater.cjs: it downloads the new version and
+// installs it in place once the app quits, then starts it again. What stays
+// here is the cleanup after the older flow (up to 1.8.x), which downloaded a
+// disk image or setup into the temp folder and opened it.
 
 // Unmounts disk images opened from our downloaded installers. Matching is done
 // on the file name, not the full path: hdiutil reports the resolved location
@@ -215,7 +146,7 @@ function detachUpdateImages(isOurs) {
   }
 }
 
-// Installers downloaded by the in-app updater are ~100 MB each and would
+// Installers downloaded by the older updater are ~100 MB each and would
 // otherwise pile up in the temp folder. On macOS the disk image usually stays
 // mounted after the user drags the app across, and the space is only released
 // once that volume is detached — so unmount first, then delete.
@@ -253,54 +184,19 @@ function cleanupDownloadedUpdates() {
 }
 
 function initUpdatesIpc() {
-  ipcMain.handle('updates:check', async () => {
-    try {
-      const release = await fetchLatestRelease();
-      const latest = release.tag_name || release.name || '';
-      const isNewer = compareVersions(latest, appVersion()) > 0;
-      // Pick the installer for the platform we are running on.
-      const wanted = process.platform === 'win32' ? '.exe' : '.dmg';
-      const installer = (release.assets || []).find(a => a.name && a.name.endsWith(wanted));
-      return {
-        ok: true,
-        current: appVersion(),
-        latest: latest.replace(/^v/, ''),
-        available: isNewer && !!installer,
-        downloadUrl: installer ? installer.browser_download_url : null,
-        notes: release.body || ''
-      };
-    } catch (e) {
-      return { ok: false, error: String(e.message || e) };
+  updater.cleanup();
+  ipcMain.handle('updates:check', () => updater.check());
+  ipcMain.handle('updates:download', () => updater.download((p) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('updates:progress', p);
     }
-  });
-
-  ipcMain.handle('updates:download', async (event, url) => {
-    if (!url || typeof url !== 'string' || !url.startsWith('https://')) {
-      return { ok: false, error: 'invalid url' };
-    }
-    try {
-      // Drop whatever a previous update left behind before fetching another.
-      cleanupDownloadedUpdates();
-      const ext = process.platform === 'win32' ? 'exe' : 'dmg';
-      const dest = path.join(app.getPath('temp'), `WE-Time-Tracker-update-${Date.now()}.${ext}`);
-      await downloadFile(url, dest, (p) => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('updates:progress', p);
-        }
-      });
-      if (process.platform === 'win32') {
-        // The Windows setup replaces files this very process is running from,
-        // so it starts once the app is closing, after the final sync. Silent,
-        // and it brings the new version back up by itself.
-        pendingWindowsInstaller = dest;
-        return { ok: true, installsOnQuit: true };
-      }
-      // On macOS the disk image opens and the user drags the app across.
-      await shell.openPath(dest);
-      return { ok: true };
-    } catch (e) {
-      return { ok: false, error: String(e.message || e) };
-    }
+  }));
+  ipcMain.handle('updates:install', () => {
+    const result = updater.install();
+    // Quitting goes through before-quit, so the last session reaches Google
+    // Drive before the new version replaces this one.
+    if (result.ok && result.quit) setTimeout(() => app.quit(), 100);
+    return result;
   });
 }
 
@@ -693,25 +589,6 @@ app.on('activate', () => {
 // app that refuses to close. Unsent data stays local and goes up on next sync.
 const QUIT_UPLOAD_TIMEOUT_MS = 8000;
 let pendingQuitUpload = false;
-// A downloaded Windows installer, run once this process is on its way out.
-let pendingWindowsInstaller = null;
-
-function runPendingWindowsInstaller() {
-  if (!pendingWindowsInstaller) return;
-  const installer = pendingWindowsInstaller;
-  pendingWindowsInstaller = null;
-  try {
-    const { spawn } = require('child_process');
-    // --updated tells the NSIS script this is an upgrade, /S keeps it silent,
-    // --force-run starts the new version afterwards.
-    spawn(installer, ['--updated', '/S', '--force-run'], { detached: true, stdio: 'ignore' }).unref();
-  } catch (e) {
-    console.error('Could not start the installer:', e.message);
-    // Leave the user a way forward rather than a silent no-op.
-    shell.openPath(installer);
-  }
-}
-
 app.on('before-quit', (event) => {
   if (pendingQuitUpload || !gdriveSync.isLoggedIn()) return;
   event.preventDefault();
@@ -739,7 +616,8 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
-  runPendingWindowsInstaller();
+  // By now the last upload is done or has timed out.
+  updater.launchPendingInstaller();
   if (viteProcess) {
     try {
       viteProcess.kill();

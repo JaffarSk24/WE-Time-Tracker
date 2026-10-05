@@ -1,13 +1,14 @@
 // Notices above the views, visible from every tab:
-// - a new release is out, with a button that downloads and opens the installer;
+// - a new release is out: download it, then install and restart in one click;
 // - Google Drive sync is available but nobody has signed in yet (a fresh
 //   install sees this straight away, so sync is not buried in Settings).
 
 import { t } from './i18n.js';
+import { showToast } from './toast.js';
 import { signInToGDrive } from './settings.js';
 import {
   updateState, updateOffered, updateStatusText, updatesSupported,
-  onUpdateChange, downloadUpdate, dismissUpdate
+  onUpdateChange, downloadUpdate, installUpdate, dismissUpdate
 } from './updates.js';
 
 const RELEASES_URL = 'https://github.com/JaffarSk24/WE-Time-Tracker/releases/latest';
@@ -85,6 +86,16 @@ function banner(kind, iconName, text, actions) {
   return el;
 }
 
+async function onDownload() {
+  const res = await downloadUpdate();
+  if (!res.ok) showToast(t('update-error') + (res.error ? `: ${res.error}` : ''), { type: 'error' });
+}
+
+async function onInstall() {
+  const res = await installUpdate();
+  if (!res.ok) showToast(t('update-install-error') + (res.error ? `: ${res.error}` : ''), { type: 'error' });
+}
+
 function updateBanner() {
   if (!updatesSupported() || !updateOffered()) return null;
   const latest = updateState.last.latest;
@@ -101,14 +112,25 @@ function updateBanner() {
     return el;
   }
 
-  if (updateState.phase === 'opened') {
+  if (updateState.phase === 'ready') {
+    return banner('update', 'check-circle', updateStatusText(), [
+      button(t('update-install'), { variant: 'primary', icon: 'refresh-cw', onClick: onInstall }),
+      button(t('update-later'), { onClick: dismissUpdate })
+    ]);
+  }
+
+  if (updateState.phase === 'installing') {
+    return banner('update', 'refresh-cw', updateStatusText(), []);
+  }
+
+  if (updateState.phase === 'manual') {
     return banner('update', 'check-circle', updateStatusText(), [
       button(t('update-later'), { onClick: dismissUpdate })
     ]);
   }
 
   return banner('update', 'download-cloud', `${t('update-banner')} v${latest}`, [
-    button(t('update-download'), { variant: 'primary', icon: 'download', onClick: downloadUpdate }),
+    button(t('update-download'), { variant: 'primary', icon: 'download', onClick: onDownload }),
     linkButton(t('update-whats-new'), RELEASES_URL),
     button(t('update-later'), { onClick: dismissUpdate })
   ]);

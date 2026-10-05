@@ -1,7 +1,7 @@
 // Preload: safe bridge between the renderer and the main process.
 // weStorage — file-based data storage (userData/we-tracker-data.json),
 // weTimer   — syncs the active timer with the menubar (tray),
-// weUpdates — GitHub release check/download,
+// weUpdates - GitHub release check, download and install,
 // weGDrive  — Google Drive sync.
 //
 // All four must stay exposed: dropping weStorage silently sends the app back
@@ -23,7 +23,8 @@ contextBridge.exposeInMainWorld('weTimer', {
 
 contextBridge.exposeInMainWorld('weUpdates', {
   check: () => ipcRenderer.invoke('updates:check'),
-  download: (url) => ipcRenderer.invoke('updates:download', url),
+  download: () => ipcRenderer.invoke('updates:download'),
+  install: () => ipcRenderer.invoke('updates:install'),
   onProgress: (callback) => ipcRenderer.on('updates:progress', (_e, p) => callback(p))
 });
 

@@ -10,16 +10,21 @@ const CHECK_EVERY_MS = 6 * 60 * 60 * 1000;
 // Long enough for the first render to finish before a network call starts.
 const FIRST_CHECK_DELAY_MS = 4000;
 
-// phase: 'idle' | 'checking' | 'downloading' | 'opened'
+// phase: 'idle' | 'checking' | 'downloading' | 'ready' | 'installing' | 'manual'
+//   ready      downloaded and verified, waiting for "Install and restart";
+//   installing the app is about to quit, the new version starts by itself;
+//   manual     the app's folder is not writable, the disk image was opened.
 export const updateState = {
   phase: 'idle',
   progress: 0,
   last: null,
-  // Windows installs the update as the app closes, so the wording differs.
-  installsOnQuit: false,
   // Version the user chose to skip; the banner stays hidden until a newer one.
   dismissed: null
 };
+
+// Once a download has started, a periodic check must not pull the state back
+// to "available".
+const BUSY_PHASES = ['checking', 'downloading', 'ready', 'installing'];
 
 const listeners = [];
 
@@ -47,7 +52,7 @@ export function dismissUpdate() {
 }
 
 export async function checkForUpdates() {
-  if (!bridge || updateState.phase === 'checking' || updateState.phase === 'downloading') {
+  if (!bridge || BUSY_PHASES.includes(updateState.phase)) {
     return updateState.last;
   }
   updateState.phase = 'checking';
@@ -61,15 +66,37 @@ export async function checkForUpdates() {
 
 export async function downloadUpdate() {
   const r = updateState.last;
-  if (!bridge || !r || !r.downloadUrl) return { ok: false, error: 'nothing to download' };
+  if (!bridge || !r || !r.available) return { ok: false, error: 'nothing to download' };
   updateState.phase = 'downloading';
   updateState.progress = 0;
   notify();
-  const result = await bridge.download(r.downloadUrl);
-  updateState.installsOnQuit = Boolean(result.installsOnQuit);
-  // The main process takes it from here: on macOS it opens the disk image, on
-  // Windows it runs the setup once the app closes.
-  updateState.phase = result.ok ? 'opened' : 'idle';
+  const result = await bridge.download();
+  if (!result.ok) {
+    updateState.phase = 'idle';
+    notify();
+    return result;
+  }
+  if (result.inPlace) {
+    updateState.phase = 'ready';
+    notify();
+    return result;
+  }
+  // Nowhere to install in place: open the disk image straight away.
+  return installUpdate();
+}
+
+export async function installUpdate() {
+  if (!bridge) return { ok: false, error: 'no bridge' };
+  const before = updateState.phase;
+  updateState.phase = 'installing';
+  notify();
+  const result = await bridge.install();
+  if (!result.ok) {
+    updateState.phase = before === 'ready' ? 'ready' : 'idle';
+  } else if (result.manual) {
+    updateState.phase = 'manual';
+  }
+  // Otherwise the app quits in a moment and the new version starts.
   notify();
   return result;
 }
@@ -82,8 +109,12 @@ export function updateStatusText() {
       return t('update-checking');
     case 'downloading':
       return `${t('update-downloading')} ${Math.round(updateState.progress * 100)}%`;
-    case 'opened':
-      return updateState.installsOnQuit ? t('update-quit-hint') : t('update-open-hint');
+    case 'ready':
+      return `${t('update-ready')}: v${r.latest}`;
+    case 'installing':
+      return t('update-installing');
+    case 'manual':
+      return t('update-open-hint');
     default:
       if (!r) return '';
       if (!r.ok) return t('update-error');

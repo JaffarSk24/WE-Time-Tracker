@@ -110,7 +110,7 @@ You can compile a standalone, native macOS application with custom brand assets 
    ```bash
    npm run electron:dist
    ```
-   Packages the application into a mountable disk image (`release/WE Time Tracker-<version>.dmg`) and a zip file (`release/WE Time Tracker-<version>-mac.zip`) with the custom White Eagles logo embedded as the application icon.
+   Packages the application into a mountable disk image (`release/WE-Time-Tracker-<version>-mac-x64.dmg`) and a zip file (`release/WE-Time-Tracker-<version>-mac-x64.zip`) with the custom White Eagles logo embedded as the application icon, plus `release/latest-mac.yml` with their checksums. The Windows setup is built with `npm run electron:dist:win` (`release/WE-Time-Tracker-<version>-win-x64.exe` and `release/latest.yml`). A release needs all of these files: the in-app updater installs from the zip on macOS and the setup on Windows, and checks each download against the yml files.
 
 
 ### ⚠️ Note on macOS Gatekeeper
@@ -127,7 +127,7 @@ Running a build straight from `release/`? Point it there instead: `xattr -cr "re
 
 Without a terminal, the same thing is done in System Settings, Privacy & Security: scroll to the message about WE Time Tracker being blocked and choose Open Anyway. On recent macOS versions, right-clicking the app and choosing Open no longer works for unsigned apps.
 
-**Updates installed from inside the app do not need any of this.** The quarantine flag is set by the program doing the downloading, and browsers are what set it. The in-app updater writes the file itself, so neither the downloaded disk image nor the app inside it is ever flagged.
+**Updates installed from inside the app do not need any of this.** When a new version is out, a banner offers to download it; once it is downloaded, Install and restart quits the app, puts the new version in place of the old one and starts it again, with no disk image to open and nothing to drag. The quarantine flag is set by the program doing the downloading, and browsers are what set it; the in-app updater writes the file itself, so the new version is never flagged. On Windows the same button runs the setup silently after the app closes. If the app's folder is not writable (an `/Applications` owned by an administrator), the updater opens the disk image instead and the app is dragged across as on first install.
 
 ---
 

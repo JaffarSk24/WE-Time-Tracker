@@ -4,7 +4,7 @@ import { t } from './i18n.js';
 import { showToast } from './toast.js';
 import {
   updateState, updateStatusText, onUpdateChange,
-  checkForUpdates, downloadUpdate
+  checkForUpdates, downloadUpdate, installUpdate
 } from './updates.js';
 
 export function initSettings() {
@@ -232,7 +232,7 @@ function initGDrive() {
   });
 }
 
-// Check/download updates — desktop build only (window.weUpdates present).
+// Check, download and install updates; desktop build only (window.weUpdates present).
 // The state lives in updates.js, shared with the banner above the views.
 function initUpdatesSection() {
   const section = document.getElementById('settings-update-section');
@@ -252,11 +252,13 @@ function initUpdatesSection() {
 
   const render = () => {
     const r = updateState.last;
-    const busy = updateState.phase === 'checking' || updateState.phase === 'downloading';
+    const busy = ['checking', 'downloading', 'installing'].includes(updateState.phase);
     btn.disabled = busy;
     status.textContent = updateStatusText();
     if (updateState.phase === 'downloading') {
       btnLabel.textContent = updateStatusText();
+    } else if (updateState.phase === 'ready') {
+      btnLabel.textContent = t('update-install');
     } else if (canDownload()) {
       btnLabel.textContent = t('update-download');
     } else {
@@ -272,6 +274,11 @@ function initUpdatesSection() {
   };
 
   btn.addEventListener('click', async () => {
+    if (updateState.phase === 'ready') {
+      const res = await installUpdate();
+      if (!res.ok) showToast(t('update-install-error') + (res.error ? `: ${res.error}` : ''), { type: 'error' });
+      return;
+    }
     if (canDownload()) {
       const res = await downloadUpdate();
       if (!res.ok) showToast(t('update-error') + (res.error ? `: ${res.error}` : ''), { type: 'error' });

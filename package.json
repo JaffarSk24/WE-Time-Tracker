@@ -1,7 +1,7 @@
 {
   "name": "we-time-tracker",
   "private": true,
-  "version": "1.8.2",
+  "version": "1.9.0",
   "type": "module",
   "main": "electron-main.cjs",
   "scripts": {
@@ -10,8 +10,9 @@
     "preview": "vite preview",
     "electron:dev": "NODE_ENV=development electron .",
     "electron:prod": "npm run build && NODE_ENV=production electron .",
-    "electron:pack": "npm run build && electron-builder --dir",
-    "electron:dist": "npm run build && electron-builder",
+    "electron:pack": "npm run build && electron-builder --dir --publish never",
+    "electron:dist": "npm run build && electron-builder --mac --publish never",
+    "electron:dist:win": "npm run build && electron-builder --win --x64 --publish never",
     "test": "vitest run",
     "lint": "eslint .",
     "verify:package": "node scripts/check-package.cjs"
@@ -45,8 +46,18 @@
       "icon": "icon.png",
       "category": "public.app-category.productivity",
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
       ]
     },
     "win": {
@@ -70,6 +81,15 @@
     },
     "asarUnpack": [
       "icon.png"
+    ],
+    "artifactName": "WE-Time-Tracker-${version}-${os}-${arch}.${ext}",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "JaffarSk24",
+        "repo": "WE-Time-Tracker",
+        "releaseType": "release"
+      }
     ]
   }
 }
