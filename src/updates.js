@@ -19,12 +19,13 @@ export const updateState = {
   progress: 0,
   last: null,
   // Version the user chose to skip; the banner stays hidden until a newer one.
-  dismissed: null
+  dismissed: null,
+  // Version waiting in the 'ready' phase.
+  readyVersion: null
 };
 
-// Once a download has started, a periodic check must not pull the state back
-// to "available".
-const BUSY_PHASES = ['checking', 'downloading', 'ready', 'installing'];
+// While these run, a periodic check would only get in the way.
+const BUSY_PHASES = ['checking', 'downloading', 'installing'];
 
 const listeners = [];
 
@@ -55,9 +56,23 @@ export async function checkForUpdates() {
   if (!bridge || BUSY_PHASES.includes(updateState.phase)) {
     return updateState.last;
   }
-  updateState.phase = 'checking';
-  notify();
+  // A downloaded update keeps its banner, unless a newer release came out
+  // meanwhile: then that one is offered instead.
+  const wasReady = updateState.phase === 'ready';
+  if (!wasReady) {
+    updateState.phase = 'checking';
+    notify();
+  }
   const result = await bridge.check();
+  if (wasReady) {
+    if (result.ok && result.available && result.latest !== updateState.readyVersion) {
+      updateState.last = result;
+      updateState.phase = 'idle';
+      updateState.readyVersion = null;
+      notify();
+    }
+    return result;
+  }
   updateState.last = result;
   updateState.phase = 'idle';
   notify();
@@ -76,7 +91,11 @@ export async function downloadUpdate() {
     notify();
     return result;
   }
+  // The download takes the newest release, which may be newer than the one
+  // the banner showed.
+  if (result.release) updateState.last = result.release;
   if (result.inPlace) {
+    updateState.readyVersion = result.version || r.latest;
     updateState.phase = 'ready';
     notify();
     return result;

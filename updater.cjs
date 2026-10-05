@@ -108,10 +108,11 @@ async function fetchChecksums() {
 }
 
 async function download(onProgress) {
-  if (!latest) {
-    const c = await check();
-    if (!c.ok || !c.available) return { ok: false, error: 'no_update' };
-  }
+  // Ask again right before downloading: a release published since the last
+  // check (up to six hours ago) must win over the one the banner showed.
+  const c = await check();
+  if (c.ok && !c.available) return { ok: false, error: 'no_update' };
+  if (!latest) return { ok: false, error: c.error || 'no_update' };
   const useInstall = latest.assets.install && canInstallInPlace();
   const asset = useInstall ? latest.assets.install : latest.assets.manual;
   if (!asset || !safeUrl(asset.browser_download_url)) return { ok: false, error: 'no_asset' };
@@ -150,7 +151,7 @@ async function download(onProgress) {
     }
     fs.renameSync(partial, target);
     downloaded = { file: target, inPlace: Boolean(useInstall), version: latest.version };
-    return { ok: true, inPlace: downloaded.inPlace, verified: Boolean(expected) };
+    return { ok: true, inPlace: downloaded.inPlace, verified: Boolean(expected), version: downloaded.version, release: c.ok ? c : null };
   } catch (e) {
     return { ok: false, error: String(e.message || e) };
   }
