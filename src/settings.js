@@ -258,7 +258,7 @@ function initUpdatesSection() {
     if (updateState.phase === 'downloading') {
       btnLabel.textContent = updateStatusText();
     } else if (updateState.phase === 'ready') {
-      btnLabel.textContent = t('update-install');
+      btnLabel.textContent = t('update-restart');
     } else if (canDownload()) {
       btnLabel.textContent = t('update-download');
     } else {
@@ -276,12 +276,12 @@ function initUpdatesSection() {
   btn.addEventListener('click', async () => {
     if (updateState.phase === 'ready') {
       const res = await installUpdate();
-      if (!res.ok) showToast(t('update-install-error') + (res.error ? `: ${res.error}` : ''), { type: 'error' });
+      if (!res.ok) showToast(t('update-install-failed'), { type: 'error' });
       return;
     }
     if (canDownload()) {
       const res = await downloadUpdate();
-      if (!res.ok) showToast(t('update-error') + (res.error ? `: ${res.error}` : ''), { type: 'error' });
+      if (!res.ok) showToast(t('update-download-failed'), { type: 'error' });
       return;
     }
     const res = await checkForUpdates();

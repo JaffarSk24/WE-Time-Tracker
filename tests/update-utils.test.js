@@ -35,6 +35,13 @@ describe('release assets', () => {
     expect(pickAsset(intelOnly, 'darwin', 'arm64').install.name).toBe('WE-Time-Tracker-0.2.0-mac-x64.zip');
   });
 
+  it('offers the universal disk image to every Mac', () => {
+    const withUniversal = assets.filter(a => !a.name.endsWith('.dmg')).concat(asset('WE-Time-Tracker-0.2.0-mac-universal.dmg'));
+    expect(pickAsset(withUniversal, 'darwin', 'arm64').manual.name).toBe('WE-Time-Tracker-0.2.0-mac-universal.dmg');
+    expect(pickAsset(withUniversal, 'darwin', 'x64').manual.name).toBe('WE-Time-Tracker-0.2.0-mac-universal.dmg');
+    expect(pickAsset(withUniversal, 'darwin', 'arm64').install.name).toBe('WE-Time-Tracker-0.2.0-mac-arm64.zip');
+  });
+
   it('finds the checksum file per platform', () => {
     expect(checksumsAsset(assets, 'darwin').name).toBe('latest-mac.yml');
     expect(checksumsAsset(assets, 'win32').name).toBe('latest.yml');

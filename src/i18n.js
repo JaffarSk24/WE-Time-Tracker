@@ -200,19 +200,24 @@ export const translations = {
     'update-check': 'Проверить обновления',
     'update-checking': 'Проверка...',
     'update-current': 'Установлена последняя версия',
-    'update-available': 'Доступна новая версия',
     'update-download': 'Скачать обновление',
     'update-downloading': 'Скачивание...',
     'update-desc': 'Проверить наличие новой версии на GitHub и скачать её.',
     'update-error': 'Не удалось проверить обновления',
-    'update-open-hint': 'Папка приложения закрыта для записи, поэтому открыт установщик: перетащите приложение в Applications, заменив старую версию.',
-    'update-ready': 'Обновление скачано и готово к установке',
-    'update-install': 'Установить и перезапустить',
-    'update-installing': 'Устанавливается, приложение перезапустится само...',
-    'update-install-error': 'Не удалось установить обновление',
-    'update-banner': 'Доступна новая версия',
+    'update-banner-available': 'Вышла новая версия {version}, у вас {current}. Рекомендуем обновиться.',
+    'update-now': 'Обновить',
     'update-whats-new': 'Что нового',
     'update-later': 'Позже',
+    'update-banner-downloading': 'Скачиваю обновление: {percent}%',
+    'update-ready': 'Версия {version} скачана. Приложение перезапустится, данные сохранятся.',
+    'update-restart': 'Перезапустить и обновить',
+    'update-installing': 'Устанавливаю обновление…',
+    'update-manual': 'Открылся установщик версии {version}. Перетащите WE Time Tracker в папку «Программы», как при первой установке.',
+    'update-download-failed': 'Не удалось скачать обновление. Попробуйте позже.',
+    'update-install-failed': 'Не удалось установить обновление.',
+    'update-notes-title': 'Что нового в {version}',
+    'update-no-notes': 'Описание изменений не приложено.',
+    'close': 'Закрыть',
     'gdrive-prompt': 'Войдите через Google, чтобы данные синхронизировались между вашими компьютерами.',
     'sync-banner-expired': 'Синхронизация остановлена. Google попросил снова войти в аккаунт. Пока вы не войдёте, изменения сохраняются только на этом компьютере.',
     'sync-banner-scope': 'При входе не была отмечена галочка доступа к Google Диску, а без неё синхронизация не работает. Войдите снова и на странице Google отметьте доступ к Диску.',
@@ -416,19 +421,24 @@ export const translations = {
     'update-check': 'Check for Updates',
     'update-checking': 'Checking...',
     'update-current': 'You have the latest version',
-    'update-available': 'A new version is available',
     'update-download': 'Download update',
     'update-downloading': 'Downloading...',
     'update-desc': 'Check GitHub for a new version and download it.',
     'update-error': 'Could not check for updates',
-    'update-open-hint': "The app's folder is not writable, so the installer was opened: drag the app into Applications, replacing the old version.",
-    'update-ready': 'Update downloaded and ready to install',
-    'update-install': 'Install and restart',
-    'update-installing': 'Installing, the app will restart by itself...',
-    'update-install-error': 'Could not install the update',
-    'update-banner': 'A new version is available',
-    'update-whats-new': "What's new",
+    'update-banner-available': 'Version {version} is out, you have {current}. Updating is recommended.',
+    'update-now': 'Update',
+    'update-whats-new': 'What is new',
     'update-later': 'Later',
+    'update-banner-downloading': 'Downloading the update: {percent}%',
+    'update-ready': 'Version {version} is downloaded. The app will restart, your data stays.',
+    'update-restart': 'Restart and update',
+    'update-installing': 'Installing the update…',
+    'update-manual': 'The installer for {version} is open. Drag WE Time Tracker to Applications, as on first install.',
+    'update-download-failed': 'Could not download the update. Please try later.',
+    'update-install-failed': 'Could not install the update.',
+    'update-notes-title': 'What is new in {version}',
+    'update-no-notes': 'No release notes attached.',
+    'close': 'Close',
     'gdrive-prompt': 'Sign in with Google to keep your data in step across your computers.',
     'sync-banner-expired': 'Sync has stopped. Google asked you to sign in again. Until you do, changes are kept on this computer only.',
     'sync-banner-scope': 'The Google Drive permission was not ticked at sign-in, and sync does not work without it. Sign in again and tick the Drive access on the Google page.',
@@ -458,9 +468,12 @@ export const translations = {
   }
 };
 
-export function t(key) {
+// Placeholders such as {version} are filled from params.
+export function t(key, params = null) {
   const lang = store.getSettings().language;
-  return translations[lang]?.[key] || translations['en']?.[key] || key;
+  const text = translations[lang]?.[key] || translations['en']?.[key] || key;
+  if (!params) return text;
+  return text.replace(/\{(\w+)\}/g, (m, name) => (name in params ? String(params[name]) : m));
 }
 
 export function translatePage() {

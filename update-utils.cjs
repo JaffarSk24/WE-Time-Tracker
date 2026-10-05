@@ -24,13 +24,15 @@ function compareVersions(a, b) {
 
 // Release assets are named WE-Time-Tracker-<version>-<os>-<arch>.<ext>.
 // macOS prefers the zip (installed in place) for the running architecture;
-// an Intel build still runs on Apple silicon, so it is the fallback.
+// an Intel build still runs on Apple silicon, so it is the fallback. The disk
+// image is universal: version 1.8.2 opens the first .dmg of a release, and
+// GitHub sorts files by name, so an arm64 image would reach Intel Macs.
 function pickAsset(assets, platform, arch) {
   const list = (assets || []).filter(a => a && a.name && a.browser_download_url);
   const find = (re) => list.find(a => re.test(a.name));
   if (platform === 'darwin') {
     const zip = find(new RegExp(`-mac-${arch}\\.zip$`)) || find(/-mac-x64\.zip$/) || find(/-mac\.zip$/);
-    const dmg = find(new RegExp(`-mac-${arch}\\.dmg$`)) || find(/-mac-x64\.dmg$/) || find(/\.dmg$/);
+    const dmg = find(/-mac-universal\.dmg$/) || find(new RegExp(`-mac-${arch}\\.dmg$`)) || find(/-mac-x64\.dmg$/) || find(/\.dmg$/);
     return { install: zip || null, manual: dmg || null };
   }
   if (platform === 'win32') {

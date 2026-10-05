@@ -108,17 +108,17 @@ export function updateStatusText() {
     case 'checking':
       return t('update-checking');
     case 'downloading':
-      return `${t('update-downloading')} ${Math.round(updateState.progress * 100)}%`;
+      return t('update-banner-downloading', { percent: Math.round(updateState.progress * 100) });
     case 'ready':
-      return `${t('update-ready')}: v${r.latest}`;
+      return t('update-ready', { version: r.latest });
     case 'installing':
       return t('update-installing');
     case 'manual':
-      return t('update-open-hint');
+      return t('update-manual', { version: r.latest });
     default:
       if (!r) return '';
       if (!r.ok) return t('update-error');
-      if (r.available) return `${t('update-available')}: v${r.latest}`;
+      if (r.available) return t('update-banner-available', { version: r.latest, current: r.current });
       return t('update-current');
   }
 }

@@ -1,5 +1,5 @@
 // Notices above the views, visible from every tab:
-// - a new release is out: download it, then install and restart in one click;
+// - a new release is out: download it, then restart into the new version;
 // - Google Drive sync is available but nobody has signed in yet (a fresh
 //   install sees this straight away, so sync is not buried in Settings).
 
@@ -10,8 +10,6 @@ import {
   updateState, updateOffered, updateStatusText, updatesSupported,
   onUpdateChange, downloadUpdate, installUpdate, dismissUpdate
 } from './updates.js';
-
-const RELEASES_URL = 'https://github.com/JaffarSk24/WE-Time-Tracker/releases/latest';
 
 // Per-machine UI flag, not user data: whether the sign-in notice was dismissed
 // here. Real data always goes through window.weStorage (see store.js).
@@ -55,16 +53,6 @@ function button(label, { variant = 'secondary', icon = null, onClick = null, dis
   return btn;
 }
 
-function linkButton(label, url) {
-  const link = document.createElement('a');
-  link.className = 'btn btn-secondary btn-sm';
-  link.href = url;
-  link.target = '_blank';
-  link.rel = 'noopener';
-  link.textContent = label;
-  return link;
-}
-
 function banner(kind, iconName, text, actions) {
   const el = document.createElement('div');
   el.className = `app-banner app-banner-${kind}`;
@@ -88,52 +76,74 @@ function banner(kind, iconName, text, actions) {
 
 async function onDownload() {
   const res = await downloadUpdate();
-  if (!res.ok) showToast(t('update-error') + (res.error ? `: ${res.error}` : ''), { type: 'error' });
+  if (!res.ok) showToast(t('update-download-failed'), { type: 'error' });
 }
 
 async function onInstall() {
   const res = await installUpdate();
-  if (!res.ok) showToast(t('update-install-error') + (res.error ? `: ${res.error}` : ''), { type: 'error' });
+  if (!res.ok) showToast(t('update-install-failed'), { type: 'error' });
 }
 
+function showReleaseNotes() {
+  const r = updateState.last;
+  const modal = document.getElementById('update-notes-modal');
+  if (!r || !modal) return;
+  document.getElementById('update-notes-title').textContent = t('update-notes-title', { version: r.latest });
+  document.getElementById('update-notes-body').textContent = r.notes || t('update-no-notes');
+  modal.classList.add('active');
+}
+
+// Same look and wording as the update banner of WE Budget: one line of text
+// with a sparkles icon, a progress bar while downloading, and the buttons for
+// the current step.
 function updateBanner() {
   if (!updatesSupported() || !updateOffered()) return null;
-  const latest = updateState.last.latest;
 
-  if (updateState.phase === 'downloading') {
-    const el = banner('update', 'download-cloud', updateStatusText(), []);
-    const track = document.createElement('div');
-    track.className = 'app-banner-progress';
-    const bar = document.createElement('div');
-    bar.className = 'app-banner-progress-bar';
-    bar.style.width = `${Math.round(updateState.progress * 100)}%`;
-    track.appendChild(bar);
-    el.appendChild(track);
-    return el;
+  const el = document.createElement('div');
+  el.className = 'update-banner';
+  el.setAttribute('role', 'status');
+
+  const text = document.createElement('div');
+  text.className = 'update-banner-text';
+  const i = document.createElement('i');
+  i.setAttribute('data-lucide', 'sparkles');
+  const span = document.createElement('span');
+  span.textContent = updateStatusText();
+  text.append(i, span);
+  el.appendChild(text);
+
+  const actions = [];
+  switch (updateState.phase) {
+    case 'downloading': {
+      const track = document.createElement('div');
+      track.className = 'update-progress';
+      const bar = document.createElement('div');
+      bar.className = 'update-progress-bar';
+      bar.style.width = `${Math.round(updateState.progress * 100)}%`;
+      track.appendChild(bar);
+      el.appendChild(track);
+      break;
+    }
+    case 'ready':
+      actions.push(button(t('update-restart'), { variant: 'primary', icon: 'rotate-ccw', onClick: onInstall }));
+      break;
+    case 'installing':
+    case 'manual':
+      break;
+    default:
+      actions.push(
+        button(t('update-now'), { variant: 'primary', icon: 'download', onClick: onDownload }),
+        button(t('update-whats-new'), { onClick: showReleaseNotes }),
+        button(t('update-later'), { onClick: dismissUpdate })
+      );
   }
-
-  if (updateState.phase === 'ready') {
-    return banner('update', 'check-circle', updateStatusText(), [
-      button(t('update-install'), { variant: 'primary', icon: 'refresh-cw', onClick: onInstall }),
-      button(t('update-later'), { onClick: dismissUpdate })
-    ]);
+  if (actions.length) {
+    const row = document.createElement('div');
+    row.className = 'update-banner-actions';
+    actions.forEach(a => row.appendChild(a));
+    el.appendChild(row);
   }
-
-  if (updateState.phase === 'installing') {
-    return banner('update', 'refresh-cw', updateStatusText(), []);
-  }
-
-  if (updateState.phase === 'manual') {
-    return banner('update', 'check-circle', updateStatusText(), [
-      button(t('update-later'), { onClick: dismissUpdate })
-    ]);
-  }
-
-  return banner('update', 'download-cloud', `${t('update-banner')} v${latest}`, [
-    button(t('update-download'), { variant: 'primary', icon: 'download', onClick: onDownload }),
-    linkButton(t('update-whats-new'), RELEASES_URL),
-    button(t('update-later'), { onClick: dismissUpdate })
-  ]);
+  return el;
 }
 
 // One sign-in button, used by both Google banners.
@@ -210,6 +220,11 @@ export function initBanners() {
   host.hidden = true;
 
   onUpdateChange(render);
+
+  const notes = document.getElementById('update-notes-modal');
+  const closeNotes = () => notes.classList.remove('active');
+  document.getElementById('update-notes-modal-close')?.addEventListener('click', closeNotes);
+  document.getElementById('update-notes-close')?.addEventListener('click', closeNotes);
 
   if (window.weGDrive) {
     window.weGDrive.getStatus().then(status => {

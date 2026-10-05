@@ -54,6 +54,13 @@ function updatesDir() {
   return path.join(app.getPath('userData'), 'updates');
 }
 
+// An Intel build running on Apple silicon through Rosetta reports x64; it
+// should move to the native arm64 build with its next update.
+function cpuArch() {
+  if (process.platform === 'darwin' && app.runningUnderARM64Translation) return 'arm64';
+  return process.arch;
+}
+
 function safeUrl(url) {
   return typeof url === 'string' && (url.startsWith('https://') || (ALLOW_HTTP && url.startsWith('http://')));
 }
@@ -69,7 +76,7 @@ async function check() {
     if (!res.ok) return { ok: false, error: `release feed ${res.status}` };
     const release = await res.json();
     const version = String(release.tag_name || release.name || '').replace(/^v/, '');
-    const assets = pickAsset(release.assets, process.platform, process.arch);
+    const assets = pickAsset(release.assets, process.platform, cpuArch());
     const sums = checksumsAsset(release.assets, process.platform);
     latest = { version, assets, sums, page: release.html_url || `https://github.com/${REPO}/releases/latest` };
     const newer = compareVersions(version, app.getVersion()) > 0;

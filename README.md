@@ -110,7 +110,7 @@ You can compile a standalone, native macOS application with custom brand assets 
    ```bash
    npm run electron:dist
    ```
-   Packages the application into a mountable disk image (`release/WE-Time-Tracker-<version>-mac-x64.dmg`) and a zip file (`release/WE-Time-Tracker-<version>-mac-x64.zip`) with the custom White Eagles logo embedded as the application icon, plus `release/latest-mac.yml` with their checksums. The Windows setup is built with `npm run electron:dist:win` (`release/WE-Time-Tracker-<version>-win-x64.exe` and `release/latest.yml`). A release needs all of these files: the in-app updater installs from the zip on macOS and the setup on Windows, and checks each download against the yml files.
+   Packages the application into a universal disk image that runs natively on Intel and Apple silicon (`release/WE-Time-Tracker-<version>-mac-universal.dmg`), a zip per architecture (`release/WE-Time-Tracker-<version>-mac-x64.zip` and `-mac-arm64.zip`) and `release/latest-mac.yml` with their checksums, with the custom White Eagles logo embedded as the application icon. The Windows setup is built with `npm run electron:dist:win` (`release/WE-Time-Tracker-<version>-win-x64.exe` and `release/latest.yml`). A release needs all of these files: the in-app updater installs from the zip for the Mac's own CPU and from the setup on Windows, and checks each download against the yml files.
 
 
 ### ⚠️ Note on macOS Gatekeeper

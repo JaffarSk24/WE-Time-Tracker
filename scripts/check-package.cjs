@@ -11,6 +11,8 @@ const asar = require('@electron/asar');
 const root = path.join(__dirname, '..');
 const bundles = [
   path.join(root, 'release', 'mac', 'WE Time Tracker.app', 'Contents', 'Resources', 'app.asar'),
+  path.join(root, 'release', 'mac-arm64', 'WE Time Tracker.app', 'Contents', 'Resources', 'app.asar'),
+  path.join(root, 'release', 'mac-universal', 'WE Time Tracker.app', 'Contents', 'Resources', 'app.asar'),
   path.join(root, 'release', 'win-unpacked', 'resources', 'app.asar')
 ];
 
