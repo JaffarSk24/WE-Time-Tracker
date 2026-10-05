@@ -13,7 +13,7 @@ import '@fontsource/outfit/800.css';
 // Import only the icons actually used (tree-shaken) instead of the whole Lucide set
 import {
   createIcons,
-  BarChart3, Briefcase, Building, CalendarX, CheckCircle, Clock, Cloud, Code, Database,
+  BarChart3, Briefcase, Building, CalendarX, CheckCircle, Clock, Cloud, CloudOff, Code, Database,
   Download, DownloadCloud, Edit2, Euro, ExternalLink, FileSpreadsheet, Folder,
   FolderGit2, Globe, Inbox, LogIn, LogOut, MinusCircle, Palette, Play, PlayCircle, Plus,
   RefreshCw, Search, Settings, Trash2, UploadCloud, Users, Wallet, X
@@ -25,11 +25,13 @@ import { initDashboard, renderDashboard } from './dashboard.js';
 import { initClients, renderClients } from './clients.js';
 import { initReports, renderReports, updateReportsDropdowns } from './reports.js';
 import { initSettings } from './settings.js';
+import { initUpdates } from './updates.js';
+import { initBanners, refreshBanners } from './banners.js';
 
 // Lucide is bundled locally (no CDN); keep the existing global API that all
 // modules use via window.lucide.createIcons(). Only the used icons are registered.
 const usedIcons = {
-  BarChart3, Briefcase, Building, CalendarX, CheckCircle, Clock, Cloud, Code, Database,
+  BarChart3, Briefcase, Building, CalendarX, CheckCircle, Clock, Cloud, CloudOff, Code, Database,
   Download, DownloadCloud, Edit2, Euro, ExternalLink, FileSpreadsheet, Folder,
   FolderGit2, Globe, Inbox, LogIn, LogOut, MinusCircle, Palette, Play, PlayCircle, Plus,
   RefreshCw, Search, Settings, Trash2, UploadCloud, Users, Wallet, X
@@ -177,6 +179,9 @@ function updateGlobalUI() {
   // Update header date
   updateHeaderDate();
   
+  // The banners build their text in JS, so a language change has to redraw them
+  refreshBanners();
+
   // Refresh icons
   if (window.lucide) {
     window.lucide.createIcons();
@@ -211,6 +216,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initClients();
   initReports();
   initSettings();
+  initBanners();
+  initUpdates();
   
   // First render
   updateGlobalUI();

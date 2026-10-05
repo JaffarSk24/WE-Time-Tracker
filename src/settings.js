@@ -2,6 +2,10 @@
 import { store } from './store.js';
 import { t } from './i18n.js';
 import { showToast } from './toast.js';
+import {
+  updateState, updateStatusText, onUpdateChange,
+  checkForUpdates, downloadUpdate
+} from './updates.js';
 
 export function initSettings() {
   const langSelect = document.getElementById('settings-lang-select');
@@ -78,8 +82,23 @@ export function initSettings() {
     }
   });
 
-  initUpdates();
+  initUpdatesSection();
   initGDrive();
+}
+
+// Sign-in used by both the Settings section and the first-run banner.
+export async function signInToGDrive() {
+  if (!window.weGDrive) return { ok: false, error: 'not_available' };
+  const res = await window.weGDrive.login();
+  if (res.ok) {
+    showToast(t('gdrive-synced'), { type: 'success' });
+    await window.weGDrive.sync();
+  } else if (res.scopeDenied) {
+    showToast(t('gdrive-scope-denied'), { type: 'error', duration: 10000 });
+  } else if (res.error !== 'timeout') {
+    showToast(t('gdrive-login-failed') + (res.error || ''), { type: 'error' });
+  }
+  return res;
 }
 
 // Google Drive sync — desktop build only (window.weGDrive present).
@@ -111,6 +130,13 @@ function initGDrive() {
     if (status.loggedIn) {
       statusTitle.textContent = t('gdrive-signed-in-as') + status.email;
       statusDetail.textContent = formatSync(status.lastSync);
+    } else if (status.signInNeeded) {
+      // Sync was on and broke: say so here too, so Settings and the banner
+      // never tell the user two different things.
+      statusTitle.textContent = t('gdrive-sign-in-needed');
+      statusDetail.textContent = status.signInNeeded.reason === 'drive_scope'
+        ? t('sync-banner-scope')
+        : t('sync-banner-expired');
     } else {
       statusTitle.textContent = t('gdrive-desc');
       statusDetail.textContent = '';
@@ -133,17 +159,9 @@ function initGDrive() {
 
   loginBtn.addEventListener('click', async () => {
     loginBtn.disabled = true;
-    const res = await window.weGDrive.login();
+    const res = await signInToGDrive();
     loginBtn.disabled = false;
-    if (res.ok) {
-      showToast(t('gdrive-synced'), { type: 'success' });
-      render(res.status);
-      await window.weGDrive.sync();
-    } else if (res.scopeDenied) {
-      showToast(t('gdrive-scope-denied'), { type: 'error', duration: 10000 });
-    } else if (res.error !== 'timeout') {
-      showToast(t('gdrive-login-failed') + (res.error || ''), { type: 'error' });
-    }
+    if (res.ok) render(res.status);
   });
 
   logoutBtn.addEventListener('click', async () => {
@@ -151,6 +169,31 @@ function initGDrive() {
     showToast(t('gdrive-logged-out'), { type: 'info' });
     render(res.status);
   });
+
+  // The bundled OAuth client changed, so the cloud folder is a different one.
+  // Nothing is overwritten until the user says which copy to keep.
+  const clientModal = document.getElementById('gdrive-client-modal');
+  const askWhichCopy = () => {
+    if (!clientModal) return;
+    clientModal.classList.add('active');
+    if (window.lucide) window.lucide.createIcons();
+  };
+  const closeClientModal = () => clientModal && clientModal.classList.remove('active');
+  const adopt = async (choice) => {
+    closeClientModal();
+    const res = await window.weGDrive.adoptClient(choice);
+    if (!res.ok) {
+      showToast(t('gdrive-sync-failed') + (res.error || ''), { type: 'error' });
+    } else if (res.pushed) {
+      showToast(t('gdrive-synced'), { type: 'success' });
+    }
+    // A pull reports itself through onPulled (with a reload).
+  };
+  if (clientModal) {
+    document.getElementById('gdrive-client-modal-close').addEventListener('click', closeClientModal);
+    document.getElementById('gdrive-client-use-local').addEventListener('click', () => adopt('local'));
+    document.getElementById('gdrive-client-use-cloud').addEventListener('click', () => adopt('cloud'));
+  }
 
   syncBtn.addEventListener('click', async () => {
     const label = syncBtn.querySelector('span');
@@ -167,6 +210,10 @@ function initGDrive() {
       let message = t('gdrive-sync-failed') + (res.error || '');
       let type = 'error';
       let duration = 4500;
+      if (res.clientChanged) {
+        askWhichCopy();
+        return;
+      }
       if (res.scopeDenied) {
         message = t('gdrive-scope-denied');
         duration = 10000;
@@ -185,8 +232,9 @@ function initGDrive() {
   });
 }
 
-// Check/download updates — desktop build only (window.weUpdates present)
-function initUpdates() {
+// Check/download updates — desktop build only (window.weUpdates present).
+// The state lives in updates.js, shared with the banner above the views.
+function initUpdatesSection() {
   const section = document.getElementById('settings-update-section');
   if (!section || !window.weUpdates) return;
 
@@ -197,52 +245,42 @@ function initUpdates() {
   const status = document.getElementById('settings-update-status');
   const detail = document.getElementById('settings-update-detail');
 
-  let pendingUrl = null;
+  const canDownload = () => {
+    const r = updateState.last;
+    return updateState.phase === 'idle' && Boolean(r && r.ok && r.available);
+  };
 
-  window.weUpdates.onProgress((p) => {
-    btnLabel.textContent = `${t('update-downloading')} ${Math.round(p * 100)}%`;
-  });
-
-  btn.addEventListener('click', async () => {
-    // Second button mode — download the found update
-    if (pendingUrl) {
-      btn.disabled = true;
-      btnLabel.textContent = t('update-downloading');
-      const res = await window.weUpdates.download(pendingUrl);
-      btn.disabled = false;
-      if (res.ok) {
-        status.textContent = t('update-open-hint');
-        btnLabel.textContent = t('update-download');
-      } else {
-        showToast(t('update-error') + (res.error ? `: ${res.error}` : ''), { type: 'error' });
-        btnLabel.textContent = t('update-download');
-      }
-      return;
-    }
-
-    // First mode — check for an available update
-    btn.disabled = true;
-    btnLabel.textContent = t('update-checking');
-    detail.textContent = '';
-    const res = await window.weUpdates.check();
-    btn.disabled = false;
-
-    if (!res.ok) {
-      status.textContent = t('update-error');
-      detail.textContent = res.error || '';
-      btnLabel.textContent = t('update-check');
-      return;
-    }
-
-    if (res.available) {
-      pendingUrl = res.downloadUrl;
-      status.textContent = `${t('update-available')}: v${res.latest}`;
-      detail.textContent = `${t('current-label')}: v${res.current}`;
+  const render = () => {
+    const r = updateState.last;
+    const busy = updateState.phase === 'checking' || updateState.phase === 'downloading';
+    btn.disabled = busy;
+    status.textContent = updateStatusText();
+    if (updateState.phase === 'downloading') {
+      btnLabel.textContent = updateStatusText();
+    } else if (canDownload()) {
       btnLabel.textContent = t('update-download');
     } else {
-      status.textContent = t('update-current');
-      detail.textContent = `v${res.current}`;
       btnLabel.textContent = t('update-check');
     }
+    if (!r) {
+      detail.textContent = '';
+    } else if (!r.ok) {
+      detail.textContent = r.error || '';
+    } else {
+      detail.textContent = `${t('current-label')}: v${r.current}`;
+    }
+  };
+
+  btn.addEventListener('click', async () => {
+    if (canDownload()) {
+      const res = await downloadUpdate();
+      if (!res.ok) showToast(t('update-error') + (res.error ? `: ${res.error}` : ''), { type: 'error' });
+      return;
+    }
+    const res = await checkForUpdates();
+    if (res && !res.ok) showToast(t('update-error'), { type: 'error' });
   });
+
+  onUpdateChange(render);
+  render();
 }

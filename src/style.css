@@ -52,6 +52,7 @@
   --overlay-hover: rgba(255, 255, 255, 0.04);
   --counter-color: #ffffff;
   --counter-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+  --grad-title: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
   --deposit-color: #3b82f6;
   --debt-color: #f97316;
   --settled-color: #22c55e;
@@ -94,6 +95,8 @@
   --overlay-hover: rgba(15, 23, 42, 0.04);
   --counter-color: var(--text-primary);
   --counter-shadow: none;
+  /* The dark theme's white-to-slate heading gradient is invisible on paper */
+  --grad-title: linear-gradient(135deg, #0f172a 0%, #475569 100%);
 }
 
 [data-theme="light"] body {
@@ -243,7 +246,7 @@ aside {
   font-family: 'Outfit', sans-serif;
   font-weight: 800;
   font-size: 1.25rem;
-  background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+  background: var(--grad-title);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -368,7 +371,7 @@ h1, h2, h3, h4 {
 .view-title {
   font-size: 1.75rem;
   margin-bottom: 4px;
-  background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+  background: var(--grad-title);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -1754,4 +1757,126 @@ textarea:focus {
   background: var(--overlay-04);
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+/* NOTICE BANNERS (new release, Google sign-in) */
+#app-banners {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+#app-banners[hidden] {
+  display: none;
+}
+
+.app-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  padding: 14px 18px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-sm);
+}
+
+.app-banner-update {
+  border-color: rgba(99, 102, 241, 0.45);
+  background:
+    linear-gradient(135deg, rgba(99, 102, 241, 0.14), rgba(168, 85, 247, 0.1)),
+    var(--bg-card);
+}
+
+.app-banner-gdrive {
+  border-color: rgba(79, 172, 254, 0.4);
+  background:
+    linear-gradient(135deg, rgba(0, 242, 254, 0.1), rgba(79, 172, 254, 0.08)),
+    var(--bg-card);
+}
+
+.app-banner-text {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 500;
+  min-width: 0;
+}
+
+.app-banner-text i {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--accent-indigo);
+}
+
+.app-banner-gdrive .app-banner-text i {
+  color: var(--accent-blue);
+}
+
+.app-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.app-banner-actions .btn {
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.app-banner-actions .btn i {
+  width: 15px;
+  height: 15px;
+}
+
+.app-banner-progress {
+  flex-basis: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--overlay-04);
+  overflow: hidden;
+}
+
+.app-banner-progress-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--grad-primary);
+  transition: width 0.25s ease;
+}
+
+@media (max-width: 720px) {
+  .app-banner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+.modal-text {
+  margin: 0 0 20px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+/* Sync stopped: amber, because the app is quietly not syncing until it is fixed */
+.app-banner-sync {
+  border-color: rgba(245, 158, 11, 0.55);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.app-banner-sync .app-banner-text {
+  align-items: flex-start;
+}
+
+.app-banner-sync .app-banner-text i {
+  color: var(--warning);
+  margin-top: 2px;
 }

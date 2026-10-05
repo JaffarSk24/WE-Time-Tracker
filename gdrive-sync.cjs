@@ -29,8 +29,9 @@ const path = require('path');
 // google-credentials.json file in userData can still supply one.
 const BUNDLED_CREDENTIALS_FILE = 'oauth-credentials.json';
 
+const { DRIVE_SCOPE, grantsDrive, isInsufficientScope, pendingSignIn } = require('./gdrive-utils.cjs');
+
 const REMOTE_FILE_NAME = 'we-tracker-data.json';
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 const SCOPES = [DRIVE_SCOPE, 'https://www.googleapis.com/auth/userinfo.email'].join(' ');
 
 class GDriveSync {
@@ -99,8 +100,26 @@ class GDriveSync {
       configured: this.isConfigured(),
       loggedIn: this.isLoggedIn(),
       email: (this.tokens && this.tokens.email) || '',
-      lastSync: this.syncState ? this.syncState.lastSync || null : null
+      lastSync: this.syncState ? this.syncState.lastSync || null : null,
+      // Set while Google refuses the stored sign-in; the window shows a banner
+      // for it, because otherwise sync just stops without anyone noticing.
+      signInNeeded: pendingSignIn(this.syncState, this.isLoggedIn()),
+      // Sync has run on this computer at some point. Someone who switched it
+      // off on purpose does not need to be invited to switch it back on.
+      usedSync: Boolean(this.syncState && this.syncState.lastSync)
     };
+  }
+
+  // Records why the sign-in stopped working. Call it BEFORE forgetTokens(),
+  // which is where the account address still is.
+  markSignInNeeded(reason) {
+    this.saveSyncState({
+      signInNeeded: {
+        reason,
+        email: (this.tokens && this.tokens.email) || '',
+        at: new Date().toISOString()
+      }
+    });
   }
 
   // --- OAuth 2.0 authorization code flow with PKCE ---
@@ -160,7 +179,9 @@ class GDriveSync {
           // Google lets people approve permissions one by one, so a sign-in can
           // come back without Drive access. Storing that token would leave the
           // account looking connected while every sync fails with a 403.
-          if (!String(tokenData.scope || '').split(' ').includes(DRIVE_SCOPE)) {
+          if (!grantsDrive(tokenData.scope)) {
+            this.markSignInNeeded('drive_scope');
+            this.notifyStatus(win);
             finish({ ok: false, error: 'scope_denied', scopeDenied: true });
             return;
           }
@@ -170,9 +191,14 @@ class GDriveSync {
             access_token: tokenData.access_token,
             refresh_token: tokenData.refresh_token,
             expiry: Date.now() + (tokenData.expires_in || 3600) * 1000,
-            email
+            email,
+            // The hidden Drive folder belongs to this OAuth client's project, so
+            // a token is only usable while the app still ships that client.
+            clientId: this.credentials.clientId
           };
           this.writeJson(this.tokensPath, this.tokens);
+          // A fresh sign-in settles whatever the banner was asking for.
+          this.saveSyncState({ signInNeeded: null });
           this.notifyStatus(win);
           finish({ ok: true, status: this.getStatus() });
         } catch (e) {
@@ -261,9 +287,17 @@ class GDriveSync {
     }
   }
 
+  // Tokens issued by a previous OAuth client open that client's hidden folder,
+  // not this one's. Such a token goes through a refresh first: Google answers
+  // unauthorized_client for a different client, and the app asks for a fresh
+  // sign-in instead of spending up to an hour reading the wrong folder.
+  sameClientAsTokens() {
+    return Boolean(this.credentials && this.tokens && this.tokens.clientId === this.credentials.clientId);
+  }
+
   async getAccessToken() {
     if (!this.isLoggedIn()) throw new Error('not_logged_in');
-    if (this.tokens.access_token && Date.now() < this.tokens.expiry - 60000) {
+    if (this.sameClientAsTokens() && this.tokens.access_token && Date.now() < this.tokens.expiry - 60000) {
       return this.tokens.access_token;
     }
     try {
@@ -273,13 +307,16 @@ class GDriveSync {
       });
       this.tokens.access_token = refreshed.access_token;
       this.tokens.expiry = Date.now() + (refreshed.expires_in || 3600) * 1000;
+      this.tokens.clientId = this.credentials.clientId;
       this.writeJson(this.tokensPath, this.tokens);
       return this.tokens.access_token;
     } catch (e) {
       if (this.isAuthInvalid(e)) {
+        this.markSignInNeeded('expired');
         this.forgetTokens();
         const reauth = new Error('reauth_required');
         reauth.reauth = true;
+        reauth.reason = 'expired';
         throw reauth;
       }
       throw e;
@@ -313,7 +350,7 @@ class GDriveSync {
           }
           const err = new Error(`drive ${res.statusCode}: ${data.slice(0, 200)}`);
           // Drive access was never granted (or was taken away afterwards).
-          err.scopeDenied = res.statusCode === 403 && /insufficient|Insufficient Permission/i.test(data);
+          err.scopeDenied = isInsufficientScope(res.statusCode, data);
           reject(err);
         });
       });
@@ -339,8 +376,27 @@ class GDriveSync {
   }
 
   saveSyncState(patch) {
-    this.syncState = { ...(this.syncState || {}), ...patch, lastSync: new Date().toISOString() };
+    this.syncState = {
+      ...(this.syncState || {}),
+      ...patch,
+      // Which project's hidden folder the recorded hash and timestamp describe.
+      clientId: this.credentials ? this.credentials.clientId : null,
+      lastSync: new Date().toISOString()
+    };
     this.writeJson(this.syncStatePath, this.syncState);
+  }
+
+  // A data file that holds no clients, projects or time logs is a fresh start,
+  // not work that a download could destroy.
+  hasLocalWork(content) {
+    if (!content) return false;
+    try {
+      const parsed = JSON.parse(content);
+      return ['clients', 'projects', 'timeLogs'].some(k => Array.isArray(parsed[k]) && parsed[k].length > 0);
+    } catch (e) {
+      // Unreadable local data is still data: never treat it as empty.
+      return true;
+    }
   }
 
   notifyStatus(win) {
@@ -402,17 +458,49 @@ class GDriveSync {
       return { ok: true, pushed: true, status: this.getStatus() };
     } catch (e) {
       console.error('[GDrive] push failed:', e.message);
-      if (e.scopeDenied) this.forgetTokens();
+      if (e.scopeDenied) {
+        this.markSignInNeeded('drive_scope');
+        this.forgetTokens();
+      }
       if (e.reauth || e.scopeDenied) this.notifyStatus(win);
       return {
         ok: false,
         error: e.message,
         reauth: Boolean(e.reauth),
+        reason: e.reason || (e.scopeDenied ? 'drive_scope' : null),
         scopeDenied: Boolean(e.scopeDenied)
       };
     } finally {
       this.isSyncing = false;
     }
+  }
+
+  // Downloads the remote file over the local one, always leaving a snapshot
+  // behind first so local work can be recovered from the backups folder.
+  async pullRemote(win, token, remote, { localChanged, silent }) {
+    const remoteContent = await this.driveRequest(
+      `https://www.googleapis.com/drive/v3/files/${remote.id}?alt=media`,
+      { method: 'GET', headers: { Authorization: `Bearer ${token}` } }
+    );
+    JSON.parse(remoteContent); // reject malformed payloads before touching local data
+
+    let conflictBackup = null;
+    if (this.readLocal()) {
+      conflictBackup = this.backupLocal(localChanged ? 'conflict' : 'presync');
+    }
+
+    this.writeLocal(remoteContent);
+    this.saveSyncState({ syncedHash: this.hash(remoteContent), remoteModified: remote.modifiedTime });
+
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('gdrive:pulled', {
+        conflict: Boolean(localChanged && conflictBackup),
+        backupPath: conflictBackup,
+        silent
+      });
+    }
+    this.notifyStatus(win);
+    return { ok: true, pulled: true, conflict: Boolean(localChanged), status: this.getStatus() };
   }
 
   // Two-way sync. Chooses between download, upload and conflict handling using
@@ -427,11 +515,25 @@ class GDriveSync {
       const localContent = this.readLocal();
       const localHash = this.hash(localContent);
       const state = this.syncState || {};
+      const currentClient = this.credentials ? this.credentials.clientId : null;
 
       // Nothing in the cloud yet — seed it from this machine.
       if (!remote) {
         this.isSyncing = false;
         return await this.push(win);
+      }
+
+      // Every OAuth client has its own hidden Drive folder, so a new client
+      // starts from an empty cloud. The recorded hash and timestamp describe
+      // the previous project's file and say nothing about this one: acting on
+      // them would download a stranger's copy over newer local work. Ask
+      // instead, unless there is no local work to lose.
+      if (currentClient && state.clientId !== currentClient) {
+        if (this.hasLocalWork(localContent)) {
+          this.notifyStatus(win);
+          return { ok: false, error: 'client_changed', clientChanged: true, status: this.getStatus() };
+        }
+        return await this.pullRemote(win, token, remote, { localChanged: false, silent });
       }
 
       const remoteChanged = remote.modifiedTime !== state.remoteModified;
@@ -449,37 +551,56 @@ class GDriveSync {
       }
 
       // Remote is ahead: download it, but never lose local work silently.
-      const remoteContent = await this.driveRequest(
-        `https://www.googleapis.com/drive/v3/files/${remote.id}?alt=media`,
-        { method: 'GET', headers: { Authorization: `Bearer ${token}` } }
-      );
-      JSON.parse(remoteContent); // reject malformed payloads before touching local data
-
-      let conflictBackup = null;
-      if (localContent) {
-        conflictBackup = this.backupLocal(localChanged ? 'conflict' : 'presync');
-      }
-
-      this.writeLocal(remoteContent);
-      this.saveSyncState({ syncedHash: this.hash(remoteContent), remoteModified: remote.modifiedTime });
-
-      if (win && !win.isDestroyed()) {
-        win.webContents.send('gdrive:pulled', {
-          conflict: Boolean(localChanged && conflictBackup),
-          backupPath: conflictBackup,
-          silent
-        });
-      }
-      this.notifyStatus(win);
-      return { ok: true, pulled: true, conflict: Boolean(localChanged), status: this.getStatus() };
+      return await this.pullRemote(win, token, remote, { localChanged, silent });
     } catch (e) {
       console.error('[GDrive] sync failed:', e.message);
-      if (e.scopeDenied) this.forgetTokens();
+      if (e.scopeDenied) {
+        this.markSignInNeeded('drive_scope');
+        this.forgetTokens();
+      }
       if (e.reauth || e.scopeDenied) this.notifyStatus(win);
       return {
         ok: false,
         error: e.message,
         reauth: Boolean(e.reauth),
+        reason: e.reason || (e.scopeDenied ? 'drive_scope' : null),
+        scopeDenied: Boolean(e.scopeDenied)
+      };
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
+  // The user's answer to the question above: 'local' uploads this computer's
+  // data into the new project's folder, 'cloud' takes the copy already there.
+  async adoptClient(win = null, choice = 'local') {
+    if (!this.isLoggedIn()) return { ok: false, error: 'not_logged_in' };
+    if (choice === 'local') {
+      // push() stamps the new client into the sync state on success.
+      return await this.push(win);
+    }
+    if (this.isSyncing) return { ok: false, error: 'busy' };
+    this.isSyncing = true;
+    try {
+      const token = await this.getAccessToken();
+      const remote = await this.findRemoteFile(token);
+      if (!remote) {
+        this.isSyncing = false;
+        return await this.push(win);
+      }
+      return await this.pullRemote(win, token, remote, { localChanged: true, silent: false });
+    } catch (e) {
+      console.error('[GDrive] adoptClient failed:', e.message);
+      if (e.scopeDenied) {
+        this.markSignInNeeded('drive_scope');
+        this.forgetTokens();
+      }
+      if (e.reauth || e.scopeDenied) this.notifyStatus(win);
+      return {
+        ok: false,
+        error: e.message,
+        reauth: Boolean(e.reauth),
+        reason: e.reason || (e.scopeDenied ? 'drive_scope' : null),
         scopeDenied: Boolean(e.scopeDenied)
       };
     } finally {
@@ -494,7 +615,7 @@ class GDriveSync {
     } catch (e) {
       console.error('[GDrive] Failed to remove tokens:', e.message);
     }
-    this.saveSyncState({ syncedHash: null, remoteModified: null });
+    this.saveSyncState({ syncedHash: null, remoteModified: null, signInNeeded: null });
     this.notifyStatus(win);
     return { ok: true, status: this.getStatus() };
   }

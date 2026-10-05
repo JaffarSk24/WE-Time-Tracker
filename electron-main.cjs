@@ -635,6 +635,7 @@ function initGDriveIpc() {
   ipcMain.handle('gdrive:login', async () => await gdriveSync.login(mainWindow));
   ipcMain.handle('gdrive:logout', async () => await gdriveSync.logout(mainWindow));
   ipcMain.handle('gdrive:sync', async () => await gdriveSync.sync(mainWindow));
+  ipcMain.handle('gdrive:adopt-client', async (_e, choice) => await gdriveSync.adoptClient(mainWindow, choice));
 }
 
 app.whenReady().then(() => {

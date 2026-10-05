@@ -2,7 +2,24 @@
 
 An elite, local-first time tracking and financial analytics dashboard engineered for high-performance freelancers. Designed and packaged as a native desktop application for macOS and web platforms by **White Eagles & Co. s.r.o.**
 
+App page: 🔗 **[jaffarsk24.github.io/WE-Time-Tracker](https://jaffarsk24.github.io/WE-Time-Tracker/)** · Privacy policy: 🔗 **[privacy](https://jaffarsk24.github.io/WE-Time-Tracker/privacy.html)**
 Official Website: 🔗 **[whiteeagles.sk](https://whiteeagles.sk/)**
+
+---
+
+## ☁️ Google Drive Sync
+
+Sync is optional. Signing in with Google stores one file with your data in a hidden app folder of your own Drive, which only this app can open, and reads it back on your other computers. The app asks for two permissions: access to its own hidden Drive folder (`drive.appdata`) and your account email address, shown so you know which account is connected. Nothing passes through a server of ours. What is stored where, and how to delete it, is written in the [privacy policy](https://jaffarsk24.github.io/WE-Time-Tracker/privacy.html).
+
+### Updating to version 1.8.0 when you sync across several computers
+
+Version 1.8.0 signs in through a new Google client, and every Google client gets its own hidden Drive folder. The cloud therefore starts out empty, and the sign-in on every computer has to be made again.
+
+1. Before updating, sync every computer on the old version, so they all hold the same data.
+2. Update and sign in first on the computer whose data is the most recent. It uploads that data to the new folder.
+3. Update the remaining computers and sign in there.
+
+If a computer finds data already in the new folder and has unsaved work of its own, the app does not overwrite anything: it asks whether to keep this computer's copy or take the one from the cloud.
 
 ---
 
