@@ -32,9 +32,8 @@ contextBridge.exposeInMainWorld('weGDrive', {
   getStatus: () => ipcRenderer.invoke('gdrive:status'),
   login: () => ipcRenderer.invoke('gdrive:login'),
   logout: () => ipcRenderer.invoke('gdrive:logout'),
-  sync: () => ipcRenderer.invoke('gdrive:sync'),
-  // Answer to the question asked when the bundled OAuth client changed.
-  adoptClient: (choice) => ipcRenderer.invoke('gdrive:adopt-client', choice),
+  // { pullOnly: true } only takes data from the cloud, never uploads.
+  sync: (opts) => ipcRenderer.invoke('gdrive:sync', opts || {}),
   onStatus: (callback) => ipcRenderer.on('gdrive:status', (_e, data) => callback(data)),
   onPulled: (callback) => ipcRenderer.on('gdrive:pulled', (_e, data) => callback(data))
 });

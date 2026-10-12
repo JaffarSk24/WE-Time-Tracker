@@ -12,8 +12,12 @@
 //   does not clutter the user's Drive and other apps cannot read it. That
 //   scope is non-sensitive, so no OAuth verification review is required.
 // - Local writes always go through the injected writer so the app's atomic
-//   write and daily backups apply. A pull never discards local work without
-//   first writing a conflict snapshot.
+//   write and daily backups apply.
+// - No copy ever replaces work the other has not seen. On launch the app only
+//   takes data from the cloud; uploads happen on closing and from the Sync
+//   button, and only after checking the cloud. When both copies changed they
+//   are merged record by record (mergeData in gdrive-utils.cjs), with both
+//   originals kept in the backups folder. Nobody is asked to choose.
 
 const { app, shell } = require('electron');
 const http = require('http');
@@ -29,7 +33,10 @@ const path = require('path');
 // google-credentials.json file in userData can still supply one.
 const BUNDLED_CREDENTIALS_FILE = 'oauth-credentials.json';
 
-const { DRIVE_SCOPE, grantsDrive, isInsufficientScope, pendingSignIn } = require('./gdrive-utils.cjs');
+const {
+  DRIVE_SCOPE, grantsDrive, isInsufficientScope, pendingSignIn,
+  syncAction, closePushAction, mergeData, newerSide
+} = require('./gdrive-utils.cjs');
 
 const REMOTE_FILE_NAME = 'we-tracker-data.json';
 const SCOPES = [DRIVE_SCOPE, 'https://www.googleapis.com/auth/userinfo.email'].join(' ');
@@ -47,16 +54,18 @@ class GDriveSync {
     this.readLocal = null;
     this.writeLocal = null;
     this.backupLocal = null;
+    this.localModified = null;
   }
 
   // Wires the module to the main process' data-file helpers.
-  init({ readLocal, writeLocal, backupLocal }) {
+  init({ readLocal, writeLocal, backupLocal, localModified }) {
     this.credentialsPath = path.join(app.getPath('userData'), 'google-credentials.json');
     this.tokensPath = path.join(app.getPath('userData'), 'google-tokens.json');
     this.syncStatePath = path.join(app.getPath('userData'), 'gdrive-sync-state.json');
     this.readLocal = readLocal;
     this.writeLocal = writeLocal;
     this.backupLocal = backupLocal;
+    this.localModified = localModified || null;
     // A user-supplied client in userData wins; otherwise use the one bundled
     // with the app (packaged next to this file, or in the project root in dev).
     const override = this.readJson(this.credentialsPath);
@@ -405,7 +414,102 @@ class GDriveSync {
     }
   }
 
-  // Uploads the local file, creating it in appDataFolder on first run.
+  // Compares both copies with what this computer last synced. The cloud
+  // file's timestamp only says that something was uploaded: the same data
+  // uploaded again (a window closed, an app quit) moves it too. So when it
+  // moved, the content decides. The cloud content, once read, travels with
+  // the facts for a merge.
+  async inspect(token, remote, localContent) {
+    const state = this.syncState || {};
+    const currentClient = this.credentials ? this.credentials.clientId : null;
+    const localHash = this.hash(localContent);
+    const facts = {
+      remoteExists: Boolean(remote),
+      sameClient: !currentClient || state.clientId === currentClient,
+      remoteChanged: false,
+      localChanged: localContent ? localHash !== state.syncedHash : false,
+      localWork: this.hasLocalWork(localContent),
+      remoteContent: null
+    };
+    if (!remote) return facts;
+    if (facts.sameClient && remote.modifiedTime === state.remoteModified && state.syncedHash) return facts;
+    facts.remoteContent = await this.readRemote(token, remote);
+    const remoteHash = this.hash(facts.remoteContent);
+    if (remoteHash === localHash) {
+      // Both copies hold the same data: nothing to move either way.
+      return { ...facts, sameClient: true, remoteChanged: false, localChanged: false };
+    }
+    facts.remoteChanged = !facts.sameClient || remoteHash !== state.syncedHash;
+    return facts;
+  }
+
+  readRemote(token, remote) {
+    return this.driveRequest(
+      `https://www.googleapis.com/drive/v3/files/${remote.id}?alt=media`,
+      { method: 'GET', headers: { Authorization: `Bearer ${token}` } }
+    );
+  }
+
+  // Writes content to the cloud file (creating it on first run) and records
+  // it as the synced state.
+  async upload(token, remote, content) {
+    let saved;
+    if (remote) {
+      saved = await this.driveRequest(
+        `https://www.googleapis.com/upload/drive/v3/files/${remote.id}?uploadType=media&fields=modifiedTime`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(content)
+          }
+        },
+        content
+      );
+    } else {
+      const boundary = 'we-tracker-' + crypto.randomBytes(8).toString('hex');
+      const metadata = JSON.stringify({ name: REMOTE_FILE_NAME, parents: ['appDataFolder'] });
+      const multipart =
+        `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n` +
+        `--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${boundary}--`;
+      saved = await this.driveRequest(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=modifiedTime',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': `multipart/related; boundary=${boundary}`,
+            'Content-Length': Buffer.byteLength(multipart)
+          }
+        },
+        multipart
+      );
+    }
+    let remoteModified = null;
+    try { remoteModified = JSON.parse(saved).modifiedTime; } catch (e) { /* field optional */ }
+    this.saveSyncState({ syncedHash: this.hash(content), remoteModified });
+  }
+
+  failure(win, e, what) {
+    console.error(`[GDrive] ${what} failed:`, e.message);
+    if (e.scopeDenied) {
+      this.markSignInNeeded('drive_scope');
+      this.forgetTokens();
+    }
+    if (e.reauth || e.scopeDenied) this.notifyStatus(win);
+    return {
+      ok: false,
+      error: e.message,
+      reauth: Boolean(e.reauth),
+      reason: e.reason || (e.scopeDenied ? 'drive_scope' : null),
+      scopeDenied: Boolean(e.scopeDenied)
+    };
+  }
+
+  // The upload made on closing the window or quitting. It never replaces
+  // cloud data this computer has not seen: then both copies are merged and
+  // the merge goes up. Unchanged data is not uploaded at all.
   async push(win = null) {
     if (!this.isLoggedIn()) return { ok: false, error: 'not_logged_in' };
     if (this.isSyncing) return { ok: false, error: 'busy' };
@@ -413,99 +517,63 @@ class GDriveSync {
     try {
       const content = this.readLocal();
       if (!content) return { ok: false, error: 'no_local_data' };
-
       const token = await this.getAccessToken();
       const remote = await this.findRemoteFile(token);
-      let saved;
-
-      if (remote) {
-        saved = await this.driveRequest(
-          `https://www.googleapis.com/upload/drive/v3/files/${remote.id}?uploadType=media&fields=modifiedTime`,
-          {
-            method: 'PATCH',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-              'Content-Length': Buffer.byteLength(content)
-            }
-          },
-          content
-        );
-      } else {
-        const boundary = 'we-tracker-' + crypto.randomBytes(8).toString('hex');
-        const metadata = JSON.stringify({ name: REMOTE_FILE_NAME, parents: ['appDataFolder'] });
-        const multipart =
-          `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n` +
-          `--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${boundary}--`;
-        saved = await this.driveRequest(
-          'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=modifiedTime',
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': `multipart/related; boundary=${boundary}`,
-              'Content-Length': Buffer.byteLength(multipart)
-            }
-          },
-          multipart
-        );
-      }
-
-      let remoteModified = null;
-      try { remoteModified = JSON.parse(saved).modifiedTime; } catch (e) { /* field optional */ }
-      this.saveSyncState({ syncedHash: this.hash(content), remoteModified });
+      const facts = await this.inspect(token, remote, content);
+      const action = closePushAction(facts);
+      if (action === 'skip') return { ok: true, skipped: true, status: this.getStatus() };
+      if (action === 'merge') return await this.mergeRemote(win, token, remote, content, facts.remoteContent, { upload: true, silent: true });
+      await this.upload(token, remote, content);
       this.notifyStatus(win);
       return { ok: true, pushed: true, status: this.getStatus() };
     } catch (e) {
-      console.error('[GDrive] push failed:', e.message);
-      if (e.scopeDenied) {
-        this.markSignInNeeded('drive_scope');
-        this.forgetTokens();
-      }
-      if (e.reauth || e.scopeDenied) this.notifyStatus(win);
-      return {
-        ok: false,
-        error: e.message,
-        reauth: Boolean(e.reauth),
-        reason: e.reason || (e.scopeDenied ? 'drive_scope' : null),
-        scopeDenied: Boolean(e.scopeDenied)
-      };
+      return this.failure(win, e, 'push');
     } finally {
       this.isSyncing = false;
     }
   }
 
-  // Downloads the remote file over the local one, always leaving a snapshot
-  // behind first so local work can be recovered from the backups folder.
-  async pullRemote(win, token, remote, { localChanged, silent }) {
-    const remoteContent = await this.driveRequest(
-      `https://www.googleapis.com/drive/v3/files/${remote.id}?alt=media`,
-      { method: 'GET', headers: { Authorization: `Bearer ${token}` } }
-    );
-    JSON.parse(remoteContent); // reject malformed payloads before touching local data
-
-    let conflictBackup = null;
-    if (this.readLocal()) {
-      conflictBackup = this.backupLocal(localChanged ? 'conflict' : 'presync');
-    }
-
-    this.writeLocal(remoteContent);
-    this.saveSyncState({ syncedHash: this.hash(remoteContent), remoteModified: remote.modifiedTime });
-
-    if (win && !win.isDestroyed()) {
-      win.webContents.send('gdrive:pulled', {
-        conflict: Boolean(localChanged && conflictBackup),
-        backupPath: conflictBackup,
-        silent
-      });
-    }
+  // Downloads the remote file over the local one, which holds nothing the
+  // cloud lacks. A snapshot of the local file is still kept in backups.
+  async pullRemote(win, token, remote, remoteContent, { silent }) {
+    const content = remoteContent || await this.readRemote(token, remote);
+    JSON.parse(content); // reject malformed payloads before touching local data
+    if (this.readLocal()) this.backupLocal('presync');
+    this.writeLocal(content);
+    this.saveSyncState({ syncedHash: this.hash(content), remoteModified: remote.modifiedTime });
+    if (win && !win.isDestroyed()) win.webContents.send('gdrive:pulled', { silent });
     this.notifyStatus(win);
-    return { ok: true, pulled: true, conflict: Boolean(localChanged), status: this.getStatus() };
+    return { ok: true, pulled: true, status: this.getStatus() };
   }
 
-  // Two-way sync. Chooses between download, upload and conflict handling using
-  // the hash and modifiedTime recorded at the last successful sync.
-  async sync(win = null, { silent = false } = {}) {
+  // Both copies hold work the other has not seen: combine them, so that
+  // nothing entered on either computer is lost (see mergeData). Both
+  // originals are kept in the backups folder. With upload the result goes up
+  // at once; otherwise on closing or from the Sync button.
+  async mergeRemote(win, token, remote, localContent, remoteContent, { upload, silent }) {
+    const remoteText = remoteContent || await this.readRemote(token, remote);
+    // Unreadable data on either side is still data: never merge it away.
+    const local = JSON.parse(localContent);
+    const cloud = JSON.parse(remoteText);
+    this.backupLocal('premerge');
+    this.backupLocal('cloud', remoteText);
+    const side = newerSide(local, cloud, this.localModified ? this.localModified() : null, remote.modifiedTime);
+    const merged = JSON.stringify(mergeData(local, cloud, side));
+    this.writeLocal(merged);
+    // The cloud copy is now part of the local file.
+    this.saveSyncState({ syncedHash: this.hash(remoteText), remoteModified: remote.modifiedTime });
+    if (upload) await this.upload(token, remote, merged);
+    if (win && !win.isDestroyed()) win.webContents.send('gdrive:pulled', { merged: true, silent });
+    this.notifyStatus(win);
+    return { ok: true, merged: true, pushed: Boolean(upload), status: this.getStatus() };
+  }
+
+  // Sync. Chooses between download, upload and merge from the content of
+  // both copies against what was recorded at the last sync. pullOnly is the
+  // sync on launch and after signing in: it only takes data from the cloud
+  // (merging it in when both sides changed) and uploads nothing. Uploads
+  // happen on closing the window, on quitting and from the Sync button.
+  async sync(win = null, { silent = false, pullOnly = false } = {}) {
     if (!this.isLoggedIn()) return { ok: false, error: 'not_logged_in' };
     if (this.isSyncing) return { ok: false, error: 'busy' };
     this.isSyncing = true;
@@ -513,96 +581,32 @@ class GDriveSync {
       const token = await this.getAccessToken();
       const remote = await this.findRemoteFile(token);
       const localContent = this.readLocal();
-      const localHash = this.hash(localContent);
-      const state = this.syncState || {};
-      const currentClient = this.credentials ? this.credentials.clientId : null;
+      const facts = await this.inspect(token, remote, localContent);
+      const action = syncAction(facts);
 
-      // Nothing in the cloud yet — seed it from this machine.
-      if (!remote) {
-        this.isSyncing = false;
-        return await this.push(win);
-      }
-
-      // Every OAuth client has its own hidden Drive folder, so a new client
-      // starts from an empty cloud. The recorded hash and timestamp describe
-      // the previous project's file and say nothing about this one: acting on
-      // them would download a stranger's copy over newer local work. Ask
-      // instead, unless there is no local work to lose.
-      if (currentClient && state.clientId !== currentClient) {
-        if (this.hasLocalWork(localContent)) {
+      if (action === 'push') {
+        if (pullOnly) {
+          // Local work waits for closing or the Sync button.
           this.notifyStatus(win);
-          return { ok: false, error: 'client_changed', clientChanged: true, status: this.getStatus() };
+          return { ok: true, localAhead: true, status: this.getStatus() };
         }
-        return await this.pullRemote(win, token, remote, { localChanged: false, silent });
-      }
-
-      const remoteChanged = remote.modifiedTime !== state.remoteModified;
-      const localChanged = localContent ? localHash !== state.syncedHash : false;
-
-      if (!remoteChanged && !localChanged) {
-        this.saveSyncState({});
+        if (!localContent) return { ok: false, error: 'no_local_data' };
+        await this.upload(token, remote, localContent);
         this.notifyStatus(win);
-        return { ok: true, upToDate: true, status: this.getStatus() };
+        return { ok: true, pushed: true, status: this.getStatus() };
       }
-
-      if (localChanged && !remoteChanged) {
-        this.isSyncing = false;
-        return await this.push(win);
+      if (action === 'pull') {
+        return await this.pullRemote(win, token, remote, facts.remoteContent, { silent });
       }
-
-      // Remote is ahead: download it, but never lose local work silently.
-      return await this.pullRemote(win, token, remote, { localChanged, silent });
+      if (action === 'merge') {
+        return await this.mergeRemote(win, token, remote, localContent, facts.remoteContent, { upload: !pullOnly, silent });
+      }
+      // Same data on both sides; remember the cloud timestamp as seen.
+      this.saveSyncState({ remoteModified: remote.modifiedTime, syncedHash: this.hash(localContent) });
+      this.notifyStatus(win);
+      return { ok: true, upToDate: true, status: this.getStatus() };
     } catch (e) {
-      console.error('[GDrive] sync failed:', e.message);
-      if (e.scopeDenied) {
-        this.markSignInNeeded('drive_scope');
-        this.forgetTokens();
-      }
-      if (e.reauth || e.scopeDenied) this.notifyStatus(win);
-      return {
-        ok: false,
-        error: e.message,
-        reauth: Boolean(e.reauth),
-        reason: e.reason || (e.scopeDenied ? 'drive_scope' : null),
-        scopeDenied: Boolean(e.scopeDenied)
-      };
-    } finally {
-      this.isSyncing = false;
-    }
-  }
-
-  // The user's answer to the question above: 'local' uploads this computer's
-  // data into the new project's folder, 'cloud' takes the copy already there.
-  async adoptClient(win = null, choice = 'local') {
-    if (!this.isLoggedIn()) return { ok: false, error: 'not_logged_in' };
-    if (choice === 'local') {
-      // push() stamps the new client into the sync state on success.
-      return await this.push(win);
-    }
-    if (this.isSyncing) return { ok: false, error: 'busy' };
-    this.isSyncing = true;
-    try {
-      const token = await this.getAccessToken();
-      const remote = await this.findRemoteFile(token);
-      if (!remote) {
-        this.isSyncing = false;
-        return await this.push(win);
-      }
-      return await this.pullRemote(win, token, remote, { localChanged: true, silent: false });
-    } catch (e) {
-      console.error('[GDrive] adoptClient failed:', e.message);
-      if (e.scopeDenied) {
-        this.markSignInNeeded('drive_scope');
-        this.forgetTokens();
-      }
-      if (e.reauth || e.scopeDenied) this.notifyStatus(win);
-      return {
-        ok: false,
-        error: e.message,
-        reauth: Boolean(e.reauth),
-        reason: e.reason || (e.scopeDenied ? 'drive_scope' : null),
-        scopeDenied: Boolean(e.scopeDenied)
-      };
+      return this.failure(win, e, 'sync');
     } finally {
       this.isSyncing = false;
     }

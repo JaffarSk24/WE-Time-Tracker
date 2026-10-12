@@ -90,7 +90,7 @@ Updates are also checked and installed in **Settings, App Update**.
 
 ## ☁️ Google Drive sync
 
-Sync is optional. Sign in with Google from the banner on first start or from Settings. Your data is stored as one file in a hidden app folder of your own Drive, which only this app can open, and is read back on your other computers. Before downloading a newer copy from the cloud, the app saves the local one to the backups folder.
+Sync is optional. Sign in with Google from the banner on first start or from Settings. Your data is stored as one file in a hidden app folder of your own Drive, which only this app can open, and is read back on your other computers. Nothing is overwritten silently: the app compares the data itself, not just file times, and uploads only what this computer changed since its last sync. Closing the window or quitting never replaces cloud data that this computer has not seen. When both the cloud and this computer hold changes the other does not have, the app asks which copy to keep and saves the other one to the backups folder, from where Settings, Import Data brings it back.
 
 The app asks for two permissions: access to its own hidden Drive folder (`drive.appdata`) and your email address, shown so you know which account is connected. Tick the Drive permission on the Google consent page, or sync cannot work. Nothing passes through a server of ours. What is stored where, and how to delete it, is described in the [privacy policy](https://jaffarsk24.github.io/WE-Time-Tracker/privacy.html).
 

@@ -92,7 +92,9 @@ export async function signInToGDrive() {
   const res = await window.weGDrive.login();
   if (res.ok) {
     showToast(t('gdrive-synced'), { type: 'success' });
-    await window.weGDrive.sync();
+    // First look at the cloud; this computer's data goes up on closing or
+    // from the Sync button.
+    await window.weGDrive.sync({ pullOnly: true });
   } else if (res.scopeDenied) {
     showToast(t('gdrive-scope-denied'), { type: 'error', duration: 10000 });
   } else if (res.error !== 'timeout') {
@@ -147,14 +149,11 @@ function initGDrive() {
   window.weGDrive.getStatus().then(render);
   window.weGDrive.onStatus(render);
 
-  // Cloud data replaced the local file: reload so the UI cannot overwrite it
-  // with the stale state it still holds in memory.
+  // Cloud data replaced or was merged into the local file: reload so the UI
+  // cannot overwrite it with the stale state it still holds in memory.
   window.weGDrive.onPulled((info) => {
-    showToast(info && info.conflict ? t('gdrive-conflict') : t('gdrive-pulled'), {
-      type: info && info.conflict ? 'info' : 'success',
-      duration: info && info.conflict ? 9000 : 4000
-    });
-    setTimeout(() => window.location.reload(), info && info.conflict ? 2500 : 1200);
+    showToast(info && info.merged ? t('gdrive-merged') : t('gdrive-pulled'), { type: 'success', duration: 4000 });
+    setTimeout(() => window.location.reload(), 1200);
   });
 
   loginBtn.addEventListener('click', async () => {
@@ -169,31 +168,6 @@ function initGDrive() {
     showToast(t('gdrive-logged-out'), { type: 'info' });
     render(res.status);
   });
-
-  // The bundled OAuth client changed, so the cloud folder is a different one.
-  // Nothing is overwritten until the user says which copy to keep.
-  const clientModal = document.getElementById('gdrive-client-modal');
-  const askWhichCopy = () => {
-    if (!clientModal) return;
-    clientModal.classList.add('active');
-    if (window.lucide) window.lucide.createIcons();
-  };
-  const closeClientModal = () => clientModal && clientModal.classList.remove('active');
-  const adopt = async (choice) => {
-    closeClientModal();
-    const res = await window.weGDrive.adoptClient(choice);
-    if (!res.ok) {
-      showToast(t('gdrive-sync-failed') + (res.error || ''), { type: 'error' });
-    } else if (res.pushed) {
-      showToast(t('gdrive-synced'), { type: 'success' });
-    }
-    // A pull reports itself through onPulled (with a reload).
-  };
-  if (clientModal) {
-    document.getElementById('gdrive-client-modal-close').addEventListener('click', closeClientModal);
-    document.getElementById('gdrive-client-use-local').addEventListener('click', () => adopt('local'));
-    document.getElementById('gdrive-client-use-cloud').addEventListener('click', () => adopt('cloud'));
-  }
 
   syncBtn.addEventListener('click', async () => {
     const label = syncBtn.querySelector('span');
@@ -210,10 +184,6 @@ function initGDrive() {
       let message = t('gdrive-sync-failed') + (res.error || '');
       let type = 'error';
       let duration = 4500;
-      if (res.clientChanged) {
-        askWhichCopy();
-        return;
-      }
       if (res.scopeDenied) {
         message = t('gdrive-scope-denied');
         duration = 10000;

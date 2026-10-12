@@ -87,7 +87,9 @@ class Store {
           projects: parsed.projects || [],
           timeLogs: (parsed.timeLogs || []).map(l => this.normalizeLog(l)),
           settings: parsed.settings || { ...DEFAULT_SETTINGS },
-          activeTimer: parsed.activeTimer || null
+          activeTimer: parsed.activeTimer || null,
+          deleted: parsed.deleted || {},
+          savedAt: parsed.savedAt || null
         };
       }
     } catch (e) {
@@ -98,7 +100,9 @@ class Store {
       projects: [],
       timeLogs: [],
       settings: { ...DEFAULT_SETTINGS },
-      activeTimer: null
+      activeTimer: null,
+      deleted: {},
+      savedAt: null
     };
     // Do not overwrite storage with empty state if data existed but failed to
     // parse — otherwise a read failure would destroy the database.
@@ -132,8 +136,23 @@ class Store {
     this.notify();
   }
 
+  // Remembers deleted ids, so that merging with another computer's copy
+  // (see mergeData in gdrive-utils.cjs) does not bring them back.
+  markDeleted(ids) {
+    if (!this.state.deleted) this.state.deleted = {};
+    const now = new Date().toISOString();
+    ids.forEach(id => { if (id) this.state.deleted[id] = now; });
+  }
+
+  unmarkDeleted(ids) {
+    if (!this.state.deleted) return;
+    ids.forEach(id => { delete this.state.deleted[id]; });
+  }
+
+  // savedAt tells which of two copies is newer when sync merges them.
   saveStateDirectly(state) {
     try {
+      state.savedAt = new Date().toISOString();
       const json = JSON.stringify(state);
       if (this.hasFileStorage()) {
         window.weStorage.save(json);
@@ -197,6 +216,13 @@ class Store {
 
   deleteClient(id) {
     // Cascade delete projects and clear clientId in timelogs (or delete logs? let's keep logs but set client/project to null or just delete logs. Usually better to delete projects and logs or preserve logs. Let's delete project associations but keep logs with a note, or cascade delete. Let's cascade delete for clean state, or keep them with "Unknown Client/Project". Let's delete logs associated with this client to prevent inconsistencies)
+    const client = this.state.clients.find(c => c.id === id);
+    this.markDeleted([
+      id,
+      ...((client && client.payments) || []).map(p => p.id),
+      ...this.state.projects.filter(p => p.clientId === id).map(p => p.id),
+      ...this.state.timeLogs.filter(l => l.clientId === id).map(l => l.id)
+    ]);
     this.state.clients = this.state.clients.filter(c => c.id !== id);
     this.state.projects = this.state.projects.filter(p => p.clientId !== id);
     this.state.timeLogs = this.state.timeLogs.filter(l => l.clientId !== id);
@@ -243,6 +269,7 @@ class Store {
   }
 
   deleteProject(id) {
+    this.markDeleted([id, ...this.state.timeLogs.filter(l => l.projectId === id).map(l => l.id)]);
     this.state.projects = this.state.projects.filter(p => p.id !== id);
     this.state.timeLogs = this.state.timeLogs.filter(l => l.projectId !== id);
     if (this.state.activeTimer && this.state.activeTimer.projectId === id) {
@@ -293,6 +320,7 @@ class Store {
     const client = this.state.clients.find(c => c.id === clientId);
     if (!client || !Array.isArray(client.payments)) return;
     client.payments = client.payments.filter(p => p.id !== paymentId);
+    this.markDeleted([paymentId]);
     this.saveState();
   }
 
@@ -394,7 +422,10 @@ class Store {
             else rest[logId] = p.logAmounts[logId];
           });
           if (removed === 0) return p;
-          if (Object.keys(rest).length === 0) return null;
+          if (Object.keys(rest).length === 0) {
+            this.markDeleted([p.id]);
+            return null;
+          }
           return { ...p, amount: Math.max(0, p.amount - removed), logAmounts: rest };
         })
         .filter(Boolean);
@@ -500,6 +531,7 @@ class Store {
     // otherwise the client would show a phantom advance.
     this.reverseAutoPayments(removed.filter(l => l.paid).map(l => l.id));
     this.state.timeLogs = this.state.timeLogs.filter(l => !idSet.has(l.id));
+    this.markDeleted(removed.map(l => l.id));
     this.saveState();
     return removed;
   }
@@ -513,6 +545,7 @@ class Store {
       if (!existingIds.has(log.id)) {
         this.state.timeLogs.push(log);
         restored.push(log);
+        this.unmarkDeleted([log.id]);
       }
     });
     // Re-create the linked payment for restored paid logs (mirrors delete).
@@ -650,13 +683,25 @@ class Store {
     try {
       const parsed = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
       if (parsed && (parsed.clients || parsed.projects || parsed.timeLogs)) {
+        // The imported file is the new truth: whatever it leaves out counts
+        // as deleted, so sync does not bring it back from the cloud.
+        const before = this.allIds();
+        const kept = new Set([
+          ...(parsed.clients || []).flatMap(c => [c.id, ...(c.payments || []).map(p => p.id)]),
+          ...(parsed.projects || []).map(p => p.id),
+          ...(parsed.timeLogs || []).map(l => l.id)
+        ]);
+        const deleted = { ...(this.state.deleted || {}), ...(parsed.deleted || {}) };
+        kept.forEach(id => { delete deleted[id]; });
         this.state = {
           clients: (parsed.clients || []).map(c => this.normalizeClient(c)),
           projects: parsed.projects || [],
           timeLogs: (parsed.timeLogs || []).map(l => this.normalizeLog(l)),
           settings: parsed.settings || { ...DEFAULT_SETTINGS },
-          activeTimer: parsed.activeTimer || null
+          activeTimer: parsed.activeTimer || null,
+          deleted
         };
+        this.markDeleted(before.filter(id => !kept.has(id)));
         this.migrateAutoPaymentsForPaidLogs();
         this.saveState();
         return { success: true };
@@ -668,14 +713,28 @@ class Store {
     return { success: false, error: 'Invalid data format' };
   }
 
+  // Ids of every client, payment, project and time log.
+  allIds() {
+    return [
+      ...this.state.clients.flatMap(c => [c.id, ...(c.payments || []).map(p => p.id)]),
+      ...this.state.projects.map(p => p.id),
+      ...this.state.timeLogs.map(l => l.id)
+    ];
+  }
+
   clearAllData() {
+    const ids = this.allIds();
+    const deleted = this.state.deleted || {};
     this.state = {
       clients: [],
       projects: [],
       timeLogs: [],
       settings: { ...DEFAULT_SETTINGS },
-      activeTimer: null
+      activeTimer: null,
+      deleted
     };
+    // A reset is meant for every computer, not undone by the next sync.
+    this.markDeleted(ids);
     this.saveState();
   }
 }

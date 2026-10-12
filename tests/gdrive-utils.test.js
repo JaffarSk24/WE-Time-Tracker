@@ -61,3 +61,103 @@ describe('pendingSignIn', () => {
     expect(pendingSignIn(null, false)).toBeNull();
   });
 });
+
+const { syncAction, closePushAction, mergeData, newerSide } = require('../gdrive-utils.cjs');
+
+describe('syncAction', () => {
+  const base = { remoteExists: true, sameClient: true, remoteChanged: false, localChanged: false, localWork: true };
+
+  it('seeds an empty cloud from this computer', () => {
+    expect(syncAction({ ...base, remoteExists: false })).toBe('push');
+  });
+
+  it('uploads local work when the cloud has nothing new', () => {
+    expect(syncAction({ ...base, localChanged: true })).toBe('push');
+  });
+
+  it('downloads cloud work when this computer has nothing new', () => {
+    expect(syncAction({ ...base, remoteChanged: true })).toBe('pull');
+  });
+
+  it('merges instead of overwriting when both sides changed', () => {
+    expect(syncAction({ ...base, remoteChanged: true, localChanged: true })).toBe('merge');
+  });
+
+  it('merges with the data of another OAuth client instead of replacing local work', () => {
+    expect(syncAction({ ...base, sameClient: false })).toBe('merge');
+    expect(syncAction({ ...base, sameClient: false, localWork: false })).toBe('pull');
+  });
+
+  it('does nothing when neither side changed', () => {
+    expect(syncAction(base)).toBe('up_to_date');
+  });
+});
+
+describe('closePushAction', () => {
+  const base = { remoteExists: true, sameClient: true, remoteChanged: false, localChanged: true, localWork: true };
+
+  it('uploads work done on this computer', () => {
+    expect(closePushAction(base)).toBe('push');
+  });
+
+  // A computer opened with old data, offline at start or signed out, must
+  // not replace newer data from another computer when it closes.
+  it('never uploads over cloud data this computer has not seen', () => {
+    expect(closePushAction({ ...base, remoteChanged: true })).toBe('merge');
+    expect(closePushAction({ ...base, remoteChanged: true, localChanged: false })).toBe('skip');
+    expect(closePushAction({ ...base, sameClient: false })).toBe('merge');
+  });
+
+  it('does not upload unchanged data', () => {
+    expect(closePushAction({ ...base, localChanged: false })).toBe('skip');
+  });
+});
+
+describe('mergeData', () => {
+  const log = (id, extra = {}) => ({ id, description: id, ...extra });
+
+  it('keeps every entry made on either computer', () => {
+    const local = { clients: [], projects: [], timeLogs: [log('a'), log('b')], savedAt: '2026-10-12T08:00:00Z' };
+    const remote = { clients: [], projects: [], timeLogs: [log('a'), log('c')], savedAt: '2026-10-10T08:00:00Z' };
+    const merged = mergeData(local, remote, 'local');
+    expect(merged.timeLogs.map(l => l.id).sort()).toEqual(['a', 'b', 'c']);
+  });
+
+  it('takes the newer version of an entry changed on both', () => {
+    const local = { clients: [], projects: [], timeLogs: [log('a', { paid: false })] };
+    const remote = { clients: [], projects: [], timeLogs: [log('a', { paid: true })] };
+    expect(mergeData(local, remote, 'remote').timeLogs[0].paid).toBe(true);
+    expect(mergeData(local, remote, 'local').timeLogs[0].paid).toBe(false);
+  });
+
+  it('keeps payments from both computers inside the same client', () => {
+    const local = { clients: [{ id: 'c', payments: [{ id: 'p1', amount: 10 }] }], projects: [], timeLogs: [] };
+    const remote = { clients: [{ id: 'c', payments: [{ id: 'p2', amount: 20 }] }], projects: [], timeLogs: [] };
+    const merged = mergeData(local, remote, 'local');
+    expect(merged.clients[0].payments.map(p => p.id).sort()).toEqual(['p1', 'p2']);
+  });
+
+  it('does not bring back what was deleted on the other computer', () => {
+    const local = { clients: [], projects: [], timeLogs: [log('a'), log('b')] };
+    const remote = { clients: [], projects: [], timeLogs: [log('a')], deleted: { b: '2026-10-12T09:00:00Z' } };
+    expect(mergeData(local, remote, 'local').timeLogs.map(l => l.id)).toEqual(['a']);
+  });
+
+  it('keeps a running timer from either computer', () => {
+    const timer = { description: 'work', startTime: '2026-10-12T08:00:00Z' };
+    const local = { clients: [], projects: [], timeLogs: [], activeTimer: null };
+    const remote = { clients: [], projects: [], timeLogs: [], activeTimer: timer };
+    expect(mergeData(local, remote, 'local').activeTimer).toEqual(timer);
+  });
+});
+
+describe('newerSide', () => {
+  it('compares the save stamps of both copies', () => {
+    expect(newerSide({ savedAt: '2026-10-12T08:00:00Z' }, { savedAt: '2026-10-11T08:00:00Z' })).toBe('local');
+    expect(newerSide({ savedAt: '2026-10-10T08:00:00Z' }, { savedAt: '2026-10-11T08:00:00Z' })).toBe('remote');
+  });
+
+  it('falls back to file times for data saved by older versions', () => {
+    expect(newerSide({}, {}, '2026-10-05T16:43:00Z', '2026-10-12T12:18:50Z')).toBe('remote');
+  });
+});

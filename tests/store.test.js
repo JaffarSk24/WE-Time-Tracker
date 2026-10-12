@@ -289,6 +289,50 @@ describe('import safety', () => {
   });
 });
 
+describe('deletions remembered for sync', () => {
+  const hour = { startTime: '2026-07-01T10:00:00Z', endTime: '2026-07-01T11:00:00Z' };
+
+  it('remembers deleted time logs and the payment they generated', () => {
+    const c = store.addClient('Acme', 50);
+    const log = store.addTimeLog({ clientId: c.id, ...hour });
+    store.setLogsPaid([log.id], true);
+    const payment = store.getPayments(c.id)[0];
+    store.deleteTimeLogs([log.id]);
+    expect(store.state.deleted[log.id]).toBeTruthy();
+    expect(store.state.deleted[payment.id]).toBeTruthy();
+  });
+
+  it('forgets a deletion that was undone', () => {
+    const c = store.addClient('Acme', 50);
+    const log = store.addTimeLog({ clientId: c.id, ...hour });
+    const removed = store.deleteTimeLogs([log.id]);
+    store.restoreTimeLogs(removed);
+    expect(store.state.deleted[log.id]).toBeUndefined();
+  });
+
+  it('remembers everything a deleted client took with it', () => {
+    const c = store.addClient('Acme', 50);
+    const p = store.addProject('Site', c.id, 0);
+    const log = store.addTimeLog({ clientId: c.id, projectId: p.id, ...hour });
+    const pay = store.addPayment(c.id, 100);
+    store.deleteClient(c.id);
+    [c.id, p.id, log.id, pay.id].forEach(id => expect(store.state.deleted[id]).toBeTruthy());
+  });
+
+  it('counts what an imported backup leaves out as deleted', () => {
+    const c = store.addClient('Acme', 50);
+    const log = store.addTimeLog({ clientId: c.id, ...hour });
+    store.importData({ clients: [{ id: c.id, name: 'Acme', defaultRate: 50 }], timeLogs: [] });
+    expect(store.state.deleted[log.id]).toBeTruthy();
+    expect(store.state.deleted[c.id]).toBeUndefined();
+  });
+
+  it('stamps every save, so sync can tell the newer copy', () => {
+    store.addClient('Acme', 50);
+    expect(Date.parse(store.state.savedAt)).toBeGreaterThan(0);
+  });
+});
+
 describe('utils', () => {
   it('billableHours is minute-precise (no block rounding)', () => {
     expect(billableHours(0)).toBe(0);

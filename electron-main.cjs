@@ -57,15 +57,17 @@ function saveDataFile(json) {
 }
 
 // Tagged snapshot of the current data file, used before a cloud pull replaces
-// it. Returns the backup path so the user can be told where their data went.
-function snapshotDataFile(tag) {
+// it, or of the given content (the cloud copy, before this computer's data
+// replaces it). Returns the backup path so the user can be told where it went.
+function snapshotDataFile(tag, content = null) {
   try {
     const src = dataFilePath();
-    if (!fs.existsSync(src)) return null;
+    if (content === null && !fs.existsSync(src)) return null;
     fs.mkdirSync(backupsDir(), { recursive: true });
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     const dest = path.join(backupsDir(), `we-tracker-data-${tag}-${stamp}.json`);
-    fs.copyFileSync(src, dest);
+    if (content === null) fs.copyFileSync(src, dest);
+    else fs.writeFileSync(dest, content, 'utf8');
     return dest;
   } catch (e) {
     console.error('Snapshot failed:', e);
@@ -507,11 +509,12 @@ function createWindow(url) {
   mainWindowHasOpened = true;
   mainWindow.loadURL(url);
 
-  // Pull cloud data right after the UI is ready. The renderer reloads itself
-  // when data actually arrives, so it never keeps a stale copy in memory.
+  // Pull cloud data right after the UI is ready, and only pull: nothing goes
+  // up on launch. The renderer reloads itself when data actually arrives, so
+  // it never keeps a stale copy in memory.
   mainWindow.webContents.on('did-finish-load', () => {
     if (!gdriveSync.isLoggedIn()) return;
-    gdriveSync.sync(mainWindow, { silent: true }).catch(err => {
+    gdriveSync.sync(mainWindow, { silent: true, pullOnly: true }).catch(err => {
       console.error('[GDrive] Startup sync failed:', err);
     });
   });
@@ -519,7 +522,8 @@ function createWindow(url) {
   mainWindow.on('closed', () => {
     mainWindow = null;
     // On macOS closing the window keeps the app running in the menu bar, so
-    // upload here too — otherwise a session could sit unsynced for days.
+    // upload here too, otherwise a session could sit unsynced for days. The
+    // upload steps aside if the cloud holds data this computer has not seen.
     if (gdriveSync.isLoggedIn()) {
       gdriveSync.push(null).catch(err => console.error('[GDrive] Close push failed:', err));
     }
@@ -530,14 +534,22 @@ function initGDriveIpc() {
   gdriveSync.init({
     readLocal: readDataFile,
     writeLocal: saveDataFile,
-    backupLocal: snapshotDataFile
+    backupLocal: snapshotDataFile,
+    localModified: () => {
+      try {
+        return fs.statSync(dataFilePath()).mtime.toISOString();
+      } catch (e) {
+        return null;
+      }
+    }
   });
 
   ipcMain.handle('gdrive:status', () => gdriveSync.getStatus());
   ipcMain.handle('gdrive:login', async () => await gdriveSync.login(mainWindow));
   ipcMain.handle('gdrive:logout', async () => await gdriveSync.logout(mainWindow));
-  ipcMain.handle('gdrive:sync', async () => await gdriveSync.sync(mainWindow));
-  ipcMain.handle('gdrive:adopt-client', async (_e, choice) => await gdriveSync.adoptClient(mainWindow, choice));
+  ipcMain.handle('gdrive:sync', async (_e, opts) => await gdriveSync.sync(mainWindow, {
+    pullOnly: Boolean(opts && opts.pullOnly)
+  }));
 }
 
 app.whenReady().then(() => {
