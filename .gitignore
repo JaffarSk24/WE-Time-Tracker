@@ -40,3 +40,7 @@ AGENTS.md
 
 # Bundled OAuth client for the packaged app — never committed
 oauth-credentials.json
+
+# Owner notes and stray copies of node_modules (iCloud makes "node_modules 2")
+CLAUDE.md
+node_modules*/
