@@ -56,6 +56,7 @@ export function createTagPicker(root) {
     getValue: () => validTagIds(value, store.getCollection('tags')),
     setValue(ids) {
       value = [...new Set(ids || [])];
+      picker.close();
       render();
     },
     setDisabled(flag) {

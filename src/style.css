@@ -2308,4 +2308,13 @@ textarea:focus {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
+  align-items: end;
+}
+
+/* Cards with backdrop-filter stack in their own layer: keep an open tag
+   menu above the cards that follow. */
+.timer-widget,
+.manual-entry-card {
+  position: relative;
+  z-index: 3;
 }
