@@ -1,0 +1,5 @@
+"Project","Client","Description","Task","User","Group","Email","Tags","Billable","Start Date","Start Time","End Date","End Time","Duration (h)","Duration (decimal)","Billable Rate (USD)","Billable Amount (USD)"
+"Mobile app","Initech","Sprint planning","Planning","Bob","","bob@example.com","","Yes","03/09/2026","09:00 AM","03/09/2026","10:00 AM","01:00:00","1.00","60.00","60.00"
+"Mobile app","Initech","Code review","","Bob","","bob@example.com","","No","03/09/2026","12:30 PM","03/09/2026","01:15 PM","00:45:00","0.75","0.00","0.00"
+"","Initech","Late fix","","Bob","","bob@example.com","","Yes","03/10/2026","11:45 PM","03/11/2026","12:15 AM","00:30:00","0.50","60.00","30.00"
+"Mobile app","Initech","Broken","","Bob","","bob@example.com","","Yes","03/10/2026","25:00","03/10/2026","26:00","","","",""

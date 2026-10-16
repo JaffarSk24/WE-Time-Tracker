@@ -131,9 +131,21 @@ class GDriveSync {
     });
   }
 
+  // Whether the stored sign-in carries a permission. Sign-ins made before the
+  // app kept the granted list do not know, and count as not having it.
+  hasScope(scope) {
+    const granted = this.tokens && this.tokens.scope;
+    return Boolean(granted) && String(granted).split(/\s+/).includes(scope);
+  }
+
   // --- OAuth 2.0 authorization code flow with PKCE ---
-  async login(win) {
+  // extraScopes asks for more permissions on top of Drive (an incremental
+  // sign-in: permissions granted before are kept, and Drive is asked for
+  // again, so the token always stays usable for sync).
+  async login(win, { extraScopes = [] } = {}) {
     if (!this.isConfigured()) return { ok: false, error: 'not_configured' };
+    const incremental = extraScopes.length > 0;
+    const previousEmail = (this.tokens && this.tokens.email) || '';
 
     const verifier = crypto.randomBytes(32).toString('base64url');
     const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
@@ -196,20 +208,28 @@ class GDriveSync {
           }
 
           const email = await this.fetchEmail(tokenData.access_token);
+          // Adding a permission must not quietly switch sync to another
+          // Google account.
+          if (incremental && previousEmail && email && email.toLowerCase() !== previousEmail.toLowerCase()) {
+            finish({ ok: false, error: 'other_account', otherAccount: true });
+            return;
+          }
           this.tokens = {
             access_token: tokenData.access_token,
-            refresh_token: tokenData.refresh_token,
+            refresh_token: tokenData.refresh_token || (incremental && this.tokens ? this.tokens.refresh_token : undefined),
             expiry: Date.now() + (tokenData.expires_in || 3600) * 1000,
             email,
             // The hidden Drive folder belongs to this OAuth client's project, so
             // a token is only usable while the app still ships that client.
-            clientId: this.credentials.clientId
+            clientId: this.credentials.clientId,
+            // The permissions actually granted (people can untick some).
+            scope: tokenData.scope || null
           };
           this.writeJson(this.tokensPath, this.tokens);
           // A fresh sign-in settles whatever the banner was asking for.
           this.saveSyncState({ signInNeeded: null });
           this.notifyStatus(win);
-          finish({ ok: true, status: this.getStatus() });
+          finish({ ok: true, status: this.getStatus(), scope: tokenData.scope || '' });
         } catch (e) {
           finish({ ok: false, error: e.message });
         }
@@ -220,17 +240,22 @@ class GDriveSync {
       // Port 0 = ephemeral; Google accepts any loopback port for Desktop clients.
       this.server.listen(0, '127.0.0.1', () => {
         const redirectUri = `http://127.0.0.1:${this.server.address().port}/callback`;
-        const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
+        const params = {
           client_id: this.credentials.clientId,
           redirect_uri: redirectUri,
           response_type: 'code',
-          scope: SCOPES,
+          scope: [SCOPES, ...extraScopes].join(' '),
           access_type: 'offline',
           prompt: 'consent',
           code_challenge: challenge,
           code_challenge_method: 'S256',
           state
-        }).toString();
+        };
+        if (incremental) {
+          params.include_granted_scopes = 'true';
+          if (previousEmail) params.login_hint = previousEmail;
+        }
+        const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams(params).toString();
         shell.openExternal(authUrl);
       });
 
@@ -317,6 +342,7 @@ class GDriveSync {
       this.tokens.access_token = refreshed.access_token;
       this.tokens.expiry = Date.now() + (refreshed.expires_in || 3600) * 1000;
       this.tokens.clientId = this.credentials.clientId;
+      if (refreshed.scope) this.tokens.scope = refreshed.scope;
       this.writeJson(this.tokensPath, this.tokens);
       return this.tokens.access_token;
     } catch (e) {

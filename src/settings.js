@@ -3,6 +3,8 @@ import { store } from './store.js';
 import { t } from './i18n.js';
 import { showToast } from './toast.js';
 import { defaultCurrency } from './currency.js';
+import { initCsvImport } from './import-csv-ui.js';
+import { initCalendarSettings } from './calendar.js';
 import {
   updateState, updateStatusText, onUpdateChange,
   checkForUpdates, downloadUpdate, installUpdate
@@ -98,6 +100,8 @@ export function initSettings() {
   initGDrive();
   initReportSenderSettings();
   initLockSettings();
+  initCsvImport();
+  initCalendarSettings();
 }
 
 // Sign-in used by both the Settings section and the first-run banner.

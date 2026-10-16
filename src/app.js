@@ -21,7 +21,7 @@ import {
   Tag, Target,
   CalendarDays, ChevronLeft, ChevronRight, Scissors, Merge,
   Coins, Gauge, PieChart, TrendingUp, CalendarClock,
-  Bell
+  Bell, EyeOff
 } from 'lucide';
 import { store } from './store.js';
 import { translatePage } from './i18n.js';
@@ -49,7 +49,7 @@ const usedIcons = {
   Tag, Target,
   CalendarDays, ChevronLeft, ChevronRight, Scissors, Merge,
   Coins, Gauge, PieChart, TrendingUp, CalendarClock,
-  Bell
+  Bell, EyeOff
 };
 window.lucide = { createIcons: () => createIcons({ icons: usedIcons }) };
 

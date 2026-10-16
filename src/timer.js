@@ -3,6 +3,7 @@ import { store } from './store.js';
 import { t } from './i18n.js';
 import { showToast } from './toast.js';
 import { addToTotals, currencyOfClient, nonZeroLines } from './currency.js';
+import { renderCalendarSuggestions } from './calendar.js';
 import {
   fillSelect,
   escapeHtml,
@@ -318,6 +319,7 @@ export function refreshTimerUI() {
   renderTimerBudget();
   renderGoalsCard('timer-goals');
   renderTodayLogs();
+  renderCalendarSuggestions();
   syncTrayTimer();
 }
 

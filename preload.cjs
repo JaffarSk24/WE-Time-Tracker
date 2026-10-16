@@ -3,6 +3,7 @@
 // weTimer   — syncs the active timer with the menubar (tray),
 // weUpdates - GitHub release check, download and install,
 // weGDrive  — Google Drive sync.
+// Also weCalendar - suggestions from Google Calendar (uses the Drive sign-in).
 //
 // All four must stay exposed: dropping weStorage silently sends the app back
 // to localStorage and stops it writing the data file at all.
@@ -52,4 +53,11 @@ contextBridge.exposeInMainWorld('weGDrive', {
 // weReport - saves a client report (HTML built in the renderer) as a PDF file.
 contextBridge.exposeInMainWorld('weReport', {
   savePdf: (html, suggestedName) => ipcRenderer.invoke('report:pdf', html, suggestedName)
+});
+
+contextBridge.exposeInMainWorld('weCalendar', {
+  getStatus: () => ipcRenderer.invoke('calendar:status'),
+  // Asks Google for the calendar permission on top of Drive.
+  enable: () => ipcRenderer.invoke('calendar:enable'),
+  events: (from, to) => ipcRenderer.invoke('calendar:events', from, to)
 });
