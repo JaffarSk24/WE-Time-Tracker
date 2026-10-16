@@ -3,7 +3,9 @@
 // no transparent margin, shadow or rounded corners, because iOS and Android
 // round the corners themselves and paint any transparency white.
 //   npx electron scripts/render-phone-icons.cjs
-// "maskable" keeps the mark inside the central safe circle Android may crop to.
+// A changed icon gets a new suffix (-vN) here, in manifest.webmanifest, web.html
+// and PUBLIC_FILES: iOS keeps an icon per address, and a ?v= query did not
+// make it take a new one.
 const { app, BrowserWindow } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -24,13 +26,10 @@ function fullBleed(viewBox, size) {
 }
 
 const FULL = '100 100 824 824';
-// Wider view: the farthest point of the mark stays inside 80% of the icon.
-const MASKABLE = '-40 -40 1104 1104';
 const OUTPUTS = [
-  { file: 'apple-touch-icon.png', size: 180, viewBox: FULL },
-  { file: 'icon-192.png', size: 192, viewBox: FULL },
-  { file: 'icon-512.png', size: 512, viewBox: FULL },
-  { file: 'icon-maskable-512.png', size: 512, viewBox: MASKABLE }
+  { file: 'apple-touch-icon-v4.png', size: 180, viewBox: FULL },
+  { file: 'icon-192-v4.png', size: 192, viewBox: FULL },
+  { file: 'icon-512-v4.png', size: 512, viewBox: FULL }
 ];
 
 app.disableHardwareAcceleration();
