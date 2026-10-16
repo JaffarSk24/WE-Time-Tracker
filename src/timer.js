@@ -16,6 +16,7 @@ import { stopTimerWithLockCheck } from './period-lock-ui.js';
 import { createTagPicker, continueExtra } from './tags-ui.js';
 import { renderTimerBudget, withBudgetCheck } from './budgets-ui.js';
 import { renderGoalsCard } from './goals-ui.js';
+import { overlapsWith } from './timesheet.js';
 
 let timerInterval = null;
 let timerTagPicker = null;
@@ -437,6 +438,9 @@ export function initTimer() {
     if (manualTagPicker) manualTagPicker.setValue([]);
 
     showToast(t('toast-log-added'), { type: 'success' });
+    if (overlapsWith(added, store.getTimeLogs()).length) {
+      showToast(t('toast-overlap-warning'), { type: 'info' });
+    }
     renderTodayLogs();
   });
 

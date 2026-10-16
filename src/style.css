@@ -2431,3 +2431,335 @@ textarea:focus {
   position: relative;
   z-index: 3;
 }
+/* ==================== Weekly timesheet, day timeline, split and merge ==================== */
+.week-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+
+.week-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.week-nav .btn i {
+  width: 16px;
+  height: 16px;
+}
+
+.week-range-label {
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 150px;
+  text-align: center;
+}
+
+.week-summary {
+  display: flex;
+  gap: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.week-summary-amount {
+  color: var(--success);
+}
+
+.week-grid-scroll {
+  padding: 0;
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.week-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.week-grid th,
+.week-grid td {
+  padding: 10px 8px;
+  text-align: center;
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.week-grid th {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.week-grid .week-row-label {
+  text-align: left;
+  padding-left: 16px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+}
+
+.week-grid th.week-row-label {
+  color: var(--text-secondary);
+}
+
+.week-grid .week-row-total {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.week-grid .week-row-amount {
+  color: var(--success);
+  padding-right: 16px;
+  text-align: right;
+}
+
+.week-day-head {
+  cursor: pointer;
+  border-radius: 6px 6px 0 0;
+  transition: var(--transition-fast);
+}
+
+.week-day-head:hover {
+  background: var(--overlay-hover);
+}
+
+.week-day-name {
+  display: block;
+  text-transform: capitalize;
+}
+
+.week-day-num {
+  display: block;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.week-day-head.selected {
+  box-shadow: inset 0 -2px 0 var(--accent-indigo);
+}
+
+.week-grid .today {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.week-day-head.today .week-day-num {
+  color: var(--accent-indigo);
+}
+
+.week-cell {
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: var(--transition-fast);
+}
+
+.week-cell:hover {
+  background: var(--overlay-hover);
+  box-shadow: inset 0 0 0 1px var(--border-focus);
+}
+
+.week-cell:not(.has-time):hover::after {
+  content: '+';
+  color: var(--text-muted);
+}
+
+.week-grid tfoot td {
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: none;
+}
+
+.week-grid td.week-empty {
+  padding: 32px 16px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.week-empty i {
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+.week-cell-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.week-cell-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--overlay-04);
+  background: var(--overlay-02);
+  border-radius: 8px;
+  font-size: 0.88rem;
+}
+
+.week-cell-entry-time,
+.week-cell-entry-dur {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.week-cell-entry-desc {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.week-cell-entry-desc.empty,
+.week-cell-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.week-cell-add-title {
+  margin: 4px 0 10px;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.week-cell-add-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.week-timeline-card {
+  padding: 20px;
+}
+
+.week-timeline-header h3 {
+  font-size: 1rem;
+  margin: 0 0 12px;
+  color: var(--text-primary);
+}
+
+.timeline-empty {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 8px 0;
+}
+
+.timeline-axis {
+  position: relative;
+  height: 20px;
+  margin: 0 24px;
+}
+
+.timeline-tick {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.timeline-track {
+  position: relative;
+  margin: 0 24px;
+  background: var(--overlay-02);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.timeline-hour-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border-color);
+}
+
+.timeline-gap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(45deg, transparent 0 6px, var(--overlay-04) 6px 12px);
+}
+
+.timeline-block {
+  position: absolute;
+  height: 26px;
+  min-width: 3px;
+  border: none;
+  border-radius: 5px;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-family: inherit;
+  padding: 0 6px;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0.92;
+  transition: var(--transition-fast);
+}
+
+.timeline-block:hover {
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--border-focus);
+}
+
+.timeline-block.overlap {
+  background: var(--danger);
+}
+
+#week-overlaps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.timeline-overlap-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  border-left: 3px solid var(--danger);
+  background: var(--overlay-02);
+  border-radius: 6px;
+}
+
+.timeline-overlap-text {
+  color: var(--danger);
+  font-weight: 600;
+  font-size: 0.88rem;
+  flex: 1;
+  min-width: 200px;
+}
+
+.split-log-info {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin: 0 0 12px;
+}
+
+.week-grid .week-day-head,
+.week-grid .week-cell {
+  width: 7%;
+}
