@@ -16,7 +16,8 @@ import {
   BarChart3, Briefcase, Building, CalendarX, CheckCircle, Clock, Cloud, CloudOff, Code, Database,
   Download, DownloadCloud, Edit2, Euro, ExternalLink, FileSpreadsheet, Folder,
   FolderGit2, Globe, Inbox, LogIn, LogOut, MinusCircle, Palette, Play, PlayCircle, Plus,
-  RefreshCw, RotateCcw, Search, Settings, Sparkles, Trash2, UploadCloud, Users, Wallet, X
+  RefreshCw, RotateCcw, Search, Settings, Sparkles, Trash2, UploadCloud, Users, Wallet, X,
+  Tag, Target
 } from 'lucide';
 import { store } from './store.js';
 import { translatePage } from './i18n.js';
@@ -27,6 +28,8 @@ import { initReports, renderReports, updateReportsDropdowns } from './reports.js
 import { initSettings } from './settings.js';
 import { initUpdates } from './updates.js';
 import { initBanners, refreshBanners } from './banners.js';
+import { initTagsTab, renderTagsTab } from './tags-ui.js';
+import { initGoalsSettings } from './goals-ui.js';
 
 // Lucide is bundled locally (no CDN); keep the existing global API that all
 // modules use via window.lucide.createIcons(). Only the used icons are registered.
@@ -34,7 +37,8 @@ const usedIcons = {
   BarChart3, Briefcase, Building, CalendarX, CheckCircle, Clock, Cloud, CloudOff, Code, Database,
   Download, DownloadCloud, Edit2, Euro, ExternalLink, FileSpreadsheet, Folder,
   FolderGit2, Globe, Inbox, LogIn, LogOut, MinusCircle, Palette, Play, PlayCircle, Plus,
-  RefreshCw, RotateCcw, Search, Settings, Sparkles, Trash2, UploadCloud, Users, Wallet, X
+  RefreshCw, RotateCcw, Search, Settings, Sparkles, Trash2, UploadCloud, Users, Wallet, X,
+  Tag, Target
 };
 window.lucide = { createIcons: () => createIcons({ icons: usedIcons }) };
 
@@ -133,6 +137,7 @@ export function triggerViewRender(panelId) {
       break;
     case 'clients-view':
       renderClients();
+      if (document.getElementById('panel-tags')?.classList.contains('active')) renderTagsTab();
       break;
     case 'reports-view':
       renderReports();
@@ -216,6 +221,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initClients();
   initReports();
   initSettings();
+  initTagsTab();
+  initGoalsSettings();
   initBanners();
   initUpdates();
   

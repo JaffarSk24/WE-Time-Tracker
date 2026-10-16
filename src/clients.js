@@ -3,6 +3,7 @@ import { store } from './store.js';
 import { t } from './i18n.js';
 import { showToast } from './toast.js';
 import { escapeHtml } from './utils.js';
+import { budgetBarsHtml, projectUsage, fillBudgetFields, saveBudgetFields } from './budgets-ui.js';
 
 let editingClientId = null;
 let editingProjectId = null;
@@ -143,6 +144,7 @@ export function renderProjects() {
         </div>
       </div>
       <div class="entity-rate">${rateText}</div>
+      ${budgetBarsHtml(projectUsage(proj))}
       <div class="entity-actions">
         <button class="btn-icon edit-project-btn" data-id="${proj.id}" title="${t('edit')}">
           <i data-lucide="edit-2"></i>
@@ -226,12 +228,14 @@ function openProjectModal(id = null) {
       nameInput.value = proj.name;
       populateProjectModalClients(proj.clientId);
       rateInput.value = proj.rate;
+      fillBudgetFields(proj);
     }
   } else {
     title.textContent = t('add-project-title');
     nameInput.value = '';
     populateProjectModalClients();
     rateInput.value = '0';
+    fillBudgetFields(null);
   }
   
   modal.classList.add('active');
@@ -399,8 +403,10 @@ export function initClients() {
 
     if (editingProjectId) {
       store.updateProject(editingProjectId, name, clientId, rate);
+      saveBudgetFields(editingProjectId);
     } else {
-      store.addProject(name, clientId, rate);
+      const created = store.addProject(name, clientId, rate);
+      saveBudgetFields(created.id);
     }
 
     closeProjectModal();

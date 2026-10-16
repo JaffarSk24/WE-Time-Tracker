@@ -3,6 +3,8 @@ import Chart from 'chart.js/auto';
 import { store } from './store.js';
 import { billableHours, formatDurationShort, logDurationMs } from './utils.js';
 import { t } from './i18n.js';
+import { renderGoalsCard } from './goals-ui.js';
+import { renderDashboardTags } from './tags-ui.js';
 
 let projectChartInstance = null;
 let clientChartInstance = null;
@@ -89,6 +91,8 @@ export function renderDashboard() {
   document.getElementById('dash-earnings-val').textContent = `${totalEarnings.toFixed(2)} €`;
   document.getElementById('dash-projects-val').textContent = projects.length;
   document.getElementById('dash-clients-val').textContent = clients.length;
+  renderGoalsCard('dash-goals');
+  renderDashboardTags(logs, selectedActivityPeriod);
   
   // Check if we have logs to render charts
   if (logs.length === 0) {
