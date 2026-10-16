@@ -2936,6 +2936,8 @@ textarea:focus {
   top: calc(100% + 4px);
   left: 0;
   right: 0;
+  /* The manual entry field is narrow: the list may be wider than it. */
+  min-width: min(440px, 80vw);
   z-index: 40;
   max-height: 320px;
   overflow-y: auto;
@@ -3152,7 +3154,7 @@ textarea:focus {
 }
 
 .idle-modal-content {
-  max-width: 560px;
+  max-width: 640px;
 }
 
 .idle-modal-text {

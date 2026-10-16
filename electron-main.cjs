@@ -343,7 +343,9 @@ function startTaskFromTray(task) {
     description: task.description || '',
     clientId: task.clientId || null,
     projectId: task.projectId || null,
-    billable: task.billable !== undefined ? task.billable : true
+    billable: task.billable !== undefined ? task.billable : true,
+    // The continued entry's tags go with it, as with the play buttons.
+    tagIds: Array.isArray(task.tagIds) ? task.tagIds : []
   };
   if (windowAlive()) {
     mainWindow.webContents.send('timer:start-request', payload);
