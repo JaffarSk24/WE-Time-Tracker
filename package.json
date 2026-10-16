@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "dev:web": "vite --mode web",
+    "build:web": "vite build --mode web",
     "preview": "vite preview",
     "electron:dev": "NODE_ENV=development electron .",
     "electron:prod": "npm run build && NODE_ENV=production electron .",

@@ -157,6 +157,26 @@ describe('mergeData', () => {
     const remote = { clients: [], projects: [], timeLogs: [], activeTimer: timer };
     expect(mergeData(local, remote, 'local').activeTimer).toEqual(timer);
   });
+
+  it('does not bring back a timer the other side has stopped', () => {
+    const timer = { description: 'work', clientId: 'c', projectId: null, startTime: '2026-10-12T08:00:00Z', originalStartTime: '2026-10-12T08:00:00Z' };
+    // Stopped in the window: the log starts at the original start.
+    const stopped = { clients: [], projects: [], timeLogs: [log('a', { description: 'work', clientId: 'c', projectId: null, startTime: '2026-10-12T08:00:00Z' })], activeTimer: null };
+    const stale = { clients: [], projects: [], timeLogs: [], activeTimer: timer };
+    expect(mergeData(stopped, stale, 'local').activeTimer).toBe(null);
+    // Stopped from the menu bar after a pause: the log starts later.
+    stopped.timeLogs[0].startTime = '2026-10-12T08:20:00Z';
+    expect(mergeData(stopped, stale, 'local').activeTimer).toBe(null);
+  });
+
+  it('keeps a timer whose task has only older logs', () => {
+    const timer = { description: 'work', clientId: 'c', startTime: '2026-10-12T08:00:00Z', originalStartTime: '2026-10-12T08:00:00Z' };
+    const local = { clients: [], projects: [], timeLogs: [log('a', { description: 'work', clientId: 'c', startTime: '2026-10-11T08:00:00Z' })], activeTimer: null };
+    const remote = { clients: [], projects: [], timeLogs: [], activeTimer: timer };
+    expect(mergeData(local, remote, 'local').activeTimer).toEqual(timer);
+    const other = { ...remote, timeLogs: [log('b', { description: 'other', clientId: 'c', startTime: '2026-10-12T09:00:00Z' })] };
+    expect(mergeData(local, other, 'local').activeTimer).toEqual(timer);
+  });
 });
 
 describe('newerSide', () => {

@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#090b11" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="WE Tracker" />
+  <title>WE Time Tracker</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/png" href="./favicon.png" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+</head>
+<body class="web-app">
+  <!-- Status line: account, last sync, Sync button -->
+  <header class="w-status" id="w-status" hidden>
+    <button class="w-status-account" id="w-account-btn" type="button">
+      <span class="w-status-email" id="w-email"></span>
+      <span class="w-status-sync" id="w-sync-text"></span>
+    </button>
+    <button class="btn btn-sm btn-primary w-renew-btn" id="w-renew-btn" type="button" hidden>
+      <i data-lucide="log-in"></i><span data-i18n="web-renew"></span>
+    </button>
+    <button class="btn btn-sm btn-secondary w-sync-btn" id="w-sync-btn" type="button">
+      <i data-lucide="refresh-cw"></i><span data-i18n="web-sync"></span>
+    </button>
+  </header>
+
+  <!-- Sign-in -->
+  <section class="w-signin" id="w-signin" hidden>
+    <img src="./icon-192.png" alt="" width="96" height="96" class="w-signin-icon" />
+    <h1>WE Time Tracker</h1>
+    <p data-i18n="web-signin-text"></p>
+    <button class="btn btn-primary w-signin-btn" id="w-signin-btn" type="button">
+      <i data-lucide="log-in"></i><span data-i18n="web-signin-btn"></span>
+    </button>
+    <p class="w-note" id="w-signin-note" hidden></p>
+  </section>
+
+  <main class="w-main" id="w-main" hidden>
+    <!-- Timer -->
+    <section class="w-screen" id="w-timer" data-screen="timer">
+      <div class="w-card w-timer-card">
+        <div class="w-clock" id="w-clock">00:00:00</div>
+        <div class="w-timer-state" id="w-timer-state"></div>
+
+        <div class="w-timer-fields" id="w-timer-fields">
+          <input type="text" id="w-desc" data-i18n="timer-placeholder" placeholder="Task description" autocomplete="off" />
+          <select id="w-client"></select>
+          <select id="w-project"></select>
+          <label class="w-switch">
+            <input type="checkbox" id="w-billable" checked />
+            <span class="w-switch-track"><span class="w-switch-thumb"></span></span>
+            <span data-i18n="timer-billable"></span>
+          </label>
+        </div>
+        <div class="w-running-info" id="w-running-info" hidden>
+          <div class="w-running-desc" id="w-running-desc"></div>
+          <div class="w-running-meta" id="w-running-meta"></div>
+        </div>
+
+        <div class="w-timer-buttons">
+          <button class="w-round-btn w-pause-btn" id="w-pause-btn" type="button" hidden>
+            <i data-lucide="pause"></i><span id="w-pause-label"></span>
+          </button>
+          <button class="w-round-btn w-main-btn" id="w-toggle-btn" type="button">
+            <i data-lucide="play"></i><span id="w-toggle-label"></span>
+          </button>
+          <button class="w-round-btn w-cancel-btn" id="w-cancel-btn" type="button" hidden>
+            <i data-lucide="x"></i><span data-i18n="timer-cancel"></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="w-section-head">
+        <h2 data-i18n="today-logs-title"></h2>
+        <span class="w-totals" id="w-today-totals"></span>
+      </div>
+      <div class="w-list" id="w-today-list"></div>
+      <button class="btn btn-secondary w-wide-btn" id="w-manual-btn" type="button">
+        <i data-lucide="plus"></i><span data-i18n="web-add-manual"></span>
+      </button>
+    </section>
+
+    <!-- Week -->
+    <section class="w-screen" id="w-week" data-screen="week" hidden>
+      <div class="w-week-head">
+        <button class="w-icon-btn" id="w-week-prev" type="button"><i data-lucide="chevron-left"></i></button>
+        <h2 id="w-week-range"></h2>
+        <button class="w-icon-btn" id="w-week-next" type="button"><i data-lucide="chevron-right"></i></button>
+      </div>
+      <div class="w-card w-week-totals">
+        <div><span class="w-stat-label" data-i18n="web-week-total"></span><span class="w-stat" id="w-week-total"></span></div>
+        <div><span class="w-stat-label" data-i18n="web-week-billable"></span><span class="w-stat" id="w-week-billable"></span></div>
+        <div><span class="w-stat-label" data-i18n="web-week-amount"></span><span class="w-stat" id="w-week-amount"></span></div>
+      </div>
+      <div class="w-card w-days" id="w-days"></div>
+      <div class="w-section-head">
+        <h2 id="w-day-title"></h2>
+        <span class="w-totals" id="w-day-totals"></span>
+      </div>
+      <div class="w-list" id="w-day-list"></div>
+    </section>
+  </main>
+
+  <nav class="w-tabs" id="w-tabs" hidden>
+    <button class="w-tab active" data-target="timer" type="button"><i data-lucide="timer"></i><span data-i18n="web-tab-timer"></span></button>
+    <button class="w-tab" data-target="week" type="button"><i data-lucide="calendar-days"></i><span data-i18n="web-tab-week"></span></button>
+  </nav>
+
+  <!-- Entry sheet: manual entry and editing -->
+  <div class="w-sheet-overlay" id="w-entry-sheet" hidden>
+    <form class="w-sheet" id="w-entry-form" novalidate>
+      <div class="w-sheet-head">
+        <h3 id="w-entry-title"></h3>
+        <button class="w-icon-btn" type="button" data-close><i data-lucide="x"></i></button>
+      </div>
+      <div class="form-group">
+        <label for="w-entry-desc" data-i18n="col-desc"></label>
+        <input type="text" id="w-entry-desc" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label for="w-entry-client" data-i18n="filter-client"></label>
+        <select id="w-entry-client"></select>
+      </div>
+      <div class="form-group">
+        <label for="w-entry-project" data-i18n="filter-project"></label>
+        <select id="w-entry-project"></select>
+      </div>
+      <div class="w-two">
+        <div class="form-group">
+          <label for="w-entry-start" data-i18n="col-start"></label>
+          <input type="datetime-local" id="w-entry-start" />
+        </div>
+        <div class="form-group">
+          <label for="w-entry-end" data-i18n="col-end"></label>
+          <input type="datetime-local" id="w-entry-end" />
+        </div>
+      </div>
+      <label class="w-switch">
+        <input type="checkbox" id="w-entry-billable" checked />
+        <span class="w-switch-track"><span class="w-switch-thumb"></span></span>
+        <span data-i18n="timer-billable"></span>
+      </label>
+      <div class="w-sheet-actions">
+        <button class="btn btn-danger" type="button" id="w-entry-delete"><i data-lucide="trash-2"></i><span data-i18n="delete"></span></button>
+        <button class="btn btn-primary" type="submit" id="w-entry-save"></button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Account sheet -->
+  <div class="w-sheet-overlay" id="w-account-sheet" hidden>
+    <div class="w-sheet">
+      <div class="w-sheet-head">
+        <h3 data-i18n="web-account-title"></h3>
+        <button class="w-icon-btn" type="button" data-close><i data-lucide="x"></i></button>
+      </div>
+      <p class="w-account-email" id="w-account-email"></p>
+      <p class="w-note" id="w-account-sync"></p>
+      <div class="w-sheet-actions">
+        <button class="btn btn-secondary" type="button" id="w-signout-btn"><i data-lucide="log-out"></i><span data-i18n="web-sign-out"></span></button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/web/main.js"></script>
+</body>
+</html>
