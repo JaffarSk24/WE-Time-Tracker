@@ -22,10 +22,30 @@ import {
   formatDurationHMS, formatDurationShort, logDurationMs
 } from '../utils.js';
 import { addWebTranslations } from './i18n-web.js';
-import { weekStart, shiftWeek, summarizeWeek, formatMoney, timerElapsedMs, entryError, logAmount } from './week.js';
+import { weekStart, shiftWeek, summarizeWeek, timerElapsedMs, entryError, logAmount } from './week.js';
 import { createCloud } from './cloud.js';
 import { signIn, isSignedIn, getAccount, finishRedirectSignIn, signOut, validToken } from './auth.js';
 import { isClientConfigured } from './config.js';
+import { clientCurrency, formatMoney as formatAmount, formatMoneyTotals } from '../utils.js';
+
+// Amounts are in each client's currency; totals mixing currencies are shown
+// per currency, never added up (as on the desktop).
+function currencyOfLog(log) {
+  const client = store.getClients().find(c => c.id === log.clientId);
+  return clientCurrency(client, store.getSettings());
+}
+
+function moneyOfLogs(logs) {
+  const totals = {};
+  logs.forEach(log => {
+    const amount = logAmount(log);
+    if (amount > 0) {
+      const cur = currencyOfLog(log);
+      totals[cur] = (totals[cur] || 0) + amount;
+    }
+  });
+  return formatMoneyTotals(totals, clientCurrency(null, store.getSettings())).join(' · ');
+}
 
 const usedIcons = {
   CalendarDays, ChevronLeft, ChevronRight, LogIn, LogOut, Pause, Play, Plus,
@@ -196,7 +216,7 @@ function logRow(log, { withContinue }) {
     </button>
     <div class="w-log-side">
       <span class="w-log-duration">${formatDurationHMS(logDurationMs(log))}</span>
-      ${amount > 0 ? `<span class="w-log-amount">${formatMoney(amount)}</span>` : ''}
+      ${amount > 0 ? `<span class="w-log-amount">${formatAmount(amount, currencyOfLog(log))}</span>` : ''}
     </div>
     ${withContinue ? `<button class="w-icon-btn w-continue" type="button" data-continue="${escapeHtml(log.id)}" aria-label="${escapeHtml(t('web-continue'))}"><i data-lucide="play"></i></button>` : ''}
   `;
@@ -217,8 +237,8 @@ function renderList(container, logs, opts) {
 
 function totalsText(logs) {
   const ms = logs.reduce((s, l) => s + Math.max(0, logDurationMs(l)), 0);
-  const money = logs.reduce((s, l) => s + logAmount(l), 0);
-  return logs.length ? `${hours(ms)}${money > 0 ? ' · ' + formatMoney(money) : ''}` : '';
+  const money = moneyOfLogs(logs);
+  return logs.length ? `${hours(ms)}${money ? ' · ' + money : ''}` : '';
 }
 
 function renderToday() {
@@ -309,7 +329,7 @@ function renderWeek() {
   $('w-week-range').textContent = `${fmt(days[0].date)} - ${fmt(days[6].date)}`;
   $('w-week-total').textContent = hours(summary.totalMs);
   $('w-week-billable').textContent = hours(summary.billableMs);
-  $('w-week-amount').textContent = formatMoney(summary.amount);
+  $('w-week-amount').textContent = moneyOfLogs(summary.days.flatMap(d => d.logs)) || formatAmount(0, clientCurrency(null, store.getSettings()));
 
   if (!days.some(d => d.key === selectedDay)) {
     const today = localDayKey(new Date());
@@ -329,7 +349,7 @@ function renderWeek() {
       <span class="w-day-name">${escapeHtml(name)} <small>${day.date.getDate()}</small></span>
       <span class="w-day-bar"><span style="width:${Math.round((day.ms / max) * 100)}%"></span></span>
       <span class="w-day-hours">${day.ms ? escapeHtml(hours(day.ms)) : ''}</span>
-      <span class="w-day-amount">${day.amount > 0 ? formatMoney(day.amount) : ''}</span>
+      <span class="w-day-amount">${day.amount > 0 ? escapeHtml(moneyOfLogs(day.logs)) : ''}</span>
     `;
     btn.addEventListener('click', () => {
       selectedDay = day.key;
