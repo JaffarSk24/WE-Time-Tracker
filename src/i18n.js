@@ -362,7 +362,47 @@ export const translations = {
     'merge-mismatch': 'Можно объединять только записи с одним клиентом, проектом и статусом оплаты',
     'toast-merge-done': 'Записи объединены',
     'toast-paid-locked': 'Оплаченные записи нельзя менять: сначала снимите отметку об оплате',
-    'toast-log-locked': 'Запись заблокирована и не может быть изменена'
+    'toast-log-locked': 'Запись заблокирована и не может быть изменена',
+
+    // Wave 5: expenses, currency per client, dashboard analytics
+    'expenses-title': 'Расходы',
+    'expense-date-label': 'Дата',
+    'expense-amount-label': 'Сумма',
+    'expense-note-label': 'Комментарий',
+    'expense-project-label': 'Проект',
+    'expense-no-project': 'Без проекта',
+    'expense-billable-label': 'Выставить клиенту',
+    'expense-add': 'Добавить расход',
+    'expenses-empty': 'Расходов пока нет',
+    'expense-added': 'Расход добавлен',
+    'expense-deleted': 'Расход удалён',
+    'expense-invalid': 'Укажите дату и сумму больше нуля',
+    'expense-not-billable': 'не выставляется',
+    'expenses-included': 'в т.ч. расходы: {amount}',
+    'expenses-export': 'Экспорт расходов (CSV)',
+    'expenses-export-empty': 'Нет расходов для экспорта',
+    'client-currency-label': 'Валюта',
+    'client-currency-hint': 'Смена валюты потом только меняет подпись у сумм, без пересчёта.',
+    'client-rate-label-cur': 'Ставка по умолчанию ({currency}/час)',
+    'project-rate-label-cur': 'Ставка проекта ({currency}/час, оставьте 0 для наследования ставки клиента)',
+    'analytics-title': 'Аналитика за период',
+    'analytics-eff-rate': 'Эффективная ставка',
+    'analytics-eff-rate-desc': 'Оплачиваемая сумма / все часы',
+    'analytics-billable-share': 'Доля оплачиваемых часов',
+    'analytics-billable-share-desc': '{billable} из {total}',
+    'analytics-compare': 'К прошлому периоду',
+    'analytics-compare-hours': 'Часы',
+    'analytics-compare-desc': 'Сравнение с предыдущим периодом той же длины',
+    'analytics-forecast': 'Прогноз дохода за месяц',
+    'analytics-forecast-desc': 'Пн-Пт: прошло {elapsed} из {total} рабочих дней',
+    'analytics-forecast-sofar': 'уже {amount}',
+    'analytics-aging': 'Долги по давности',
+    'analytics-aging-client': 'Клиент',
+    'analytics-aging-days': '{range} дн.',
+    'analytics-aging-total': 'Итого',
+    'analytics-aging-empty': 'Долгов нет',
+    'analytics-no-data': 'Нет данных',
+    'settings-currency-desc': 'Для новых клиентов и клиентов без своей валюты. Суммы не пересчитываются.'
   },
   en: {
     // Sidebar
@@ -702,7 +742,47 @@ export const translations = {
     'merge-mismatch': 'Only entries with the same client, project and payment status can be merged',
     'toast-merge-done': 'Entries merged',
     'toast-paid-locked': 'Paid entries cannot be changed: unmark them as paid first',
-    'toast-log-locked': 'This entry is locked and cannot be changed'
+    'toast-log-locked': 'This entry is locked and cannot be changed',
+
+    // Wave 5: expenses, currency per client, dashboard analytics
+    'expenses-title': 'Expenses',
+    'expense-date-label': 'Date',
+    'expense-amount-label': 'Amount',
+    'expense-note-label': 'Note',
+    'expense-project-label': 'Project',
+    'expense-no-project': 'No project',
+    'expense-billable-label': 'Bill to client',
+    'expense-add': 'Add expense',
+    'expenses-empty': 'No expenses yet',
+    'expense-added': 'Expense added',
+    'expense-deleted': 'Expense deleted',
+    'expense-invalid': 'Enter a date and an amount above zero',
+    'expense-not-billable': 'not billed',
+    'expenses-included': 'incl. expenses: {amount}',
+    'expenses-export': 'Export expenses (CSV)',
+    'expenses-export-empty': 'No expenses to export',
+    'client-currency-label': 'Currency',
+    'client-currency-hint': 'Changing the currency later only relabels amounts, it does not convert them.',
+    'client-rate-label-cur': 'Default Rate ({currency}/hour)',
+    'project-rate-label-cur': 'Project Rate ({currency}/hour, leave 0 to inherit client rate)',
+    'analytics-title': 'Period analytics',
+    'analytics-eff-rate': 'Effective hourly rate',
+    'analytics-eff-rate-desc': 'Billable amount / all hours',
+    'analytics-billable-share': 'Billable share of hours',
+    'analytics-billable-share-desc': '{billable} of {total}',
+    'analytics-compare': 'Vs previous period',
+    'analytics-compare-hours': 'Hours',
+    'analytics-compare-desc': 'Compared with the previous period of the same length',
+    'analytics-forecast': 'Monthly income forecast',
+    'analytics-forecast-desc': 'Mon-Fri: {elapsed} of {total} working days passed',
+    'analytics-forecast-sofar': 'so far {amount}',
+    'analytics-aging': 'Debt aging',
+    'analytics-aging-client': 'Client',
+    'analytics-aging-days': '{range} days',
+    'analytics-aging-total': 'Total',
+    'analytics-aging-empty': 'No debts',
+    'analytics-no-data': 'No data',
+    'settings-currency-desc': 'For new clients and clients without their own currency. Amounts are not converted.'
   }
 };
 
@@ -718,7 +798,10 @@ export function translatePage() {
   const elements = document.querySelectorAll('[data-i18n]');
   elements.forEach(el => {
     const key = el.getAttribute('data-i18n');
-    const translation = t(key);
+    // Optional placeholder values, e.g. data-i18n-params='{"currency":"EUR"}'
+    let params = null;
+    try { params = el.dataset.i18nParams ? JSON.parse(el.dataset.i18nParams) : null; } catch (e) { /* plain text */ }
+    const translation = t(key, params);
     if (translation) {
       if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
         if (el.placeholder !== undefined && el.placeholder !== '') {

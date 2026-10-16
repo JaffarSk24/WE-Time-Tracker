@@ -106,3 +106,33 @@ export function csvCell(value) {
   }
   return '"' + s.replace(/"/g, '""') + '"';
 }
+
+// --- Currencies ---
+// Supported currencies and how amounts look in them. EUR keeps the format the
+// app always had ("12.50 €"); the others follow the same pattern.
+export const CURRENCIES = ['EUR', 'USD', 'CZK', 'GBP', 'PLN', 'CHF'];
+export const DEFAULT_CURRENCY = 'EUR';
+const CURRENCY_SYMBOLS = { EUR: '€', USD: '$', GBP: '£', CHF: 'CHF', CZK: 'Kč', PLN: 'zł' };
+
+export function currencySymbol(currency) {
+  return CURRENCY_SYMBOLS[currency] || CURRENCY_SYMBOLS[DEFAULT_CURRENCY];
+}
+
+export function formatMoney(amount, currency = DEFAULT_CURRENCY) {
+  return `${(Number(amount) || 0).toFixed(2)} ${currencySymbol(currency)}`;
+}
+
+// Currency of a client: its own, else the default from settings, else EUR.
+export function clientCurrency(client, settings) {
+  if (client && CURRENCIES.includes(client.currency)) return client.currency;
+  if (settings && CURRENCIES.includes(settings.currency)) return settings.currency;
+  return DEFAULT_CURRENCY;
+}
+
+// Totals by currency { EUR: 10, USD: 5 } -> one formatted line per currency,
+// the default currency first. Amounts in different currencies are never added.
+export function formatMoneyTotals(totals, defaultCurrency = DEFAULT_CURRENCY) {
+  return Object.keys(totals)
+    .sort((a, b) => (a === defaultCurrency ? -1 : b === defaultCurrency ? 1 : a.localeCompare(b)))
+    .map(cur => formatMoney(totals[cur], cur));
+}

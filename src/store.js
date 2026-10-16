@@ -231,6 +231,10 @@ class Store {
     this.state.clients = this.state.clients.filter(c => c.id !== id);
     this.state.projects = this.state.projects.filter(p => p.clientId !== id);
     this.state.timeLogs = this.state.timeLogs.filter(l => l.clientId !== id);
+    // Expenses belong to the client too.
+    const expenses = this.getCollection('expenses');
+    this.markDeleted(expenses.filter(e => e.clientId === id).map(e => e.id));
+    if (expenses.length) this.state.expenses = expenses.filter(e => e.clientId !== id);
     if (this.state.activeTimer && this.state.activeTimer.clientId === id) {
       this.state.activeTimer = null;
     }
@@ -279,6 +283,10 @@ class Store {
     this.markDeleted([id, ...this.state.timeLogs.filter(l => l.projectId === id).map(l => l.id)]);
     this.state.projects = this.state.projects.filter(p => p.id !== id);
     this.state.timeLogs = this.state.timeLogs.filter(l => l.projectId !== id);
+    // An expense stays owed by the client when its project goes away.
+    if (this.getCollection('expenses').some(e => e.projectId === id)) {
+      this.state.expenses = this.state.expenses.map(e => (e.projectId === id ? { ...e, projectId: null } : e));
+    }
     if (this.state.activeTimer && this.state.activeTimer.projectId === id) {
       this.state.activeTimer.projectId = null;
     }
@@ -389,8 +397,9 @@ class Store {
       // "client paid 70 €" entered by hand plus "mark as paid" never adds up
       // to a phantom 140 €. Callers run this while the logs are still counted
       // as billed, so the deficit below is the client's current debt.
-      const received = client.payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-      const deficit = this.getBilledAmount(clientId) - received;
+      // Billable expenses count in the debt, but the payment created here
+      // only ever covers the logs (logAmounts), never an expense.
+      const deficit = -this.getClientBalance(clientId).balance;
       const applied = Math.min(total, Math.max(0, deficit));
       if (applied <= 0.005) return;
 
@@ -439,11 +448,21 @@ class Store {
     });
   }
 
-  // Client balance: {billed, paid, balance}. balance>0 advance, <0 debt.
+  // Billable expenses paid on the client's behalf (top-level "expenses"
+  // collection); they are billed to the client on top of the work.
+  getExpensesAmount(clientId) {
+    return this.getCollection('expenses')
+      .filter(e => e.clientId === clientId && e.billable)
+      .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  }
+
+  // Client balance: {billed, paid, balance, expenses}. billed includes the
+  // billable expenses (expenses tells how much of it). balance>0 advance, <0 debt.
   getClientBalance(clientId) {
-    const billed = this.getBilledAmount(clientId);
+    const expenses = this.getExpensesAmount(clientId);
+    const billed = this.getBilledAmount(clientId) + expenses;
     const paid = this.getPayments(clientId).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-    return { billed, paid, balance: paid - billed };
+    return { billed, paid, balance: paid - billed, expenses };
   }
 
   // --- Locked periods ---

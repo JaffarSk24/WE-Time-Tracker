@@ -19,7 +19,8 @@ import {
   RefreshCw, RotateCcw, Search, Settings, Sparkles, Trash2, UploadCloud, Users, Wallet, X,
   FileText, Lock, LockOpen,
   Tag, Target,
-  CalendarDays, ChevronLeft, ChevronRight, Scissors, Merge
+  CalendarDays, ChevronLeft, ChevronRight, Scissors, Merge,
+  Coins, Gauge, PieChart, TrendingUp, CalendarClock
 } from 'lucide';
 import { store } from './store.js';
 import { translatePage } from './i18n.js';
@@ -43,7 +44,8 @@ const usedIcons = {
   RefreshCw, RotateCcw, Search, Settings, Sparkles, Trash2, UploadCloud, Users, Wallet, X,
   FileText, Lock, LockOpen,
   Tag, Target,
-  CalendarDays, ChevronLeft, ChevronRight, Scissors, Merge
+  CalendarDays, ChevronLeft, ChevronRight, Scissors, Merge,
+  Coins, Gauge, PieChart, TrendingUp, CalendarClock
 };
 window.lucide = { createIcons: () => createIcons({ icons: usedIcons }) };
 

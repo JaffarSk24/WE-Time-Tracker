@@ -2,8 +2,10 @@
 import { store } from './store.js';
 import { t } from './i18n.js';
 import { showToast } from './toast.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, formatMoney, currencySymbol } from './utils.js';
 import { budgetBarsHtml, projectUsage, fillBudgetFields, saveBudgetFields } from './budgets-ui.js';
+import { currencyOfClient, defaultCurrency } from './currency.js';
+import { initExpenses, openExpensesSection, closeExpensesSection, renderExpensesSection } from './expenses.js';
 
 let editingClientId = null;
 let editingProjectId = null;
@@ -46,13 +48,14 @@ export function renderClients() {
     
 
     // Client balance: received − billed. >0 advance, <0 debt, ~0 settled.
-    const { balance } = store.getClientBalance(client.id);
+    const { balance, expenses } = store.getClientBalance(client.id);
+    const currency = currencyOfClient(client.id);
     let balanceText, balanceColor;
     if (balance < -0.005) {
-      balanceText = `${t('client-debt')}<span style="font-weight: 700;">${Math.abs(balance).toFixed(2)} €</span>`;
+      balanceText = `${t('client-debt')}<span style="font-weight: 700;">${formatMoney(Math.abs(balance), currency)}</span>`;
       balanceColor = 'var(--debt-color)';
     } else if (balance > 0.005) {
-      balanceText = `${t('client-advance')}<span style="font-weight: 700;">${balance.toFixed(2)} €</span>`;
+      balanceText = `${t('client-advance')}<span style="font-weight: 700;">${formatMoney(balance, currency)}</span>`;
       balanceColor = 'var(--deposit-color)';
     } else {
       balanceText = t('settled-up');
@@ -65,10 +68,11 @@ export function renderClients() {
         <div class="entity-meta">ID: ${client.id.substring(7, 15)}...</div>
       </div>
       <div>
-        <div class="entity-rate">${client.defaultRate} € / ${t('per-hour')}</div>
+        <div class="entity-rate">${client.defaultRate} ${currencySymbol(currency)} / ${t('per-hour')}</div>
         <div style="font-size: 0.8rem; font-weight: 600; color: ${balanceColor}; margin-top: 4px;">
           ${balanceText}
         </div>
+        ${expenses > 0.005 ? `<div class="entity-expenses">${t('expenses-included', { amount: formatMoney(expenses, currency) })}</div>` : ''}
       </div>
       <div class="entity-actions">
         <button class="btn-icon payments-client-btn" data-id="${client.id}" title="${t('payments-title')}">
@@ -132,9 +136,10 @@ export function renderProjects() {
     const client = clients.find(c => c.id === proj.clientId);
     const clientName = client ? client.name : t('unknown-client');
     
+    const symbol = currencySymbol(currencyOfClient(proj.clientId));
     const rateText = proj.rate > 0 
-      ? `${proj.rate} € / ${t('per-hour')}`
-      : `${t('edit')} (0) ➔ ${store.getRate(proj.clientId, null)} € (${t('inherits')})`;
+      ? `${proj.rate} ${symbol} / ${t('per-hour')}`
+      : `${t('edit')} (0) ➔ ${store.getRate(proj.clientId, null)} ${symbol} (${t('inherits')})`;
     
     card.innerHTML = `
       <div>
@@ -184,6 +189,7 @@ function openClientModal(id = null) {
   const title = document.getElementById('client-modal-title');
   const nameInput = document.getElementById('client-modal-name');
   const rateInput = document.getElementById('client-modal-rate');
+  const currencySelect = document.getElementById('client-modal-currency');
   
   
   if (id) {
@@ -193,13 +199,31 @@ function openClientModal(id = null) {
       nameInput.value = client.name;
       rateInput.value = client.defaultRate;
     }
+    currencySelect.value = currencyOfClient(id);
   } else {
     title.textContent = t('add-client-title');
     nameInput.value = '';
     rateInput.value = '0';
+    currencySelect.value = defaultCurrency();
   }
+  setRateLabelCurrency('client-modal-rate-label', 'client-rate-label-cur', currencySelect.value);
   
   modal.classList.add('active');
+}
+
+// Rate labels name the currency, e.g. "(USD/hour)". The params attribute
+// keeps the label right when the page is translated again.
+function setRateLabelCurrency(labelId, key, currency) {
+  const label = document.getElementById(labelId);
+  if (!label) return;
+  const params = { currency };
+  label.dataset.i18nParams = JSON.stringify(params);
+  label.textContent = t(key, params);
+}
+
+function updateProjectRateLabel() {
+  const clientId = document.getElementById('project-modal-client').value;
+  setRateLabelCurrency('project-modal-rate-label', 'project-rate-label-cur', currencyOfClient(clientId));
 }
 
 function closeClientModal() {
@@ -237,6 +261,7 @@ function openProjectModal(id = null) {
     rateInput.value = '0';
     fillBudgetFields(null);
   }
+  updateProjectRateLabel();
   
   modal.classList.add('active');
 }
@@ -257,6 +282,7 @@ function openPaymentsModal(clientId) {
   document.getElementById('payment-amount').value = '';
   document.getElementById('payment-note').value = '';
 
+  openExpensesSection(clientId);
   renderPaymentsModal();
   modal.classList.add('active');
 }
@@ -265,18 +291,22 @@ function renderPaymentsModal() {
   if (!paymentsClientId) return;
   const lang = store.getSettings().language;
   const locale = lang === 'ru' ? 'ru-RU' : 'en-US';
-  const { billed, paid, balance } = store.getClientBalance(paymentsClientId);
+  const { billed, paid, balance, expenses } = store.getClientBalance(paymentsClientId);
+  const currency = currencyOfClient(paymentsClientId);
 
   // Balance summary
-  document.getElementById('payments-billed').textContent = `${billed.toFixed(2)} €`;
-  document.getElementById('payments-paid').textContent = `${paid.toFixed(2)} €`;
+  document.getElementById('payments-billed').textContent = formatMoney(billed, currency);
+  document.getElementById('payments-paid').textContent = formatMoney(paid, currency);
+  document.getElementById('payments-expenses-included').textContent =
+    expenses > 0.005 ? t('expenses-included', { amount: formatMoney(expenses, currency) }) : '';
+  document.getElementById('payment-amount-suffix').textContent = currencySymbol(currency);
 
   const balanceEl = document.getElementById('payments-balance');
   if (balance < -0.005) {
-    balanceEl.textContent = `${t('client-debt')}${Math.abs(balance).toFixed(2)} €`;
+    balanceEl.textContent = `${t('client-debt')}${formatMoney(Math.abs(balance), currency)}`;
     balanceEl.style.color = 'var(--debt-color)';
   } else if (balance > 0.005) {
-    balanceEl.textContent = `${t('client-advance')}${balance.toFixed(2)} €`;
+    balanceEl.textContent = `${t('client-advance')}${formatMoney(balance, currency)}`;
     balanceEl.style.color = 'var(--deposit-color)';
   } else {
     balanceEl.textContent = t('settled-up');
@@ -297,7 +327,7 @@ function renderPaymentsModal() {
       const dateStr = new Date(p.date).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
       row.innerHTML = `
         <div class="payment-info">
-          <span class="payment-amount">+${Number(p.amount).toFixed(2)} €</span>
+          <span class="payment-amount">+${formatMoney(p.amount, currency)}</span>
           <span class="payment-date">${dateStr}</span>
           ${p.auto ? `<span class="payment-auto-tag">${t('payment-from-logs')}</span>` : ''}
           ${p.note ? `<span class="payment-note">${escapeHtml(p.note)}</span>` : ''}
@@ -325,12 +355,14 @@ function renderPaymentsModal() {
     });
   }
 
+  renderExpensesSection();
   if (window.lucide) window.lucide.createIcons();
 }
 
 function closePaymentsModal() {
   document.getElementById('payments-modal').classList.remove('active');
   paymentsClientId = null;
+  closeExpensesSection();
 }
 
 export function initClients() {
@@ -375,10 +407,13 @@ export function initClients() {
       return;
     }
 
+    const currency = document.getElementById('client-modal-currency').value;
     if (editingClientId) {
       store.updateClient(editingClientId, name, rate);
+      store.patchRecord('clients', editingClientId, { currency });
     } else {
-      store.addClient(name, rate);
+      const client = store.addClient(name, rate);
+      store.patchRecord('clients', client.id, { currency });
     }
 
     closeClientModal();
@@ -415,7 +450,16 @@ export function initClients() {
     renderProjects();
   });
 
+  document.getElementById('client-modal-currency').addEventListener('change', (e) => {
+    setRateLabelCurrency('client-modal-rate-label', 'client-rate-label-cur', e.target.value);
+  });
+  document.getElementById('project-modal-client').addEventListener('change', updateProjectRateLabel);
+
   // Payments Modal
+  initExpenses(() => {
+    renderPaymentsModal();
+    renderClients();
+  });
   document.getElementById('payments-modal-close').addEventListener('click', closePaymentsModal);
   document.getElementById('payments-modal-done').addEventListener('click', closePaymentsModal);
 

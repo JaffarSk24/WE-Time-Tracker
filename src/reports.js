@@ -12,7 +12,9 @@ import {
   dayKeyToLocalDate,
   formatDurationHMS,
   formatDurationShort,
-  csvCell
+  csvCell,
+  formatMoney,
+  currencySymbol
 } from './utils.js';
 import {
   applyEditLogLock,
@@ -26,6 +28,7 @@ import { createTagPicker, continueExtra, fillTagFilter, tagChipsHtml } from './t
 import { withBudgetCheck } from './budgets-ui.js';
 import { overlapsWith } from './timesheet.js';
 import { openSplitModal, mergeSelected, canOfferMerge, initSplitMerge } from './split-merge.js';
+import { addToTotals, currencyOfClient, nonZeroLines, totalsLines } from './currency.js';
 
 let editingLogId = null;
 let editTagPicker = null;
@@ -216,15 +219,18 @@ export function renderReports() {
 
   // 1. Update Summary Stats
   let totalMs = 0;
-  let totalEarnings = 0;
+  const totalEarnings = {};
 
   filteredLogs.forEach(log => {
     totalMs += logDurationMs(log);
-    totalEarnings += logAmount(log);
+    if (log.billable) addToTotals(totalEarnings, currencyOfClient(log.clientId), logAmount(log));
   });
 
   document.getElementById('rep-hours').textContent = formatDurationShort(totalMs / 3600000, lang);
-  document.getElementById('rep-earnings').textContent = `${totalEarnings.toFixed(2)} €`;
+  // One line per currency, never added together
+  const earningsEl = document.getElementById('rep-earnings');
+  earningsEl.textContent = totalsLines(totalEarnings).join('\n');
+  earningsEl.classList.add('money-lines');
 
   // 2. Clear view and rebuild daily grouped elements
   container.innerHTML = '';
@@ -261,11 +267,12 @@ export function renderReports() {
 
     // Sum day totals
     let dayMs = 0;
-    let dayEarnings = 0;
+    const dayEarnings = {};
     dayLogs.forEach(l => {
       dayMs += logDurationMs(l);
-      dayEarnings += logAmount(l);
+      if (l.billable) addToTotals(dayEarnings, currencyOfClient(l.clientId), logAmount(l));
     });
+    const dayEarningsLines = nonZeroLines(dayEarnings);
 
     const dayGroupDiv = document.createElement('div');
     dayGroupDiv.className = 'log-group-day';
@@ -276,7 +283,7 @@ export function renderReports() {
         <div class="log-group-date">${formatDateReadable(dayKey, lang)}</div>
         <div class="log-group-totals">
           <span class="log-group-total-time">${formatDurationShort(dayMs / 3600000, lang)}</span>
-          ${dayEarnings > 0 ? `<span class="log-group-total-earnings">${dayEarnings.toFixed(2)} €</span>` : ''}
+          ${dayEarningsLines.map(line => `<span class="log-group-total-earnings">${line}</span>`).join('')}
         </div>
       </div>
       <div class="log-items-list"></div>
@@ -288,6 +295,7 @@ export function renderReports() {
     dayLogs.forEach(log => {
       const durationMs = logDurationMs(log);
       const amount = logAmount(log);
+      const currency = currencyOfClient(log.clientId);
 
       const client = clients.find(c => c.id === log.clientId);
       const proj = projects.find(p => p.id === log.projectId);
@@ -329,8 +337,8 @@ export function renderReports() {
           <i data-lucide="${status.icon}"></i>
         </div>
         <div class="log-item-financial">
-          <span class="log-item-amount">${amount > 0 ? `${amount.toFixed(2)} €` : '—'}</span>
-          ${log.billable ? `<span class="log-item-rate">${log.rateAtTime} €/h</span>` : ''}
+          <span class="log-item-amount">${amount > 0 ? formatMoney(amount, currency) : '—'}</span>
+          ${log.billable ? `<span class="log-item-rate">${log.rateAtTime} ${currencySymbol(currency)}/h</span>` : ''}
         </div>
         <div class="log-item-actions">
           <button class="btn-icon play-log-btn" data-id="${log.id}" title="${t('restart-timer')}"><i data-lucide="play"></i></button>
@@ -517,10 +525,18 @@ function exportToCSV() {
   const isRu = store.getSettings().language === 'ru';
   const tags = store.getCollection('tags');
 
-  // Headers
-  let csvContent = isRu
-    ? 'Описание,Клиент,Проект,Начало,Конец,Длительность (Часы),Статус,Ставка (EUR/ч),Сумма (EUR),Теги\r\n' // RU CSV header (localized export content)
-    : 'Description,Client,Project,Start,End,Duration (Hours),Status,Rate (EUR/h),Amount (EUR),Tags\r\n';
+  // Headers name the currency; when the entries mix currencies, a Currency
+  // column is added after Tags.
+  const currencies = [...new Set(logs.map(l => currencyOfClient(l.clientId)))];
+  const mixed = currencies.length > 1;
+  const code = currencies[0] || currencyOfClient(null);
+  let csvContent = mixed
+    ? (isRu
+      ? 'Описание,Клиент,Проект,Начало,Конец,Длительность (Часы),Статус,Ставка (в час),Сумма,Теги,Валюта\r\n'
+      : 'Description,Client,Project,Start,End,Duration (Hours),Status,Rate (per hour),Amount,Tags,Currency\r\n')
+    : (isRu
+      ? `Описание,Клиент,Проект,Начало,Конец,Длительность (Часы),Статус,Ставка (${code}/ч),Сумма (${code}),Теги\r\n` // RU CSV header (localized export content)
+      : `Description,Client,Project,Start,End,Duration (Hours),Status,Rate (${code}/h),Amount (${code}),Tags\r\n`);
 
   logs.forEach(log => {
     const client = clients.find(c => c.id === log.clientId);
@@ -542,7 +558,8 @@ function exportToCSV() {
       csvCell(status),
       log.rateAtTime,
       amount,
-      csvCell(tagNamesOf(log, tags).join(', '))
+      csvCell(tagNamesOf(log, tags).join(', ')),
+      ...(mixed ? [csvCell(currencyOfClient(log.clientId))] : [])
     ].join(',') + '\r\n';
   });
 
