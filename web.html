@@ -9,9 +9,12 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="WE Tracker" />
   <title>WE Time Tracker</title>
-  <link rel="manifest" href="./manifest.webmanifest" />
+  <!-- Absolute addresses with a version mark: iOS keeps what it fetched for
+       an address, so a changed icon needs a new one (bump ?v= with it). -->
+  <link rel="manifest" href="/WE-Time-Tracker/app/manifest.webmanifest?v=3" />
   <link rel="icon" type="image/png" href="./favicon.png" />
-  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/WE-Time-Tracker/app/apple-touch-icon.png?v=3" />
+  <link rel="apple-touch-icon" href="/WE-Time-Tracker/app/apple-touch-icon.png?v=3" />
 </head>
 <body class="web-app">
   <!-- Status line: account, last sync, Sync button -->
