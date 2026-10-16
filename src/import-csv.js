@@ -10,7 +10,7 @@
 // semicolons, doubled quotes and newlines, and CRLF line ends. The delimiter
 // (comma or semicolon) is taken from the header line.
 export function parseCsv(text) {
-  const src = String(text || '').replace(/^﻿/, '');
+  const src = String(text || '').replace(/^\uFEFF/, '');
   const delimiter = detectDelimiter(src);
   const rows = [];
   let row = [];

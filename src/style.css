@@ -1878,3 +1878,125 @@ textarea:focus {
   color: var(--warning);
   margin-top: 2px;
 }
+
+/* ==================== WAVE 6: CALENDAR SUGGESTIONS AND CSV IMPORT ==================== */
+.calendar-card[hidden] { display: none; }
+
+.calendar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--border-color);
+}
+.calendar-row:last-child { border-bottom: none; }
+
+.calendar-time {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  min-width: 96px;
+}
+
+.calendar-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.92rem;
+}
+.calendar-title.empty { color: var(--text-muted); font-style: italic; }
+
+.calendar-row select.calendar-client {
+  width: 190px;
+  flex-shrink: 0;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+
+.calendar-row .btn-sm { white-space: nowrap; flex-shrink: 0; }
+.calendar-hide-btn { flex-shrink: 0; }
+.calendar-hide-btn i, .calendar-hide-btn svg { width: 16px; height: 16px; }
+
+@media (max-width: 1100px) {
+  .calendar-row { flex-wrap: wrap; }
+  .calendar-title { flex-basis: calc(100% - 120px); }
+  .calendar-row select.calendar-client { flex: 1; width: auto; min-width: 160px; }
+}
+
+/* On/off switch in Settings */
+.calendar-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.calendar-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.calendar-switch-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--overlay-04);
+  border: 1px solid var(--border-color);
+  transition: var(--transition-fast);
+}
+.calendar-switch-track::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  transition: var(--transition-fast);
+}
+.calendar-switch input:checked + .calendar-switch-track {
+  background: var(--accent-indigo);
+  border-color: var(--accent-indigo);
+}
+.calendar-switch input:checked + .calendar-switch-track::before {
+  transform: translateX(20px);
+  background: #ffffff;
+}
+.calendar-switch input:focus-visible + .calendar-switch-track { box-shadow: 0 0 0 3px var(--border-focus); }
+.calendar-switch input:disabled + .calendar-switch-track { opacity: 0.45; cursor: not-allowed; }
+
+/* CSV import preview */
+.csv-import-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+.csv-import-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 12px;
+  background-color: var(--overlay-02);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+}
+.csv-import-label { color: var(--text-secondary); white-space: nowrap; }
+.csv-import-value { text-align: right; font-weight: 600; overflow-wrap: anywhere; }
+.csv-import-errors {
+  margin: 0;
+  padding: 8px 12px 8px 28px;
+  color: var(--danger);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.csv-import-note { margin: 4px 0 0; color: var(--text-muted); font-size: 0.9rem; }

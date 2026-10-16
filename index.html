@@ -106,6 +106,14 @@
           <div id="today-logs-list"></div>
         </div>
 
+        <!-- Suggestions from Google Calendar (shown only when switched on) -->
+        <div class="calendar-card card" id="calendar-card" hidden>
+          <div class="today-logs-header">
+            <h3 data-i18n="calendar-card-title">Из календаря</h3>
+          </div>
+          <div id="calendar-list"></div>
+        </div>
+
         <!-- Manual Log Toggle -->
         <div class="manual-entry-card card">
           <h3 data-i18n="timer-manual-title">Ввод вручную</h3>
@@ -503,6 +511,18 @@
                   <span data-i18n="gdrive-logout">Выйти</span>
                 </button>
               </div>
+            </div>
+
+            <!-- Suggestions from Google Calendar (opt-in) -->
+            <div class="data-action-box" id="calendar-settings-box" style="display: none;">
+              <div class="data-action-text">
+                <div class="data-action-title" data-i18n="calendar-settings-title">Подсказки из Google Календаря</div>
+                <div class="data-action-desc" id="calendar-settings-desc"></div>
+              </div>
+              <label class="calendar-switch">
+                <input type="checkbox" id="calendar-switch">
+                <span class="calendar-switch-track"></span>
+              </label>
             </div>
 
           </div>

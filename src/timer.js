@@ -2,6 +2,7 @@
 import { store } from './store.js';
 import { t } from './i18n.js';
 import { showToast } from './toast.js';
+import { renderCalendarSuggestions } from './calendar.js';
 import {
   fillSelect,
   escapeHtml,
@@ -280,6 +281,7 @@ export function refreshTimerUI() {
   }
 
   renderTodayLogs();
+  renderCalendarSuggestions();
   syncTrayTimer();
 }
 

@@ -28,7 +28,7 @@ describe('parseCsv', () => {
   });
 
   it('detects semicolons from the header and handles CRLF and a BOM', () => {
-    const { delimiter, rows } = parseCsv('﻿a;b\r\n"1,5";2\r\n');
+    const { delimiter, rows } = parseCsv('\uFEFFa;b\r\n"1,5";2\r\n');
     expect(delimiter).toBe(';');
     expect(rows.map(r => r.cells)).toEqual([['a', 'b'], ['1,5', '2']]);
   });
