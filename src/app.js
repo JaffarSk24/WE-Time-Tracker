@@ -16,7 +16,8 @@ import {
   BarChart3, Briefcase, Building, CalendarX, CheckCircle, Clock, Cloud, CloudOff, Code, Database,
   Download, DownloadCloud, Edit2, Euro, ExternalLink, FileSpreadsheet, Folder,
   FolderGit2, Globe, Inbox, LogIn, LogOut, MinusCircle, Palette, Play, PlayCircle, Plus,
-  RefreshCw, RotateCcw, Search, Settings, Sparkles, Trash2, UploadCloud, Users, Wallet, X
+  RefreshCw, RotateCcw, Search, Settings, Sparkles, Trash2, UploadCloud, Users, Wallet, X,
+  Bell
 } from 'lucide';
 import { store } from './store.js';
 import { translatePage } from './i18n.js';
@@ -27,6 +28,8 @@ import { initReports, renderReports, updateReportsDropdowns } from './reports.js
 import { initSettings } from './settings.js';
 import { initUpdates } from './updates.js';
 import { initBanners, refreshBanners } from './banners.js';
+import { initIdlePrompt } from './idle.js';
+import { initReminderSettings } from './reminders-settings.js';
 
 // Lucide is bundled locally (no CDN); keep the existing global API that all
 // modules use via window.lucide.createIcons(). Only the used icons are registered.
@@ -34,7 +37,8 @@ const usedIcons = {
   BarChart3, Briefcase, Building, CalendarX, CheckCircle, Clock, Cloud, CloudOff, Code, Database,
   Download, DownloadCloud, Edit2, Euro, ExternalLink, FileSpreadsheet, Folder,
   FolderGit2, Globe, Inbox, LogIn, LogOut, MinusCircle, Palette, Play, PlayCircle, Plus,
-  RefreshCw, RotateCcw, Search, Settings, Sparkles, Trash2, UploadCloud, Users, Wallet, X
+  RefreshCw, RotateCcw, Search, Settings, Sparkles, Trash2, UploadCloud, Users, Wallet, X,
+  Bell
 };
 window.lucide = { createIcons: () => createIcons({ icons: usedIcons }) };
 
@@ -216,6 +220,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initClients();
   initReports();
   initSettings();
+  initReminderSettings();
+  initIdlePrompt();
   initBanners();
   initUpdates();
   

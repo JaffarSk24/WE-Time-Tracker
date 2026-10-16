@@ -1878,3 +1878,249 @@ textarea:focus {
   color: var(--warning);
   margin-top: 2px;
 }
+
+/* ===== Timer and reminders: suggestions, settings, absence prompt ===== */
+.suggest-host {
+  position: relative;
+}
+
+/* Cards blur their backdrop, which makes each one its own layer: lift the
+   card with an open dropdown above the cards that follow it. */
+.card:has(.suggest-list:not([hidden])) {
+  position: relative;
+  z-index: 30;
+}
+
+.suggest-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  max-height: 320px;
+  overflow-y: auto;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  padding: 4px;
+}
+
+.suggest-list[hidden] {
+  display: none;
+}
+
+.suggest-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.suggest-item.active {
+  background-color: var(--overlay-hover);
+  box-shadow: inset 2px 0 0 var(--accent-indigo);
+}
+
+.suggest-desc {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.suggest-meta {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-left: auto;
+  flex-shrink: 2;
+  min-width: 0;
+}
+
+.rem-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rem-control input[type="number"] {
+  width: 90px;
+}
+
+.rem-unit {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  min-width: 28px;
+}
+
+.rem-switch {
+  position: relative;
+  display: inline-flex;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.rem-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+
+.rem-switch-track {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background-color: var(--overlay-04);
+  border: 1px solid var(--border-color);
+  transition: var(--transition-fast);
+  position: relative;
+  pointer-events: none;
+}
+
+.rem-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: var(--text-secondary);
+  transition: var(--transition-fast);
+}
+
+.rem-switch input:checked + .rem-switch-track {
+  background: var(--grad-primary);
+  border-color: transparent;
+}
+
+.rem-switch input:checked + .rem-switch-track::after {
+  left: 23px;
+  background-color: #ffffff;
+}
+
+.rem-switch input:focus-visible + .rem-switch-track {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+.rem-work-details {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  transition: opacity var(--transition-fast);
+}
+
+.rem-work-details.disabled {
+  opacity: 0.45;
+}
+
+.rem-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rem-day-chip {
+  min-width: 44px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background-color: var(--overlay-02);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.rem-day-chip:hover {
+  border-color: var(--border-focus);
+}
+
+.rem-day-chip.active {
+  background: var(--grad-primary);
+  border-color: transparent;
+  color: #ffffff;
+}
+
+.rem-work-times {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.rem-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.rem-inline input[type="time"],
+.rem-inline input[type="number"] {
+  width: auto;
+  background-color: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.9rem;
+  outline: none;
+  color-scheme: dark;
+}
+
+[data-theme="light"] .rem-inline input[type="time"] {
+  color-scheme: light;
+}
+
+.rem-inline input[type="number"] {
+  width: 80px;
+}
+
+.rem-kbd {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background-color: var(--overlay-04);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.idle-modal-content {
+  max-width: 560px;
+}
+
+.idle-modal-text {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.idle-modal-actions {
+  flex-wrap: wrap;
+}

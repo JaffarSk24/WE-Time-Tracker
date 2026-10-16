@@ -12,6 +12,7 @@ import {
   formatDurationShort,
   logDurationMs
 } from './utils.js';
+import { attachSuggest, findSuggestions } from './suggest.js';
 
 let timerInterval = null;
 
@@ -27,6 +28,8 @@ function syncTrayTimer() {
     description: timer.description || '',
     isPaused: !!timer.isPaused,
     startTime: timer.startTime,
+    // Identifies the timer for the long-timer reminder in main
+    originalStartTime: timer.originalStartTime || null,
     accumulatedTime: timer.accumulatedTime || 0,
     // For stopping the timer from the tray with the window closed (main writes the log itself)
     clientId: timer.clientId || null,
@@ -204,16 +207,22 @@ export function renderTodayLogs() {
     btn.addEventListener('click', () => {
       const log = store.getTimeLogs().find(l => l.id === btn.getAttribute('data-id'));
       if (!log) return;
-      if (store.getActiveTimer()) {
-        store.stopTimer();
-      }
-      store.startTimer(log.description || '', log.clientId, log.projectId, log.billable);
-      refreshTimerUI();
-      showToast(t('toast-timer-started'), { type: 'success' });
+      continueTask(log);
     });
   });
 
   if (window.lucide) window.lucide.createIcons();
+}
+
+// Continue a task (today's play button, the tray menu, the global hotkey):
+// a running timer is stopped first.
+export function continueTask(task) {
+  if (store.getActiveTimer()) {
+    store.stopTimer();
+  }
+  store.startTimer(task.description || '', task.clientId, task.projectId, task.billable !== undefined ? task.billable : true);
+  refreshTimerUI();
+  showToast(t('toast-timer-started'), { type: 'success' });
 }
 
 // Update the look of the start/stop button based on active timer status
@@ -281,6 +290,28 @@ export function refreshTimerUI() {
 
   renderTodayLogs();
   syncTrayTimer();
+}
+
+// Description suggestions under the timer and manual entry inputs: picking
+// one also fills in its client, project and billable flag.
+function initTimerSuggestions() {
+  ['timer', 'manual'].forEach(prefix => {
+    const input = document.getElementById(`${prefix}-desc`);
+    if (!input) return;
+    attachSuggest(input, {
+      getItems: (query) => findSuggestions(store.getTimeLogs(), query, store.getClients(), store.getProjects()),
+      onPick: (item) => {
+        input.value = item.description;
+        const clientSelect = document.getElementById(`${prefix}-client-select`);
+        if (clientSelect && item.clientId && store.getClients().some(c => c.id === item.clientId)) {
+          clientSelect.value = item.clientId;
+          updateProjectDropdown(prefix, item.projectId || null);
+        }
+        const billable = document.getElementById(`${prefix}-billable`);
+        if (billable) billable.checked = item.billable;
+      }
+    });
+  });
 }
 
 export function initTimer() {
@@ -412,6 +443,15 @@ export function initTimer() {
       }
     });
   }
+
+  // Quick start from the tray menu or the global hotkey (main process)
+  if (window.weTimer && window.weTimer.onStartRequest) {
+    window.weTimer.onStartRequest((task) => {
+      if (task) continueTask(task);
+    });
+  }
+
+  initTimerSuggestions();
 
   // Check if a timer was already running on load
   refreshTimerUI();
