@@ -3,7 +3,7 @@
 
 import { readFileSync } from 'fs';
 import { createRequire } from 'module';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, URL } from 'url';
 
 const require = createRequire(import.meta.url);
 

@@ -31,6 +31,22 @@ export default [
     }
   },
   {
+    // Phone web app: browser APIs beyond the desktop renderer's.
+    files: ['src/web/**/*.js'],
+    languageOptions: {
+      globals: {
+        navigator: 'readonly',
+        location: 'readonly',
+        history: 'readonly',
+        fetch: 'readonly',
+        AbortSignal: 'readonly',
+        BroadcastChannel: 'readonly',
+        TextEncoder: 'readonly',
+        URLSearchParams: 'readonly'
+      }
+    }
+  },
+  {
     files: ['*.cjs', 'scripts/**/*.cjs'],
     languageOptions: {
       ecmaVersion: 2023,
@@ -57,6 +73,6 @@ export default [
     }
   },
   {
-    ignores: ['dist/**', 'release/**', 'node_modules/**']
+    ignores: ['dist/**', 'dist-web/**', 'release/**', 'node_modules/**']
   }
 ];
