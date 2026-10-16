@@ -8,31 +8,42 @@ App page: 🔗 **[jaffarsk24.github.io/WE-Time-Tracker](https://jaffarsk24.githu
 
 ## ✨ What the app does
 
+Every feature is also described inside the app, in **Features** in the sidebar.
+
 ### ⏱️ Timer
 * Start a timer with a task description, a client and, if you like, a project. Pause and resume it as often as needed: paused time is not counted.
 * Mark whether the work is to be paid for (**Requires Payment**) or done for free.
 * Add work done away from the computer as a **manual entry** with its start and end time.
-* Today's entries are listed under the timer.
-* The running time is shown in the **menu bar** on macOS and in the tray icon tooltip on Windows. The timer can be stopped from there without opening the window.
+* **Suggestions** while you type a description bring back earlier tasks with their client and project; **continue** any entry with one click.
+* **Tags** mark the kind of work across clients ("Ads", "SEO", "Calls").
+* The running time is shown in the **menu bar** on macOS and in the tray icon tooltip on Windows. The icon's menu lists your **last 5 tasks** to start in one click, and a **global hotkey** (⌘⌥⇧T, Ctrl+Alt+Shift+T on Windows) stops the timer or continues the last task from any program.
+* **When you step away** (10 idle minutes or sleep, adjustable), the app asks on your return whether to keep that time, drop it and continue, or drop it and stop.
+* **Reminders** as system notifications: a timer running for hours, and no timer running during your working hours.
+* Optional **launch at login** and **suggestions from Google Calendar** (meetings without an entry yet, recorded in one click).
 
-### 📊 Dashboard
-* Total hours, total earnings, number of projects and clients.
-* Time by project and by client, and activity in hours for a chosen period: from the last 7 days to the last 12 months, the current or the last year.
+### 📊 Dashboard and goals
+* Total hours, total earnings, number of projects and clients; time by project, by client and by tag; activity for a chosen period.
+* **Period analytics**: effective hourly rate, share of billable hours, comparison with the previous period, monthly income forecast, and **debts by age**.
+* **Goals** for billable hours per week and amounts per week and month, shown on the timer and the dashboard.
 
-### 👥 Clients and projects
-* An hourly rate in EUR for each client, and an optional rate of its own for a project (0 takes the client's rate).
-* Each entry keeps the rate it was made with, so changing a rate later does not rewrite past earnings.
+### 👥 Clients, projects and money
+* An hourly rate for each client, and an optional rate of its own for a project (0 takes the client's rate). Each entry keeps the rate it was made with.
 * Amounts are counted to the minute: the duration is rounded to the nearest minute, with one minute as the least for any started entry.
+* Each client has a **currency** (EUR, USD, CZK, GBP, PLN, CHF); totals in different currencies are shown per currency, never added together.
+* **Payments and balance**: what was billed, what was received, debt or advance. Marking entries as **Paid** records a matching payment; unmarking or deleting them takes it back.
+* **Expenses** paid on a client's behalf are added to what the client owes.
+* **Project budgets** in hours and/or money, for the whole project or per month (hour packages), with warnings at 80% and 100%.
 
-### 💶 Payments and balance
-* Each client has a ledger of payments. The balance shows what was billed, what was received and whether the client owes you (**Debt**) or has paid ahead (**Advance**).
-* Marking entries as **Paid** records a matching payment for the part of the debt they cover. Unmarking or deleting the entries takes it back, so a manual payment plus a mark never leaves a phantom advance.
+### 📋 Reports, week and history
+* Filter entries by client, project, payment status, period and tag; hours and amount of the filtered entries.
+* Edit, **split** or **merge** entries, mark several as paid or delete them at once, with undo.
+* Export to **CSV** or **JSON**, and a **client report as PDF** with your company details.
+* **Week**: a timesheet of client · project by weekday, with quick adding of time, and a **day timeline** that shows gaps and overlapping entries.
+* **Locked period**: entries up to a chosen date, and paid entries, cannot be changed by accident.
+* **Import** from Toggl Track and Clockify CSV exports, with a preview and undo.
 
-### 📋 Reports and logs
-* Filter entries by client, project, payment status (awaiting payment, paid, non-billable) and period.
-* Hours and total amount for the filtered entries.
-* Edit any entry, mark several as paid or delete them at once. A deletion can be undone from the notice that follows it.
-* Export to **CSV** (opens in Excel or Numbers) or **JSON**.
+### 📱 Phone
+* A **web app for the phone** with the same data through Google Drive: the timer, today's entries, manual entry and the week. It can be added to the home screen.
 
 ### ⚙️ Settings
 * Interface in **English** or **Russian**, **dark** or **light** theme.
