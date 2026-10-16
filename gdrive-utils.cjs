@@ -87,6 +87,22 @@ function newerSide(local, remote, localFileTime, remoteFileTime) {
   return l >= r ? 'local' : 'remote';
 }
 
+// Whether a timer was already stopped on the other side: stopping turns it
+// into a time log of the same task (description, client, project) that
+// starts at or after the moment the timer was started. Such a timer must not
+// come back from the copy that has not seen the stop, or its time would be
+// counted twice.
+function timerStopped(timer, logs) {
+  const started = Date.parse((timer && timer.originalStartTime) || '');
+  if (!started) return false;
+  const same = (a, b) => (a || null) === (b || null);
+  return (logs || []).some(log => log
+    && Date.parse(log.startTime || '') >= started
+    && same(log.description, (timer.description || '').trim())
+    && same(log.clientId, timer.clientId)
+    && same(log.projectId, timer.projectId));
+}
+
 // Combines two copies of the data so that nothing entered on either computer
 // is lost: every record of every collection (clients with their payments,
 // projects, time logs, and any array of records a later version adds) from
@@ -118,14 +134,16 @@ function mergeData(local, remote, side) {
   });
 
   const times = [local.savedAt, remote.savedAt].filter(Boolean).sort();
+  const timer = newer.activeTimer || older.activeTimer || null;
   return {
     ...merged,
     clients: merged.clients,
     projects: merged.projects || [],
     timeLogs: merged.timeLogs || [],
     settings: newer.settings || older.settings,
-    // A timer running on either computer is not dropped.
-    activeTimer: newer.activeTimer || older.activeTimer || null,
+    // A timer running on either computer is not dropped, unless it was
+    // stopped on the other one (then its time is already a log).
+    activeTimer: timer && !timerStopped(timer, merged.timeLogs) ? timer : null,
     deleted,
     savedAt: times.length ? times[times.length - 1] : (newer.savedAt || null)
   };
