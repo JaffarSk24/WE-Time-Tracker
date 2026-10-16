@@ -37,6 +37,7 @@ App page: 🔗 **[jaffarsk24.github.io/WE-Time-Tracker](https://jaffarsk24.githu
 ### ⚙️ Settings
 * Interface in **English** or **Russian**, **dark** or **light** theme.
 * Export all data to one JSON file, import it back, or reset everything.
+* Import entries from a detailed **CSV export of Toggl Track or Clockify**: a preview shows how many entries come in, the period, the clients and projects to be created, skipped duplicates and unreadable rows, and the import can be undone right after.
 * Google Drive sync and app updates (see below).
 
 ---
@@ -96,6 +97,10 @@ The app asks for two permissions: access to its own hidden Drive folder (`drive.
 
 If Google stops accepting the sign-in, an amber banner says that sync has stopped and why. Until you sign in again, changes are kept on this computer only.
 
+### Suggestions from Google Calendar
+
+Optional and off by default. Once signed in, switch on "Suggestions from Google Calendar" in Settings, under Google Drive sync. Google then asks for one more permission, read-only access to your calendars (`calendar.readonly`); the Drive permission stays as it was. The Timer view then shows yesterday's and today's meetings from your primary calendar that no entry covers yet (all-day, declined and very short events are left out), and one click records a meeting as an entry. If you untick the calendar permission, the feature simply stays off. Calendar data is only read and is never stored or sent anywhere. Note: `calendar.readonly` is a sensitive scope, so until the app's Google project passes Google's verification, this optional step shows an "unverified app" warning. Drive sync is not affected by it.
+
 ### Moving from a version before 1.8.0 with several computers
 
 Version 1.8.0 signs in through a new Google client, and every Google client gets its own hidden Drive folder. The cloud therefore starts out empty, and every computer has to sign in again.
@@ -113,7 +118,7 @@ If a computer finds data already in the new folder and has work of its own, noth
 ### Stack
 * Plain JavaScript (ES modules), HTML and CSS custom properties, built with **Vite**. Charts by Chart.js, icons by Lucide, fonts bundled locally: no CDN, the app runs offline.
 * **Electron** desktop shell. The built interface is served through a custom `app://` protocol, and the data file is read and written by the main process through the preload bridge (`preload.cjs`).
-* `gdrive-sync.cjs`: Google sign-in (PKCE with a loopback redirect) and Drive sync. `updater.cjs`: the in-app updater.
+* `gdrive-sync.cjs`: Google sign-in (PKCE with a loopback redirect) and Drive sync. `calendar.cjs`: calendar suggestions on top of the same sign-in. `updater.cjs`: the in-app updater.
 * Tests with Vitest, linting with ESLint.
 
 ### Running from source
