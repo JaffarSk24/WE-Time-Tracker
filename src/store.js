@@ -709,16 +709,23 @@ class Store {
     this.saveState();
   }
 
-  stopTimer() {
+  // endAt (ms or ISO) ends the entry earlier than now, e.g. at the moment an
+  // absence started. It is never later than now.
+  stopTimer(endAt = null) {
     const timer = this.state.activeTimer;
     if (!timer) return null;
 
+    const nowMs = Date.now();
+    const endMs = endAt !== null && endAt !== undefined
+      ? Math.min(new Date(endAt).getTime(), nowMs)
+      : nowMs;
+
     let totalDuration = timer.accumulatedTime || 0;
     if (!timer.isPaused && timer.startTime) {
-      totalDuration += Date.now() - new Date(timer.startTime).getTime();
+      totalDuration += Math.max(0, endMs - new Date(timer.startTime).getTime());
     }
 
-    const endTime = new Date().toISOString();
+    const endTime = new Date(endMs).toISOString();
     // The real start time is preserved (across pauses); durationMs carries the
     // actually worked time when it's shorter than the span due to pauses.
     const startTime = timer.originalStartTime
@@ -750,6 +757,29 @@ class Store {
     this.state.activeTimer = null;
     this.saveState();
     return newLog;
+  }
+
+  // Drops the time of an absence from the running timer. The absence runs
+  // from idleStartMs to endMs (default now). With { stop: true } the entry
+  // ends at idleStartMs; otherwise the timer keeps running and the absence
+  // counts like a pause. Returns false when the absence no longer applies
+  // (no running timer, or it was paused or restarted after the absence began).
+  discardIdle(idleStartMs, { stop = false, endMs = null } = {}) {
+    const timer = this.state.activeTimer;
+    if (!timer || timer.isPaused || !timer.startTime) return false;
+    const segmentStartMs = new Date(timer.startTime).getTime();
+    const nowMs = Date.now();
+    const startMs = Number(idleStartMs);
+    if (!Number.isFinite(startMs) || startMs < segmentStartMs || startMs > nowMs) return false;
+
+    if (stop) {
+      return this.stopTimer(startMs) || false;
+    }
+    const backMs = Math.min(nowMs, Math.max(startMs, endMs === null ? nowMs : Number(endMs)));
+    timer.accumulatedTime = (timer.accumulatedTime || 0) + (startMs - segmentStartMs);
+    timer.startTime = new Date(backMs).toISOString();
+    this.saveState();
+    return true;
   }
 
   cancelTimer() {

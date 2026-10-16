@@ -1,9 +1,14 @@
-const { app, BrowserWindow, ipcMain, protocol, Tray, Menu, nativeImage, shell, screen, dialog } = require('electron');
+const {
+  app, BrowserWindow, ipcMain, protocol, Tray, Menu, nativeImage, shell, screen, dialog,
+  globalShortcut, powerMonitor, Notification
+} = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const gdriveSync = require('./gdrive-sync.cjs');
 const updater = require('./updater.cjs');
+const reminders = require('./reminders-utils.cjs');
+const trayUtils = require('./tray-utils.cjs');
 
 let viteProcess = null;
 let mainWindow = null;
@@ -99,6 +104,7 @@ function initStorageIpc() {
     } catch (e) {
       console.error('Failed to save data file:', e);
     }
+    scheduleDataRefresh(json);
   });
 
   // Data found in localStorage that is not in the data file is never thrown
@@ -247,6 +253,18 @@ function getAppLanguage() {
 function rebuildTrayMenu() {
   if (!tray) return;
   const ru = getAppLanguage() === 'ru';
+  const lang = ru ? 'ru' : 'en';
+  // Quick start: the latest distinct tasks, one click continues one.
+  const recent = recentTasksCache.length
+    ? [
+      { type: 'separator' },
+      { label: reminders.mainText(lang, 'recentHeader'), enabled: false },
+      ...recentTasksCache.map(task => ({
+        label: trayUtils.taskLabel(task, reminders.mainText(lang, 'noDescription')),
+        click: () => startTaskFromTray(task)
+      }))
+    ]
+    : [];
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: ru ? 'Открыть WE Time Tracker' : 'Open WE Time Tracker', click: () => showMainWindow() },
     {
@@ -254,6 +272,7 @@ function rebuildTrayMenu() {
       enabled: !!trayTimerState,
       click: () => stopTimerFromTray()
     },
+    ...recent,
     { type: 'separator' },
     { label: ru ? 'Выйти' : 'Quit', click: () => app.quit() }
   ]));
@@ -274,64 +293,273 @@ function initTray() {
   rebuildTrayMenu();
   updateTrayTitle();
 
-  ipcMain.on('timer:sync', (event, state) => {
-    trayTimerState = state || null;
-    updateTrayTitle();
-    rebuildTrayMenu();
+  ipcMain.on('timer:sync', (event, state) => setTrayTimerState(state));
+}
 
-    if (trayTimerState && !trayTimerState.isPaused) {
-      if (!trayTickInterval) {
-        trayTickInterval = setInterval(updateTrayTitle, 1000);
-      }
-    } else if (trayTickInterval) {
-      clearInterval(trayTickInterval);
-      trayTickInterval = null;
+function setTrayTimerState(state) {
+  trayTimerState = state || null;
+  updateTrayTitle();
+  rebuildTrayMenu();
+
+  if (trayTimerState && !trayTimerState.isPaused) {
+    if (!trayTickInterval) {
+      trayTickInterval = setInterval(updateTrayTitle, 1000);
     }
-  });
+  } else if (trayTickInterval) {
+    clearInterval(trayTickInterval);
+    trayTickInterval = null;
+  }
+}
+
+function windowAlive() {
+  return !!(mainWindow && !mainWindow.isDestroyed());
 }
 
 // Stop the timer from the tray: if the window is alive, stop via the renderer
-// (single logic in store.js); if there's no window, main writes the log itself.
+// (single logic in store.js); if there's no window, main writes the log itself
+// with the same rules (tray-utils.cjs).
 function stopTimerFromTray() {
-  if (mainWindow && !mainWindow.isDestroyed()) {
+  if (windowAlive()) {
     mainWindow.webContents.send('timer:stop-request');
     return;
   }
   if (!trayTimerState) return;
   try {
     const state = JSON.parse(fs.readFileSync(dataFilePath(), 'utf8'));
-    const timer = state.activeTimer;
-    if (timer) {
-      let total = timer.accumulatedTime || 0;
-      if (!timer.isPaused && timer.startTime) {
-        total += Date.now() - new Date(timer.startTime).getTime();
-      }
-      const endTime = new Date().toISOString();
-      const startTime = new Date(Date.now() - total).toISOString();
-      state.timeLogs.push({
-        id: 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-        description: (timer.description || '').trim(),
-        clientId: timer.clientId || null,
-        projectId: timer.projectId || null,
-        startTime,
-        endTime,
-        billable: timer.billable !== undefined ? timer.billable : true,
-        paid: false,
-        rateAtTime: trayTimerState.rateAtTime || 0
-      });
-      state.activeTimer = null;
+    if (trayUtils.stopTimerOnState(state, Date.now())) {
       saveDataFile(JSON.stringify(state));
+      refreshFromData(state);
     }
   } catch (e) {
     console.error('Tray stop failed:', e);
   }
-  trayTimerState = null;
-  updateTrayTitle();
-  rebuildTrayMenu();
-  if (trayTickInterval) {
-    clearInterval(trayTickInterval);
-    trayTickInterval = null;
+  setTrayTimerState(null);
+}
+
+// Continue a task from the tray or the hotkey: the running timer is stopped
+// first, exactly like the play button of today's list.
+function startTaskFromTray(task) {
+  const payload = {
+    description: task.description || '',
+    clientId: task.clientId || null,
+    projectId: task.projectId || null,
+    billable: task.billable !== undefined ? task.billable : true
+  };
+  if (windowAlive()) {
+    mainWindow.webContents.send('timer:start-request', payload);
+    return;
   }
+  try {
+    const raw = readDataFile();
+    if (!raw) return;
+    const state = JSON.parse(raw);
+    trayUtils.startTimerOnState(state, payload, Date.now());
+    saveDataFile(JSON.stringify(state));
+    refreshFromData(state);
+    setTrayTimerState(trayUtils.traySnapshot(state));
+  } catch (e) {
+    console.error('Tray start failed:', e);
+  }
+}
+
+// --- Settings read from the data file, recent tasks, notifications ---
+let reminderSettings = reminders.mergeReminderSettings({});
+let appLanguage = 'en';
+let recentTasksCache = [];
+let dataRefreshTimer = null;
+const liveNotifications = new Set();
+
+// Re-reads what main needs from the data (a parsed state or its JSON).
+function refreshFromData(data) {
+  let state = data;
+  if (typeof data === 'string' || data === null || data === undefined) {
+    try {
+      state = data ? JSON.parse(data) : null;
+    } catch (e) {
+      return;
+    }
+  }
+  const settings = (state && state.settings) || {};
+  reminderSettings = reminders.mergeReminderSettings(settings);
+  appLanguage = settings.language === 'ru' ? 'ru' : 'en';
+  recentTasksCache = state ? trayUtils.recentTasks(state, 5) : [];
+  applyHotkey();
+  rebuildTrayMenu();
+}
+
+// Saves come in bursts; parse the file once they settle.
+function scheduleDataRefresh(json) {
+  if (dataRefreshTimer) clearTimeout(dataRefreshTimer);
+  dataRefreshTimer = setTimeout(() => {
+    dataRefreshTimer = null;
+    refreshFromData(json);
+  }, 400);
+}
+
+function notify(title, body) {
+  try {
+    if (!Notification.isSupported()) return;
+    const n = new Notification({ title, body, silent: false });
+    // Keep a reference, otherwise the click handler can be collected.
+    liveNotifications.add(n);
+    const drop = () => liveNotifications.delete(n);
+    n.on('click', () => {
+      drop();
+      showMainWindow();
+    });
+    n.on('close', drop);
+    n.show();
+    setTimeout(drop, 10 * 60000);
+  } catch (e) {
+    console.error('Notification failed:', e.message);
+  }
+}
+
+// --- Global hotkey: stop the running timer, or continue the last task ---
+let hotkeyRegistered = false;
+
+function applyHotkey() {
+  if (!app.isReady()) return;
+  const want = reminderSettings.hotkeyEnabled;
+  if (want && !hotkeyRegistered) {
+    try {
+      hotkeyRegistered = globalShortcut.register(reminders.HOTKEY, onHotkey);
+      if (!hotkeyRegistered) console.error('Hotkey is taken by another app:', reminders.HOTKEY);
+    } catch (e) {
+      console.error('Hotkey registration failed:', e.message);
+    }
+  } else if (!want && hotkeyRegistered) {
+    globalShortcut.unregister(reminders.HOTKEY);
+    hotkeyRegistered = false;
+  }
+}
+
+function onHotkey() {
+  const lang = appLanguage;
+  if (trayTimerState) {
+    const desc = trayTimerState.description || reminders.mainText(lang, 'noDescription');
+    const elapsed = formatTrayElapsed(trayTimerState);
+    stopTimerFromTray();
+    notify(reminders.mainText(lang, 'stoppedTitle'), `${desc} (${elapsed})`);
+    return;
+  }
+  const last = recentTasksCache[0];
+  if (!last) {
+    notify(reminders.mainText(lang, 'nothingTitle'), reminders.mainText(lang, 'nothingBody'));
+    return;
+  }
+  startTaskFromTray(last);
+  notify(reminders.mainText(lang, 'startedTitle'), trayUtils.taskLabel(last, reminders.mainText(lang, 'noDescription')));
+}
+
+// --- Idle and sleep detection, reminders (work with the window closed) ---
+const WATCH_INTERVAL_MS = 15000;
+let idleState = reminders.createIdleState();
+let pendingIdlePrompt = null;
+let longTimerNotified = { key: null, level: 0 };
+let noTimerSinceMs = null;
+let lastWorkReminderMs = null;
+
+function idleSeconds() {
+  try {
+    return powerMonitor.getSystemIdleTime();
+  } catch (e) {
+    return 0;
+  }
+}
+
+// The user is back from an absence: bring the window up and let the renderer
+// ask what to do with the time (the store does the math).
+function showIdlePrompt(prompt) {
+  pendingIdlePrompt = prompt;
+  if (windowAlive() && !mainWindow.webContents.isLoading()) {
+    mainWindow.webContents.send('idle:prompt', prompt);
+  }
+  showMainWindow();
+}
+
+function handleIdleStep(result) {
+  idleState = result.state;
+  if (result.prompt) showIdlePrompt(result.prompt);
+}
+
+function watchTick() {
+  const nowMs = Date.now();
+  const idle = idleSeconds();
+  const timer = trayTimerState;
+
+  handleIdleStep(reminders.idleTick(idleState, {
+    nowMs, idleSeconds: idle, timer, idleMinutes: reminderSettings.idleMinutes
+  }));
+
+  // Long-running timer, once per period for the same timer.
+  const key = timer ? (timer.originalStartTime || timer.description || 'timer') : null;
+  if (key !== longTimerNotified.key) longTimerNotified = { key, level: 0 };
+  const level = reminders.longTimerDue({
+    timer, nowMs, hours: reminderSettings.longTimerHours, lastLevel: longTimerNotified.level
+  });
+  if (level) {
+    longTimerNotified.level = level;
+    const lang = appLanguage;
+    const hours = reminders.mainText(lang, 'hours', { n: level * reminderSettings.longTimerHours });
+    notify(
+      reminders.mainText(lang, 'longTitle', { hours }),
+      reminders.mainText(lang, 'longBody', { task: (timer && timer.description) || reminders.mainText(lang, 'noDescription') })
+    );
+  }
+
+  // Nothing running during working hours.
+  if (reminders.isRunning(timer)) {
+    noTimerSinceMs = null;
+  } else if (noTimerSinceMs === null) {
+    noTimerSinceMs = nowMs;
+  }
+  if (reminders.workReminderDue({
+    nowMs, work: reminderSettings.workReminder, timer, idleSeconds: idle,
+    idleSinceMs: noTimerSinceMs, lastNotifiedMs: lastWorkReminderMs
+  })) {
+    lastWorkReminderMs = nowMs;
+    notify(reminders.mainText(appLanguage, 'workTitle'), reminders.mainText(appLanguage, 'workBody'));
+  }
+}
+
+function initWatchers() {
+  const away = (kind) => () => handleIdleStep(reminders.idleSystemAway(idleState, {
+    nowMs: Date.now(), timer: trayTimerState, idleMinutes: reminderSettings.idleMinutes, kind
+  }));
+  const back = (kind) => () => handleIdleStep(reminders.idleSystemBack(idleState, {
+    nowMs: Date.now(), timer: trayTimerState, idleMinutes: reminderSettings.idleMinutes, kind
+  }));
+  try {
+    powerMonitor.on('suspend', away('suspend'));
+    powerMonitor.on('lock-screen', away('lock'));
+    powerMonitor.on('resume', back('resume'));
+    powerMonitor.on('unlock-screen', back('unlock'));
+  } catch (e) {
+    console.error('Power events unavailable:', e.message);
+  }
+  setInterval(watchTick, WATCH_INTERVAL_MS);
+}
+
+function initRemindersIpc() {
+  // Settings changed in the renderer (it has saved the file already).
+  ipcMain.on('settings:changed', () => refreshFromData(readDataFile()));
+  ipcMain.on('idle:resolved', () => { pendingIdlePrompt = null; });
+  ipcMain.handle('login-item:get', () => {
+    try {
+      return { ok: true, openAtLogin: app.getLoginItemSettings().openAtLogin };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle('login-item:set', (_e, enabled) => {
+    try {
+      app.setLoginItemSettings({ openAtLogin: Boolean(enabled) });
+      return { ok: true, openAtLogin: app.getLoginItemSettings().openAtLogin };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
 }
 
 // --- Serve static files via app:// (inside dist only, no server) ---
@@ -513,6 +741,9 @@ function createWindow(url) {
   // up on launch. The renderer reloads itself when data actually arrives, so
   // it never keeps a stale copy in memory.
   mainWindow.webContents.on('did-finish-load', () => {
+    if (pendingIdlePrompt && windowAlive()) {
+      mainWindow.webContents.send('idle:prompt', pendingIdlePrompt);
+    }
     if (!gdriveSync.isLoggedIn()) return;
     gdriveSync.sync(mainWindow, { silent: true, pullOnly: true }).catch(err => {
       console.error('[GDrive] Startup sync failed:', err);
@@ -606,6 +837,11 @@ app.whenReady().then(() => {
   initUpdatesIpc();
   initGDriveIpc();
   initReportIpc();
+  initRemindersIpc();
+  // Settings, recent tasks and the hotkey come from the data file, so they
+  // work before (and without) a window.
+  refreshFromData(readDataFile());
+  initWatchers();
   // A tray failure (a missing or unreadable icon on Windows, for instance)
   // must never prevent the main window from being created.
   try {
@@ -675,6 +911,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
   // By now the last upload is done or has timed out.
   updater.launchPendingInstaller();
   if (viteProcess) {

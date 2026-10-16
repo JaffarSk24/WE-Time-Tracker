@@ -20,7 +20,8 @@ import {
   FileText, Lock, LockOpen,
   Tag, Target,
   CalendarDays, ChevronLeft, ChevronRight, Scissors, Merge,
-  Coins, Gauge, PieChart, TrendingUp, CalendarClock
+  Coins, Gauge, PieChart, TrendingUp, CalendarClock,
+  Bell
 } from 'lucide';
 import { store } from './store.js';
 import { translatePage } from './i18n.js';
@@ -34,6 +35,8 @@ import { initUpdates } from './updates.js';
 import { initBanners, refreshBanners } from './banners.js';
 import { initTagsTab, renderTagsTab } from './tags-ui.js';
 import { initGoalsSettings } from './goals-ui.js';
+import { initIdlePrompt } from './idle.js';
+import { initReminderSettings } from './reminders-settings.js';
 
 // Lucide is bundled locally (no CDN); keep the existing global API that all
 // modules use via window.lucide.createIcons(). Only the used icons are registered.
@@ -45,7 +48,8 @@ const usedIcons = {
   FileText, Lock, LockOpen,
   Tag, Target,
   CalendarDays, ChevronLeft, ChevronRight, Scissors, Merge,
-  Coins, Gauge, PieChart, TrendingUp, CalendarClock
+  Coins, Gauge, PieChart, TrendingUp, CalendarClock,
+  Bell
 };
 window.lucide = { createIcons: () => createIcons({ icons: usedIcons }) };
 
@@ -234,6 +238,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initSettings();
   initTagsTab();
   initGoalsSettings();
+  initReminderSettings();
+  initIdlePrompt();
   initBanners();
   initUpdates();
   

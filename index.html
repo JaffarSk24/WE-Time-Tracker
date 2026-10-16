@@ -592,6 +592,90 @@
             </div>
           </div>
           
+          <!-- Timer and reminders (only shown in desktop build) -->
+          <div class="settings-section" id="settings-reminders-section" style="display: none;">
+            <h3 class="settings-section-title">
+              <i data-lucide="bell"></i>
+              <span data-i18n="rem-title">Таймер и напоминания</span>
+            </h3>
+
+            <div class="data-action-box">
+              <div class="data-action-text">
+                <div class="data-action-title" data-i18n="rem-idle-title">Если вы отошли</div>
+                <div class="data-action-desc" data-i18n="rem-idle-desc">Таймер шёл, а компьютер простаивал или спал: спросить, что делать с этим временем. 0 = выключено.</div>
+              </div>
+              <div class="rem-control">
+                <input type="number" id="rem-idle-minutes" min="0" max="240" step="1">
+                <span class="rem-unit" data-i18n="rem-unit-min">мин</span>
+              </div>
+            </div>
+
+            <div class="data-action-box">
+              <div class="data-action-text">
+                <div class="data-action-title" data-i18n="rem-long-title">Долгий таймер</div>
+                <div class="data-action-desc" data-i18n="rem-long-desc">Напомнить, если таймер идёт дольше этого времени. 0 = выключено.</div>
+              </div>
+              <div class="rem-control">
+                <input type="number" id="rem-long-hours" min="0" max="24" step="1">
+                <span class="rem-unit" data-i18n="rem-unit-hours">ч</span>
+              </div>
+            </div>
+
+            <div class="data-action-box rem-work-box">
+              <div class="data-action-text">
+                <div class="data-action-title" data-i18n="rem-work-title">Напоминать запустить таймер</div>
+                <div class="data-action-desc" data-i18n="rem-work-desc">В рабочее время, если таймер не идёт, а вы за компьютером.</div>
+              </div>
+              <label class="rem-switch">
+                <input type="checkbox" id="rem-work-enabled">
+                <span class="rem-switch-track"></span>
+              </label>
+              <div class="rem-work-details" id="rem-work-details">
+                <div class="rem-days" id="rem-work-days"></div>
+                <div class="rem-work-times">
+                  <label class="rem-inline">
+                    <span data-i18n="rem-work-from">с</span>
+                    <input type="time" id="rem-work-from">
+                  </label>
+                  <label class="rem-inline">
+                    <span data-i18n="rem-work-to">до</span>
+                    <input type="time" id="rem-work-to">
+                  </label>
+                  <label class="rem-inline">
+                    <span data-i18n="rem-work-every">каждые</span>
+                    <input type="number" id="rem-work-interval" min="5" max="240" step="5">
+                    <span class="rem-unit" data-i18n="rem-unit-min">мин</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="data-action-box">
+              <div class="data-action-text">
+                <div class="data-action-title">
+                  <span data-i18n="rem-hotkey-title">Горячая клавиша</span>
+                  <kbd class="rem-kbd" id="rem-hotkey-keys"></kbd>
+                </div>
+                <div class="data-action-desc" data-i18n="rem-hotkey-desc">Из любой программы: остановить таймер или продолжить последнюю задачу.</div>
+              </div>
+              <label class="rem-switch">
+                <input type="checkbox" id="rem-hotkey-enabled">
+                <span class="rem-switch-track"></span>
+              </label>
+            </div>
+
+            <div class="data-action-box" id="rem-login-row">
+              <div class="data-action-text">
+                <div class="data-action-title" data-i18n="rem-login-title">Запускать при входе в систему</div>
+                <div class="data-action-desc" data-i18n="rem-login-desc">Приложение откроется само, когда вы включите компьютер.</div>
+              </div>
+              <label class="rem-switch">
+                <input type="checkbox" id="rem-login-enabled">
+                <span class="rem-switch-track"></span>
+              </label>
+            </div>
+          </div>
+
           <!-- Data Management -->
           <div class="settings-section">
             <h3 class="settings-section-title">
@@ -1062,6 +1146,22 @@
       <div class="modal-actions">
         <button class="btn btn-secondary" id="split-log-modal-cancel" data-i18n="cancel">Отмена</button>
         <button class="btn btn-primary" id="split-log-modal-save" data-i18n="split-action">Разделить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Absence while the timer was running -->
+  <div class="modal-overlay" id="idle-modal">
+    <div class="modal-content idle-modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" data-i18n="idle-title">С возвращением</h3>
+        <button class="modal-close" id="idle-modal-close"><i data-lucide="x"></i></button>
+      </div>
+      <p class="idle-modal-text" id="idle-modal-text"></p>
+      <div class="modal-actions idle-modal-actions">
+        <button class="btn btn-secondary" id="idle-discard-stop" data-i18n="idle-discard-stop">Убрать и остановить</button>
+        <button class="btn btn-secondary" id="idle-discard-continue" data-i18n="idle-discard-continue">Убрать и продолжить</button>
+        <button class="btn btn-primary" id="idle-keep" data-i18n="idle-keep">Оставить время</button>
       </div>
     </div>
   </div>
