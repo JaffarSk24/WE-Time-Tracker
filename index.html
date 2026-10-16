@@ -232,6 +232,49 @@
             <canvas id="weeklyChart"></canvas>
           </div>
         </div>
+
+        <!-- Period analytics (uses the activity period above) -->
+        <h3 class="analytics-heading" data-i18n="analytics-title">Аналитика за период</h3>
+        <div class="analytics-grid">
+          <div class="card stat-card analytics-card">
+            <div class="stat-header">
+              <span data-i18n="analytics-eff-rate">Эффективная ставка</span>
+              <i data-lucide="gauge" class="text-secondary"></i>
+            </div>
+            <div class="stat-value analytics-value" id="dash-eff-rate-val">-</div>
+            <div class="stat-desc" data-i18n="analytics-eff-rate-desc">Оплачиваемая сумма / все часы</div>
+          </div>
+          <div class="card stat-card analytics-card">
+            <div class="stat-header">
+              <span data-i18n="analytics-billable-share">Доля оплачиваемых часов</span>
+              <i data-lucide="pie-chart" class="text-secondary"></i>
+            </div>
+            <div class="stat-value analytics-value" id="dash-billable-share-val">-</div>
+            <div class="stat-desc" id="dash-billable-share-desc"></div>
+          </div>
+          <div class="card stat-card analytics-card">
+            <div class="stat-header">
+              <span data-i18n="analytics-compare">К прошлому периоду</span>
+              <i data-lucide="trending-up" class="text-secondary"></i>
+            </div>
+            <div class="analytics-compare" id="dash-compare-val"></div>
+            <div class="stat-desc" data-i18n="analytics-compare-desc">Сравнение с предыдущим периодом той же длины</div>
+          </div>
+          <div class="card stat-card analytics-card">
+            <div class="stat-header">
+              <span data-i18n="analytics-forecast">Прогноз дохода за месяц</span>
+              <i data-lucide="calendar-clock" class="text-secondary"></i>
+            </div>
+            <div class="stat-value analytics-value" id="dash-forecast-val">-</div>
+            <div class="stat-desc" id="dash-forecast-desc"></div>
+          </div>
+        </div>
+        <div class="card analytics-aging-card">
+          <div class="chart-header">
+            <h3 data-i18n="analytics-aging">Долги по давности</h3>
+          </div>
+          <div id="dash-aging" class="analytics-aging"></div>
+        </div>
       </section>
       
       <!-- 3. CLIENTS VIEW -->
@@ -399,6 +442,27 @@
             </div>
           </div>
           
+          <!-- Default Currency -->
+          <div class="settings-section">
+            <h3 class="settings-section-title">
+              <i data-lucide="coins"></i>
+              <span data-i18n="settings-currency">Валюта по умолчанию</span>
+            </h3>
+            <div class="settings-grid">
+              <div class="form-group">
+                <select id="settings-currency-select">
+                  <option value="EUR">EUR</option>
+                  <option value="USD">USD</option>
+                  <option value="CZK">CZK</option>
+                  <option value="GBP">GBP</option>
+                  <option value="PLN">PLN</option>
+                  <option value="CHF">CHF</option>
+                </select>
+                <div class="currency-hint" data-i18n="settings-currency-desc"></div>
+              </div>
+            </div>
+          </div>
+
           <!-- Interface Theme -->
           <div class="settings-section">
             <h3 class="settings-section-title">
@@ -560,8 +624,20 @@
         <input type="text" id="client-modal-name" required>
       </div>
       <div class="form-group">
-        <label for="client-modal-rate" data-i18n="client-rate-label">Ставка по умолчанию (EUR/час)</label>
+        <label for="client-modal-rate" id="client-modal-rate-label" data-i18n="client-rate-label-cur" data-i18n-params='{"currency":"EUR"}'>Ставка по умолчанию (EUR/час)</label>
         <input type="number" id="client-modal-rate" value="0" min="0" step="0.5">
+      </div>
+      <div class="form-group">
+        <label for="client-modal-currency" data-i18n="client-currency-label">Валюта</label>
+        <select id="client-modal-currency">
+          <option value="EUR">EUR</option>
+          <option value="USD">USD</option>
+          <option value="CZK">CZK</option>
+          <option value="GBP">GBP</option>
+          <option value="PLN">PLN</option>
+          <option value="CHF">CHF</option>
+        </select>
+        <div class="currency-hint" data-i18n="client-currency-hint"></div>
       </div>
       <div class="modal-actions">
         <button class="btn btn-secondary" id="client-modal-cancel" data-i18n="cancel">Отмена</button>
@@ -586,7 +662,7 @@
         <select id="project-modal-client" required></select>
       </div>
       <div class="form-group">
-        <label for="project-modal-rate" data-i18n="project-rate-label">Ставка проекта (EUR/час)</label>
+        <label for="project-modal-rate" id="project-modal-rate-label" data-i18n="project-rate-label-cur" data-i18n-params='{"currency":"EUR"}'>Ставка проекта (EUR/час)</label>
         <input type="number" id="project-modal-rate" value="0" min="0" step="0.5">
       </div>
       <div class="modal-actions">
@@ -610,6 +686,7 @@
         <div class="payments-summary-item">
           <span class="payments-summary-label" data-i18n="payments-billed">Наработано</span>
           <span class="payments-summary-value" id="payments-billed">0.00 €</span>
+          <span class="payments-expenses-included" id="payments-expenses-included"></span>
         </div>
         <div class="payments-summary-item">
           <span class="payments-summary-label" data-i18n="payments-received">Получено</span>
@@ -626,7 +703,7 @@
           <label for="payment-amount" data-i18n="payment-amount-label">Сумма платежа</label>
           <div class="input-with-suffix">
             <input type="number" id="payment-amount" min="0" step="0.01" placeholder="0.00">
-            <span class="input-suffix">€</span>
+            <span class="input-suffix" id="payment-amount-suffix">€</span>
           </div>
         </div>
         <div class="form-group" style="flex: 1;">
@@ -637,6 +714,41 @@
       </div>
 
       <div id="payments-list" class="payments-list"></div>
+
+      <!-- Expenses paid on the client's behalf -->
+      <div class="expenses-section">
+        <div class="expenses-header">
+          <h4 class="expenses-title" data-i18n="expenses-title">Расходы</h4>
+          <button class="btn btn-secondary btn-sm" id="expenses-export-btn" data-i18n="expenses-export">Экспорт расходов (CSV)</button>
+        </div>
+        <div class="payment-add-row expense-add-row">
+          <div class="form-group expense-date-group">
+            <label for="expense-date" data-i18n="expense-date-label">Дата</label>
+            <input type="date" id="expense-date">
+          </div>
+          <div class="form-group expense-amount-group">
+            <label for="expense-amount" data-i18n="expense-amount-label">Сумма</label>
+            <div class="input-with-suffix">
+              <input type="number" id="expense-amount" min="0" step="0.01" placeholder="0.00">
+              <span class="input-suffix" id="expense-amount-suffix">€</span>
+            </div>
+          </div>
+          <div class="form-group expense-project-group">
+            <label for="expense-project" data-i18n="expense-project-label">Проект</label>
+            <select id="expense-project"></select>
+          </div>
+          <div class="form-group expense-note-group">
+            <label for="expense-note" data-i18n="expense-note-label">Комментарий</label>
+            <input type="text" id="expense-note">
+          </div>
+          <label class="expense-billable-label">
+            <input type="checkbox" id="expense-billable" checked>
+            <span data-i18n="expense-billable-label">Выставить клиенту</span>
+          </label>
+          <button class="btn btn-secondary" id="expense-add-btn" data-i18n="expense-add">Добавить расход</button>
+        </div>
+        <div id="expenses-list" class="payments-list"></div>
+      </div>
 
       <div class="modal-actions">
         <button class="btn btn-primary" id="payments-modal-done" data-i18n="payments-done">Готово</button>
