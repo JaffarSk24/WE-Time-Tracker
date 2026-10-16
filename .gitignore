@@ -44,3 +44,6 @@ oauth-credentials.json
 # Owner notes and stray copies of node_modules (iCloud makes "node_modules 2")
 CLAUDE.md
 node_modules*/
+
+# Phone web app build
+dist-web/
