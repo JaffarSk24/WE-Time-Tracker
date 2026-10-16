@@ -16,7 +16,8 @@ import {
   BarChart3, Briefcase, Building, CalendarX, CheckCircle, Clock, Cloud, CloudOff, Code, Database,
   Download, DownloadCloud, Edit2, Euro, ExternalLink, FileSpreadsheet, Folder,
   FolderGit2, Globe, Inbox, LogIn, LogOut, MinusCircle, Palette, Play, PlayCircle, Plus,
-  RefreshCw, RotateCcw, Search, Settings, Sparkles, Trash2, UploadCloud, Users, Wallet, X
+  RefreshCw, RotateCcw, Search, Settings, Sparkles, Trash2, UploadCloud, Users, Wallet, X,
+  FileText, Lock, LockOpen
 } from 'lucide';
 import { store } from './store.js';
 import { translatePage } from './i18n.js';
@@ -34,7 +35,8 @@ const usedIcons = {
   BarChart3, Briefcase, Building, CalendarX, CheckCircle, Clock, Cloud, CloudOff, Code, Database,
   Download, DownloadCloud, Edit2, Euro, ExternalLink, FileSpreadsheet, Folder,
   FolderGit2, Globe, Inbox, LogIn, LogOut, MinusCircle, Palette, Play, PlayCircle, Plus,
-  RefreshCw, RotateCcw, Search, Settings, Sparkles, Trash2, UploadCloud, Users, Wallet, X
+  RefreshCw, RotateCcw, Search, Settings, Sparkles, Trash2, UploadCloud, Users, Wallet, X,
+  FileText, Lock, LockOpen
 };
 window.lucide = { createIcons: () => createIcons({ icons: usedIcons }) };
 

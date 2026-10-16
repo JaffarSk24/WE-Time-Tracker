@@ -12,6 +12,7 @@ import {
   formatDurationShort,
   logDurationMs
 } from './utils.js';
+import { stopTimerWithLockCheck } from './period-lock-ui.js';
 
 let timerInterval = null;
 
@@ -205,7 +206,7 @@ export function renderTodayLogs() {
       const log = store.getTimeLogs().find(l => l.id === btn.getAttribute('data-id'));
       if (!log) return;
       if (store.getActiveTimer()) {
-        store.stopTimer();
+        stopTimerWithLockCheck();
       }
       store.startTimer(log.description || '', log.clientId, log.projectId, log.billable);
       refreshTimerUI();
@@ -314,7 +315,7 @@ export function initTimer() {
 
     if (activeTimer) {
       // STOP TIMER
-      store.stopTimer();
+      stopTimerWithLockCheck();
       document.getElementById('timer-desc').value = '';
     } else {
       // START TIMER
@@ -383,7 +384,7 @@ export function initTimer() {
       return;
     }
 
-    store.addTimeLog({
+    const added = store.addTimeLog({
       description: desc,
       clientId,
       projectId,
@@ -391,6 +392,10 @@ export function initTimer() {
       endTime,
       billable
     });
+    if (!added) {
+      showToast(t('lock-add-refused'), { type: 'error' });
+      return;
+    }
 
     // Clear inputs and reset times
     document.getElementById('manual-desc').value = '';
@@ -406,7 +411,7 @@ export function initTimer() {
   if (window.weTimer && window.weTimer.onStopRequest) {
     window.weTimer.onStopRequest(() => {
       if (store.getActiveTimer()) {
-        store.stopTimer();
+        stopTimerWithLockCheck();
         document.getElementById('timer-desc').value = '';
         refreshTimerUI();
       }

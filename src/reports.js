@@ -14,6 +14,13 @@ import {
   formatDurationShort,
   csvCell
 } from './utils.js';
+import {
+  applyEditLogLock,
+  stopTimerWithLockCheck,
+  toastLastLockError,
+  toastSkippedLocked
+} from './period-lock-ui.js';
+import { exportClientReport } from './client-report-ui.js';
 
 let editingLogId = null;
 
@@ -281,6 +288,9 @@ export function renderReports() {
       const clientBadge = `<div class="client-badge-tag">${escapeHtml(clientName)}</div>`;
 
       const status = paymentStatus(log);
+      const lockIcon = store.isLogLocked(log)
+        ? `<i data-lucide="lock" class="log-lock-icon" title="${escapeHtml(t('lock-icon-title'))}"></i>`
+        : '';
 
       const logRow = document.createElement('div');
       logRow.className = 'log-item-row';
@@ -298,7 +308,7 @@ export function renderReports() {
           <i data-lucide="clock" style="width:10px; height:10px; display:inline-block; margin-right:4px; vertical-align:middle;"></i>
           ${timeStartStr} - ${timeEndStr}
         </div>
-        <div class="log-item-duration">${formatDurationHMS(durationMs)}</div>
+        <div class="log-item-duration">${lockIcon}${formatDurationHMS(durationMs)}</div>
         <div class="log-item-billable-icon ${status.cls}" title="${status.title}">
           <i data-lucide="${status.icon}"></i>
         </div>
@@ -327,7 +337,7 @@ export function renderReports() {
       if (log) {
         // Keep the current active timer (if any) and start a new one
         if (store.getActiveTimer()) {
-          store.stopTimer();
+          stopTimerWithLockCheck();
         }
         store.startTimer(log.description || '', log.clientId, log.projectId, log.billable);
         showToast(t('toast-timer-started'), { type: 'success' });
@@ -357,6 +367,8 @@ export function renderReports() {
           actionLabel: t('toast-undo'),
           onAction: () => store.restoreTimeLogs(removed)
         });
+      } else {
+        toastLastLockError();
       }
       renderReports();
     });
@@ -407,6 +419,9 @@ function openEditLogModal(id) {
   billableCheck.checked = log.billable;
   if (paidCheck) paidCheck.checked = !!log.paid;
 
+  // Locked entries open read-only; lifting the lock reopens the modal.
+  applyEditLogLock(log, () => openEditLogModal(id));
+
   modal.classList.add('active');
 }
 
@@ -445,7 +460,7 @@ function saveEditLogModal() {
     return;
   }
 
-  store.updateTimeLog(editingLogId, {
+  const result = store.updateTimeLog(editingLogId, {
     description: desc,
     clientId,
     projectId,
@@ -455,6 +470,7 @@ function saveEditLogModal() {
     billable,
     paid
   });
+  if (result === null && toastLastLockError()) return;
 
   closeEditLogModal();
   showToast(t('toast-saved'), { type: 'success' });
@@ -556,6 +572,9 @@ export function initReports() {
   // Export actions
   document.getElementById('export-csv-btn').addEventListener('click', exportToCSV);
   document.getElementById('export-json-btn').addEventListener('click', exportToJSON);
+  document.getElementById('export-client-pdf-btn').addEventListener('click', () => {
+    exportClientReport(getFilteredLogs(), clientFilter.value, billableFilter.value);
+  });
 
   // Bulk Actions Listeners
   const selectAllCheck = document.getElementById('bulk-select-all');
@@ -576,12 +595,19 @@ export function initReports() {
     markPaidBtn.addEventListener('click', () => {
       const ids = getCheckedIds();
       if (ids.length === 0) return;
+      const wasUnpaid = new Set(store.getTimeLogs().filter(l => !l.paid).map(l => l.id));
       store.setLogsPaid(ids, true);
-      showToast(t('toast-marked-paid'), {
-        type: 'success',
-        actionLabel: t('toast-undo'),
-        onAction: () => store.setLogsPaid(ids, false)
-      });
+      const skipped = store.lastLockError;
+      // Undo only what this action changed (entries in a locked period stay as they were).
+      const changed = store.getTimeLogs().filter(l => l.paid && wasUnpaid.has(l.id)).map(l => l.id);
+      if (changed.length > 0 || !skipped) {
+        showToast(t('toast-marked-paid'), {
+          type: 'success',
+          actionLabel: t('toast-undo'),
+          onAction: () => store.setLogsPaid(changed, false)
+        });
+      }
+      if (skipped) toastSkippedLocked();
       renderReports();
     });
   }
@@ -591,6 +617,7 @@ export function initReports() {
       const ids = getCheckedIds();
       if (ids.length === 0) return;
       const removed = store.deleteTimeLogs(ids);
+      const skipped = store.lastLockError;
       if (removed.length) {
         showToast(`${t('toast-logs-deleted')} (${removed.length})`, {
           type: 'info',
@@ -598,6 +625,7 @@ export function initReports() {
           onAction: () => store.restoreTimeLogs(removed)
         });
       }
+      if (skipped) toastSkippedLocked();
       renderReports();
     });
   }

@@ -335,6 +335,10 @@
               <i data-lucide="code"></i>
               <span data-i18n="export-json">Экспорт в JSON</span>
             </button>
+            <button class="btn btn-secondary" id="export-client-pdf-btn">
+              <i data-lucide="file-text"></i>
+              <span data-i18n="creport-btn">Отчёт для клиента (PDF)</span>
+            </button>
           </div>
         </div>
         
@@ -459,6 +463,62 @@
                 <i data-lucide="trash-2"></i>
                 <span data-i18n="settings-clear-btn">Очистить</span>
               </button>
+            </div>
+          </div>
+
+          <!-- Details for client reports -->
+          <div class="settings-section" id="settings-sender-section">
+            <h3 class="settings-section-title">
+              <i data-lucide="building"></i>
+              <span data-i18n="sender-title">Реквизиты для отчётов</span>
+            </h3>
+            <p class="settings-note" data-i18n="sender-desc">Эти данные печатаются в шапке отчёта для клиента. Все поля необязательны.</p>
+            <div class="sender-grid">
+              <div class="form-group">
+                <label for="settings-sender-company" data-i18n="sender-company">Название компании</label>
+                <input type="text" id="settings-sender-company" autocomplete="off">
+              </div>
+              <div class="form-group">
+                <label for="settings-sender-email" data-i18n="sender-email">Email</label>
+                <input type="email" id="settings-sender-email" autocomplete="off">
+              </div>
+              <div class="form-group sender-address">
+                <label for="settings-sender-address" data-i18n="sender-address">Адрес</label>
+                <textarea id="settings-sender-address" rows="2"></textarea>
+              </div>
+              <div class="form-group">
+                <label for="settings-sender-ico" data-i18n="sender-ico">IČO</label>
+                <input type="text" id="settings-sender-ico" autocomplete="off">
+              </div>
+              <div class="form-group">
+                <label for="settings-sender-dic" data-i18n="sender-dic">DIČ</label>
+                <input type="text" id="settings-sender-dic" autocomplete="off">
+              </div>
+              <div class="form-group">
+                <label for="settings-sender-phone" data-i18n="sender-phone">Телефон</label>
+                <input type="text" inputmode="tel" id="settings-sender-phone" autocomplete="off">
+              </div>
+            </div>
+          </div>
+
+          <!-- Locked period -->
+          <div class="settings-section" id="settings-lock-section">
+            <h3 class="settings-section-title">
+              <i data-lucide="lock"></i>
+              <span data-i18n="lock-title">Закрытый период</span>
+            </h3>
+            <div class="data-action-box">
+              <div class="data-action-text">
+                <div class="data-action-title" data-i18n="lock-desc">Записи по эту дату включительно нельзя менять</div>
+                <div class="data-action-desc" data-i18n="lock-hint">Защищает выставленные часы. Оплаченные записи закрыты всегда.</div>
+              </div>
+              <div class="lock-date-controls">
+                <input type="date" id="settings-lock-date">
+                <button class="btn btn-secondary btn-sm" id="settings-lock-clear-btn">
+                  <i data-lucide="lock-open"></i>
+                  <span data-i18n="lock-clear">Снять</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -686,6 +746,23 @@
       <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px; margin-top: 8px;">
         <input type="checkbox" id="edit-log-paid" style="width:18px; height:18px; accent-color:var(--success, #22c55e);">
         <label for="edit-log-paid" data-i18n="log-paid-label" style="cursor:pointer;">Оплачено</label>
+      </div>
+      <div class="lock-note" id="edit-log-lock-note" hidden>
+        <div class="lock-note-row">
+          <i data-lucide="lock"></i>
+          <span id="edit-log-lock-text"></span>
+        </div>
+        <div class="lock-note-actions">
+          <button class="btn btn-secondary btn-sm" id="edit-log-lock-open-btn" data-i18n="lock-open-period" hidden>Открыть период</button>
+          <button class="btn btn-secondary btn-sm" id="edit-log-lock-unmark-btn" data-i18n="lock-unmark-paid" hidden>Снять отметку оплаты</button>
+        </div>
+        <div class="lock-confirm" id="edit-log-lock-confirm" hidden>
+          <span id="edit-log-lock-confirm-text"></span>
+          <div class="lock-note-actions">
+            <button class="btn btn-secondary btn-sm" id="edit-log-lock-confirm-no" data-i18n="cancel">Отмена</button>
+            <button class="btn btn-danger btn-sm" id="edit-log-lock-confirm-yes" data-i18n="lock-open-yes">Да, открыть</button>
+          </div>
+        </div>
       </div>
       <div class="modal-actions">
         <button class="btn btn-secondary" id="edit-log-modal-cancel" data-i18n="cancel">Отмена</button>

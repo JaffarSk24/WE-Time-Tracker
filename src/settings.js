@@ -6,6 +6,8 @@ import {
   updateState, updateStatusText, onUpdateChange,
   checkForUpdates, downloadUpdate, installUpdate
 } from './updates.js';
+import { initReportSenderSettings } from './client-report-ui.js';
+import { initLockSettings } from './period-lock-ui.js';
 
 export function initSettings() {
   const langSelect = document.getElementById('settings-lang-select');
@@ -84,6 +86,8 @@ export function initSettings() {
 
   initUpdatesSection();
   initGDrive();
+  initReportSenderSettings();
+  initLockSettings();
 }
 
 // Sign-in used by both the Settings section and the first-run banner.

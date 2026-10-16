@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, protocol, Tray, Menu, nativeImage, shell, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, protocol, Tray, Menu, nativeImage, shell, screen, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -552,6 +552,52 @@ function initGDriveIpc() {
   }));
 }
 
+// --- Client report (PDF) ---
+// The renderer builds the report HTML (src/client-report.js); here it is
+// rendered in a hidden window with scripts off, printed to an A4 PDF with
+// page numbers, and saved where the user chooses.
+function initReportIpc() {
+  ipcMain.handle('report:pdf', async (_e, html, suggestedName) => {
+    if (typeof html !== 'string' || !html) return { ok: false, error: 'empty' };
+    const safeName = String(suggestedName || 'Report.pdf').replace(/[\\/:*?"<>|]/g, ' ').trim() || 'Report.pdf';
+    const tmpFile = path.join(app.getPath('temp'), `we-report-${Date.now()}-${process.pid}.html`);
+    let win = null;
+    try {
+      fs.writeFileSync(tmpFile, html, 'utf8');
+      win = new BrowserWindow({
+        show: false,
+        webPreferences: { javascript: false, contextIsolation: true, sandbox: true, nodeIntegration: false }
+      });
+      // The report is static: nothing in it may open or navigate anywhere.
+      win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+      win.webContents.on('will-navigate', (event) => event.preventDefault());
+      await win.loadFile(tmpFile);
+      const pdf = await win.webContents.printToPDF({
+        pageSize: 'A4',
+        printBackground: true,
+        preferCSSPageSize: true,
+        displayHeaderFooter: true,
+        headerTemplate: '<div></div>',
+        footerTemplate: '<div style="width:100%; font-size:8px; color:#9ca3af; text-align:center; font-family:Arial, sans-serif;">'
+          + '<span class="pageNumber"></span> / <span class="totalPages"></span></div>'
+      });
+      const result = await dialog.showSaveDialog(mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined, {
+        defaultPath: path.join(app.getPath('documents'), safeName.endsWith('.pdf') ? safeName : `${safeName}.pdf`),
+        filters: [{ name: 'PDF', extensions: ['pdf'] }]
+      });
+      if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+      fs.writeFileSync(result.filePath, pdf);
+      return { ok: true, filePath: result.filePath };
+    } catch (e) {
+      console.error('Client report PDF failed:', e);
+      return { ok: false, error: e.message };
+    } finally {
+      if (win && !win.isDestroyed()) win.destroy();
+      try { fs.unlinkSync(tmpFile); } catch (e) { /* already gone */ }
+    }
+  });
+}
+
 app.whenReady().then(() => {
   // A leftover installer here means the previous update is finished (or was
   // abandoned) — either way the file is dead weight now.
@@ -559,6 +605,7 @@ app.whenReady().then(() => {
   initStorageIpc();
   initUpdatesIpc();
   initGDriveIpc();
+  initReportIpc();
   // A tray failure (a missing or unreadable icon on Windows, for instance)
   // must never prevent the main window from being created.
   try {

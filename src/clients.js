@@ -311,6 +311,7 @@ function renderPaymentsModal() {
         // logs, so the ledger and the entries never contradict each other.
         if (payment && payment.auto && payment.logAmounts) {
           store.setLogsPaid(Object.keys(payment.logAmounts), false);
+          if (store.lastLockError) showToast(t('lock-payment-refused'), { type: 'error' });
         } else {
           store.deletePayment(paymentsClientId, paymentId);
         }

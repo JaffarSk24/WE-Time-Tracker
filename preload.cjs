@@ -37,3 +37,8 @@ contextBridge.exposeInMainWorld('weGDrive', {
   onStatus: (callback) => ipcRenderer.on('gdrive:status', (_e, data) => callback(data)),
   onPulled: (callback) => ipcRenderer.on('gdrive:pulled', (_e, data) => callback(data))
 });
+
+// weReport - saves a client report (HTML built in the renderer) as a PDF file.
+contextBridge.exposeInMainWorld('weReport', {
+  savePdf: (html, suggestedName) => ipcRenderer.invoke('report:pdf', html, suggestedName)
+});

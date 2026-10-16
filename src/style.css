@@ -1878,3 +1878,100 @@ textarea:focus {
   color: var(--warning);
   margin-top: 2px;
 }
+
+/* ===================== Client report (PDF) and locked periods ===================== */
+/* The third export button must wrap instead of overflowing at 900px. */
+.filters-actions {
+  flex-wrap: wrap;
+}
+
+.settings-note {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: -6px 0 14px;
+}
+
+.sender-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0 20px;
+}
+
+.sender-grid .sender-address {
+  grid-column: 1 / -1;
+}
+
+.sender-grid textarea {
+  resize: vertical;
+  min-height: 56px;
+  font-family: inherit;
+}
+
+.lock-date-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lock-date-controls input[type="date"] {
+  width: auto;
+  min-width: 160px;
+}
+
+.log-item-duration .log-lock-icon {
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  vertical-align: -1px;
+  color: var(--warning);
+}
+
+.lock-note {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--warning);
+  border-radius: var(--radius-sm);
+  background: var(--overlay-02);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lock-note[hidden],
+.lock-note [hidden] {
+  display: none !important;
+}
+
+.lock-note-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.lock-note-row svg,
+.lock-note-row i {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--warning);
+  margin-top: 1px;
+}
+
+.lock-note-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lock-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
