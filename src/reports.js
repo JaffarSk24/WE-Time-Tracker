@@ -21,8 +21,12 @@ import {
   toastSkippedLocked
 } from './period-lock-ui.js';
 import { exportClientReport } from './client-report-ui.js';
+import { filterLogsByTag, logTagIds, tagNamesOf } from './tags.js';
+import { createTagPicker, continueExtra, fillTagFilter, tagChipsHtml } from './tags-ui.js';
+import { withBudgetCheck } from './budgets-ui.js';
 
 let editingLogId = null;
+let editTagPicker = null;
 
 // Format date to local readable format
 function formatDateReadable(dayKey, lang) {
@@ -58,6 +62,8 @@ export function updateReportsDropdowns() {
 
   updateReportsProjectDropdown('filter');
   updateReportsProjectDropdown('edit-log');
+  fillTagFilter(document.getElementById('filter-tag-select'));
+  if (editTagPicker) editTagPicker.refresh();
 }
 
 function updateReportsProjectDropdown(prefix) {
@@ -102,6 +108,12 @@ function getFilteredLogs() {
   // Project Filter
   if (projectId) {
     logs = logs.filter(l => l.projectId === projectId);
+  }
+
+  // Tag Filter
+  const tagSelect = document.getElementById('filter-tag-select');
+  if (tagSelect && tagSelect.value) {
+    logs = filterLogsByTag(logs, tagSelect.value);
   }
 
   // Payment Status Filter
@@ -299,7 +311,7 @@ export function renderReports() {
         <div class="log-item-checkbox-col">
           <input type="checkbox" class="log-row-checkbox" data-id="${log.id}" style="width: 18px; height: 18px; accent-color: var(--accent-indigo); cursor: pointer;">
         </div>
-        <div class="log-item-desc ${!log.description ? 'empty' : ''}">${log.description ? escapeHtml(log.description) : t('no-description')}</div>
+        <div class="log-item-desc ${!log.description ? 'empty' : ''}">${log.description ? escapeHtml(log.description) : t('no-description')}${tagChipsHtml(logTagIds(log))}</div>
         <div class="log-item-project-badge">
           ${projectBadge}
           ${clientBadge}
@@ -337,9 +349,9 @@ export function renderReports() {
       if (log) {
         // Keep the current active timer (if any) and start a new one
         if (store.getActiveTimer()) {
-          stopTimerWithLockCheck();
+          withBudgetCheck(() => stopTimerWithLockCheck());
         }
-        store.startTimer(log.description || '', log.clientId, log.projectId, log.billable);
+        store.startTimer(log.description || '', log.clientId, log.projectId, log.billable, continueExtra(log));
         showToast(t('toast-timer-started'), { type: 'success' });
 
         // Switch to timer view
@@ -418,6 +430,7 @@ function openEditLogModal(id) {
   rateInput.value = log.rateAtTime;
   billableCheck.checked = log.billable;
   if (paidCheck) paidCheck.checked = !!log.paid;
+  if (editTagPicker) editTagPicker.setValue(logTagIds(log));
 
   // Locked entries open read-only; lifting the lock reopens the modal.
   applyEditLogLock(log, () => openEditLogModal(id));
@@ -460,7 +473,8 @@ function saveEditLogModal() {
     return;
   }
 
-  const result = store.updateTimeLog(editingLogId, {
+  const logId = editingLogId;
+  const result = withBudgetCheck(() => store.updateTimeLog(logId, {
     description: desc,
     clientId,
     projectId,
@@ -468,8 +482,9 @@ function saveEditLogModal() {
     endTime,
     rateAtTime: rate,
     billable,
-    paid
-  });
+    paid,
+    tagIds: editTagPicker ? editTagPicker.getValue() : undefined
+  }));
   if (result === null && toastLastLockError()) return;
 
   closeEditLogModal();
@@ -483,11 +498,12 @@ function exportToCSV() {
   const clients = store.getClients();
   const projects = store.getProjects();
   const isRu = store.getSettings().language === 'ru';
+  const tags = store.getCollection('tags');
 
   // Headers
   let csvContent = isRu
-    ? 'Описание,Клиент,Проект,Начало,Конец,Длительность (Часы),Статус,Ставка (EUR/ч),Сумма (EUR)\r\n' // RU CSV header (localized export content)
-    : 'Description,Client,Project,Start,End,Duration (Hours),Status,Rate (EUR/h),Amount (EUR)\r\n';
+    ? 'Описание,Клиент,Проект,Начало,Конец,Длительность (Часы),Статус,Ставка (EUR/ч),Сумма (EUR),Теги\r\n' // RU CSV header (localized export content)
+    : 'Description,Client,Project,Start,End,Duration (Hours),Status,Rate (EUR/h),Amount (EUR),Tags\r\n';
 
   logs.forEach(log => {
     const client = clients.find(c => c.id === log.clientId);
@@ -508,7 +524,8 @@ function exportToCSV() {
       durationHrs,
       csvCell(status),
       log.rateAtTime,
-      amount
+      amount,
+      csvCell(tagNamesOf(log, tags).join(', '))
     ].join(',') + '\r\n';
   });
 
@@ -546,6 +563,7 @@ export function initReports() {
   const rangeFilter = document.getElementById('filter-range-select');
 
   const editClient = document.getElementById('edit-log-client');
+  editTagPicker = createTagPicker(document.getElementById('edit-log-tags'));
 
   // Filters events
   clientFilter.addEventListener('change', () => {
@@ -556,6 +574,8 @@ export function initReports() {
   projectFilter.addEventListener('change', renderReports);
   billableFilter.addEventListener('change', renderReports);
   rangeFilter.addEventListener('change', renderReports);
+  const tagFilter = document.getElementById('filter-tag-select');
+  if (tagFilter) tagFilter.addEventListener('change', renderReports);
 
   // Edit modal event
   editClient.addEventListener('change', () => {

@@ -492,7 +492,8 @@ class Store {
       endTime: log.endTime,
       billable: log.billable !== undefined ? log.billable : true,
       paid: log.paid !== undefined ? log.paid : false,
-      rateAtTime
+      rateAtTime,
+      tagIds: Array.isArray(log.tagIds) ? [...log.tagIds] : []
     };
     // Honest worked duration: if pauses make it shorter than the
     // startTime..endTime span, store it explicitly (see logDurationMs in utils).
@@ -544,6 +545,9 @@ class Store {
         paid: updatedLog.paid !== undefined ? updatedLog.paid : existing.paid,
         rateAtTime: rate
       };
+      if (Array.isArray(updatedLog.tagIds)) {
+        merged.tagIds = [...updatedLog.tagIds];
+      }
       // Manual time editing implies a continuous interval — clear the stored
       // durationMs (otherwise it would go stale).
       if (updatedLog.startTime || updatedLog.endTime) {
@@ -642,7 +646,9 @@ class Store {
     return this.state.activeTimer;
   }
 
-  startTimer(description, clientId, projectId, billable = true) {
+  // extra: optional fields (tagIds and the like) kept on the running timer
+  // and copied by stopTimer into the saved entry.
+  startTimer(description, clientId, projectId, billable = true, extra = {}) {
     const nowIso = new Date().toISOString();
     this.state.activeTimer = {
       description: description.trim(),
@@ -655,6 +661,9 @@ class Store {
       isPaused: false,
       accumulatedTime: 0
     };
+    if (extra && typeof extra === 'object' && Object.keys(extra).length > 0) {
+      this.state.activeTimer.extra = { ...extra };
+    }
     this.saveState();
     return this.state.activeTimer;
   }
@@ -707,8 +716,17 @@ class Store {
       endTime: endTime,
       billable: timer.billable,
       durationMs: totalDuration,
-      rateAtTime
+      rateAtTime,
+      tagIds: timer.extra && Array.isArray(timer.extra.tagIds) ? timer.extra.tagIds : undefined
     }, { allowLocked: true });
+    // Other extra fields go onto the entry as they are, never over its core fields.
+    if (timer.extra) {
+      const core = ['id', 'description', 'clientId', 'projectId', 'startTime', 'endTime',
+        'billable', 'paid', 'rateAtTime', 'durationMs', 'tagIds'];
+      Object.keys(timer.extra).forEach(key => {
+        if (!core.includes(key)) newLog[key] = timer.extra[key];
+      });
+    }
 
     this.state.activeTimer = null;
     this.saveState();
@@ -831,6 +849,21 @@ class Store {
     list[index] = { ...list[index], ...patch, id };
     this.saveState();
     return list[index];
+  }
+
+  // Several patches ({ id, ...fields }) to one collection in a single write.
+  patchRecords(name, patches) {
+    const list = this.getCollection(name);
+    const byId = new Map((patches || []).filter(p => p && p.id).map(p => [p.id, p]));
+    let changed = 0;
+    list.forEach((record, index) => {
+      const patch = byId.get(record.id);
+      if (!patch) return;
+      list[index] = { ...record, ...patch, id: record.id };
+      changed++;
+    });
+    if (changed > 0) this.saveState();
+    return changed;
   }
 
   deleteRecord(name, id) {

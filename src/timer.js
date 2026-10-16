@@ -13,8 +13,14 @@ import {
   logDurationMs
 } from './utils.js';
 import { stopTimerWithLockCheck } from './period-lock-ui.js';
+import { createTagPicker, continueExtra } from './tags-ui.js';
+import { renderTimerBudget, withBudgetCheck } from './budgets-ui.js';
+import { renderGoalsCard } from './goals-ui.js';
 
 let timerInterval = null;
+let timerTagPicker = null;
+let manualTagPicker = null;
+let timerWasRunning = false;
 
 // Sync timer state with the main process (menubar/tray).
 function syncTrayTimer() {
@@ -116,6 +122,7 @@ function tick() {
     }
     clockEl.textContent = formatDurationHMS(elapsed);
   }
+  renderTimerBudget(true);
 }
 
 function startTimerTicking() {
@@ -206,9 +213,9 @@ export function renderTodayLogs() {
       const log = store.getTimeLogs().find(l => l.id === btn.getAttribute('data-id'));
       if (!log) return;
       if (store.getActiveTimer()) {
-        stopTimerWithLockCheck();
+        withBudgetCheck(() => stopTimerWithLockCheck());
       }
-      store.startTimer(log.description || '', log.clientId, log.projectId, log.billable);
+      store.startTimer(log.description || '', log.clientId, log.projectId, log.billable, continueExtra(log));
       refreshTimerUI();
       showToast(t('toast-timer-started'), { type: 'success' });
     });
@@ -263,6 +270,12 @@ export function refreshTimerUI() {
     }
     billableCheck.checked = activeTimer.billable;
 
+    if (timerTagPicker) {
+      timerTagPicker.setValue(activeTimer.extra && activeTimer.extra.tagIds);
+      timerTagPicker.setDisabled(true);
+    }
+    timerWasRunning = true;
+
     startTimerTicking();
   } else {
     // Timer is stopped
@@ -277,9 +290,20 @@ export function refreshTimerUI() {
     projSelect.disabled = !clientSelect.value;
     billableCheck.disabled = false;
 
+    // A stopped timer leaves no tags behind for the next one.
+    if (timerTagPicker) {
+      if (timerWasRunning) timerTagPicker.setValue([]);
+      timerTagPicker.setDisabled(false);
+    }
+    timerWasRunning = false;
+
     stopTimerTicking();
   }
 
+  if (timerTagPicker) timerTagPicker.refresh();
+  if (manualTagPicker) manualTagPicker.refresh();
+  renderTimerBudget();
+  renderGoalsCard('timer-goals');
   renderTodayLogs();
   syncTrayTimer();
 }
@@ -294,6 +318,9 @@ export function initTimer() {
 
   const manualAddBtn = document.getElementById('manual-add-btn');
 
+  timerTagPicker = createTagPicker(document.getElementById('timer-tags'));
+  manualTagPicker = createTagPicker(document.getElementById('manual-tags'));
+
   // Set dropdowns
   updateTimerDropdowns();
   setDefaultManualTimes();
@@ -303,7 +330,10 @@ export function initTimer() {
     updateProjectDropdown('timer');
     const projSelect = document.getElementById('timer-project-select');
     projSelect.disabled = !timerClientSelect.value;
+    renderTimerBudget();
   });
+
+  document.getElementById('timer-project-select').addEventListener('change', () => renderTimerBudget());
 
   manualClientSelect.addEventListener('change', () => {
     updateProjectDropdown('manual');
@@ -315,7 +345,7 @@ export function initTimer() {
 
     if (activeTimer) {
       // STOP TIMER
-      stopTimerWithLockCheck();
+      withBudgetCheck(() => stopTimerWithLockCheck());
       document.getElementById('timer-desc').value = '';
     } else {
       // START TIMER
@@ -330,7 +360,8 @@ export function initTimer() {
         return;
       }
 
-      store.startTimer(desc, clientId, projectId, billable);
+      const tagIds = timerTagPicker ? timerTagPicker.getValue() : [];
+      store.startTimer(desc, clientId, projectId, billable, tagIds.length ? { tagIds } : {});
     }
 
     refreshTimerUI();
@@ -384,14 +415,15 @@ export function initTimer() {
       return;
     }
 
-    const added = store.addTimeLog({
+    const added = withBudgetCheck(() => store.addTimeLog({
       description: desc,
       clientId,
       projectId,
       startTime,
       endTime,
-      billable
-    });
+      billable,
+      tagIds: manualTagPicker ? manualTagPicker.getValue() : []
+    }));
     if (!added) {
       showToast(t('lock-add-refused'), { type: 'error' });
       return;
@@ -402,6 +434,7 @@ export function initTimer() {
     manualClientSelect.value = '';
     updateProjectDropdown('manual');
     setDefaultManualTimes();
+    if (manualTagPicker) manualTagPicker.setValue([]);
 
     showToast(t('toast-log-added'), { type: 'success' });
     renderTodayLogs();
@@ -411,7 +444,7 @@ export function initTimer() {
   if (window.weTimer && window.weTimer.onStopRequest) {
     window.weTimer.onStopRequest(() => {
       if (store.getActiveTimer()) {
-        stopTimerWithLockCheck();
+        withBudgetCheck(() => stopTimerWithLockCheck());
         document.getElementById('timer-desc').value = '';
         refreshTimerUI();
       }
