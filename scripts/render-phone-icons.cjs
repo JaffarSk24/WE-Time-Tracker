@@ -5,10 +5,11 @@
 //   npx electron scripts/render-phone-icons.cjs
 // A changed icon gets a new suffix (-vN) here, in manifest.webmanifest, web.html
 // and PUBLIC_FILES: iOS keeps an icon per address, and a ?v= query did not
-// make it take a new one.
+// make it take a new one. The files are 8-bit RGBA, as in WE Budget.
 const { app, BrowserWindow } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const { encodeRgbaPng } = require('./png-rgba.cjs');
 
 const root = path.join(__dirname, '..');
 const PLATE = '#4C536D';
@@ -27,9 +28,9 @@ function fullBleed(viewBox, size) {
 
 const FULL = '100 100 824 824';
 const OUTPUTS = [
-  { file: 'apple-touch-icon-v4.png', size: 180, viewBox: FULL },
-  { file: 'icon-192-v4.png', size: 192, viewBox: FULL },
-  { file: 'icon-512-v4.png', size: 512, viewBox: FULL }
+  { file: 'apple-touch-icon-v5.png', size: 180, viewBox: FULL },
+  { file: 'icon-192-v5.png', size: 192, viewBox: FULL },
+  { file: 'icon-512-v5.png', size: 512, viewBox: FULL }
 ];
 
 app.disableHardwareAcceleration();
@@ -52,7 +53,16 @@ app.whenReady().then(async () => {
     const image = captured.getSize().width === size
       ? captured
       : captured.resize({ width: size, height: size, quality: 'best' });
-    fs.writeFileSync(path.join(root, 'public-web', file), image.toPNG());
+    // toBitmap() is BGRA; the plate is opaque, so alpha is always 255.
+    const bgra = image.toBitmap();
+    const rgba = Buffer.alloc(bgra.length);
+    for (let i = 0; i < bgra.length; i += 4) {
+      rgba[i] = bgra[i + 2];
+      rgba[i + 1] = bgra[i + 1];
+      rgba[i + 2] = bgra[i];
+      rgba[i + 3] = 255;
+    }
+    fs.writeFileSync(path.join(root, 'public-web', file), encodeRgbaPng(size, size, rgba));
     console.log('wrote', file, image.getSize());
     win.destroy();
     fs.unlinkSync(tmp);

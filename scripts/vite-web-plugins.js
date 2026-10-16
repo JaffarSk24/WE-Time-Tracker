@@ -67,7 +67,7 @@ export function webEntryAsIndex(base) {
 }
 
 // Files that come from public-web/ as they are and the app needs offline.
-const PUBLIC_FILES = ['manifest.webmanifest', 'favicon.png', 'apple-touch-icon-v4.png', 'icon-192-v4.png', 'icon-512-v4.png'];
+const PUBLIC_FILES = ['manifest.webmanifest', 'favicon.png', 'apple-touch-icon-v5.png', 'icon-192-v5.png', 'icon-512-v5.png'];
 
 // tag: a hash of what the build ships, so a new icon or manifest reaches
 // installed apps even when the version number stays the same.

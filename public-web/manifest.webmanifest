@@ -2,16 +2,14 @@
   "name": "WE Time Tracker",
   "short_name": "WE Tracker",
   "description": "Time tracking for freelancers, synced with the desktop app through your Google Drive.",
-  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#4C536D",
+  "background_color": "#090b11",
   "theme_color": "#090b11",
   "icons": [
-    { "src": "apple-touch-icon-v4.png", "sizes": "180x180", "type": "image/png" },
-    { "src": "icon-192-v4.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512-v4.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "icon-192-v5.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512-v5.png", "sizes": "512x512", "type": "image/png" }
   ]
 }
