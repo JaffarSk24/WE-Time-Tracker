@@ -21,7 +21,8 @@ import {
   Tag, Target,
   CalendarDays, ChevronLeft, ChevronRight, Scissors, Merge,
   Coins, Gauge, PieChart, TrendingUp, CalendarClock,
-  Bell, EyeOff
+  Bell, EyeOff,
+  ChevronDown
 } from 'lucide';
 import { store } from './store.js';
 import { translatePage } from './i18n.js';
@@ -31,6 +32,7 @@ import { initClients, renderClients } from './clients.js';
 import { initReports, renderReports, updateReportsDropdowns } from './reports.js';
 import { initSettings } from './settings.js';
 import { initWeek, renderWeek } from './week.js';
+import { initFeatures, renderFeatures } from './features.js';
 import { initUpdates } from './updates.js';
 import { initBanners, refreshBanners } from './banners.js';
 import { initTagsTab, renderTagsTab } from './tags-ui.js';
@@ -49,7 +51,8 @@ const usedIcons = {
   Tag, Target,
   CalendarDays, ChevronLeft, ChevronRight, Scissors, Merge,
   Coins, Gauge, PieChart, TrendingUp, CalendarClock,
-  Bell, EyeOff
+  Bell, EyeOff,
+  ChevronDown
 };
 window.lucide = { createIcons: () => createIcons({ icons: usedIcons }) };
 
@@ -156,6 +159,9 @@ export function triggerViewRender(panelId) {
     case 'week-view':
       renderWeek();
       break;
+    case 'features-view':
+      renderFeatures();
+      break;
   }
   // Refresh icons
   if (window.lucide) {
@@ -235,6 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initClients();
   initReports();
   initWeek();
+  initFeatures();
   initSettings();
   initTagsTab();
   initGoalsSettings();

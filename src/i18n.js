@@ -473,7 +473,18 @@ export const translations = {
     'csv-import-read-error': 'Не удалось прочитать файл: ',
     'csv-import-done': 'Импортировано записей: {count}',
     'csv-import-undone': 'Импорт отменён',
-    'csv-import-no-client': 'Без клиента'
+    'csv-import-no-client': 'Без клиента',
+
+    // Features view
+    'nav-features': 'Возможности',
+    'features-title': 'Возможности',
+    'features-subtitle': 'Что умеет приложение и как этим пользоваться. Нажмите на функцию, чтобы прочитать описание.',
+    'features-search': 'Найти функцию...',
+    'features-new': 'Новое',
+    'features-new-count': 'новых: {count}',
+    'features-where': 'Где',
+    'features-open': 'Открыть раздел',
+    'features-empty': 'Ничего не нашлось. Попробуйте другое слово.'
   },
   en: {
     // Sidebar
@@ -924,7 +935,18 @@ export const translations = {
     'csv-import-read-error': 'Could not read the file: ',
     'csv-import-done': 'Entries imported: {count}',
     'csv-import-undone': 'Import undone',
-    'csv-import-no-client': 'No client'
+    'csv-import-no-client': 'No client',
+
+    // Features view
+    'nav-features': 'Features',
+    'features-title': 'Features',
+    'features-subtitle': 'What the app can do and how to use it. Click a feature to read about it.',
+    'features-search': 'Find a feature...',
+    'features-new': 'New',
+    'features-new-count': '{count} new',
+    'features-where': 'Where',
+    'features-open': 'Open',
+    'features-empty': 'Nothing found. Try another word.'
   }
 };
 

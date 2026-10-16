@@ -47,6 +47,10 @@
           <i data-lucide="settings"></i>
           <span data-i18n="nav-settings">Настройки</span>
         </a>
+        <a class="nav-item" data-target="features-view">
+          <i data-lucide="sparkles"></i>
+          <span data-i18n="nav-features">Возможности</span>
+        </a>
       </nav>
       
       <div class="sidebar-footer">
@@ -864,6 +868,19 @@
         </div>
       </section>
       
+      <!-- FEATURES VIEW: what the app can do, one click per feature -->
+      <section id="features-view" class="view-panel">
+        <div>
+          <h1 class="view-title" data-i18n="features-title">Возможности</h1>
+          <p class="view-subtitle" data-i18n="features-subtitle">Что умеет приложение и как этим пользоваться</p>
+        </div>
+        <div class="features-search-wrapper search-input-wrapper">
+          <i data-lucide="search"></i>
+          <input type="text" id="features-search" data-i18n="features-search" placeholder="Найти функцию...">
+        </div>
+        <div id="features-list"></div>
+      </section>
+
     </main>
     
     <!-- Floating Promotion Footer (White Eagles & Co. s.r.o.) -->
