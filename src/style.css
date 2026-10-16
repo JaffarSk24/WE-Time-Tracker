@@ -1878,3 +1878,160 @@ textarea:focus {
   color: var(--warning);
   margin-top: 2px;
 }
+
+/* ==========================================================================
+   Wave 5: client expenses, currency per client, dashboard analytics
+   ========================================================================== */
+/* Totals in several currencies: one line per currency */
+.money-lines {
+  white-space: pre-line;
+}
+
+.currency-hint {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.entity-expenses,
+.payments-expenses-included {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.payments-expenses-included:empty {
+  display: none;
+}
+
+/* Expenses section of the payments modal */
+.expenses-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+.expenses-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.expenses-title {
+  margin: 0;
+  font-family: 'Outfit', sans-serif;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+.expense-add-row .expense-date-group { flex: 0 0 150px; }
+.expense-add-row .expense-amount-group { flex: 0 0 130px; }
+.expense-add-row .expense-project-group { flex: 1 1 150px; min-width: 0; }
+.expense-add-row .expense-note-group { flex: 2 1 180px; min-width: 0; }
+.expense-billable-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  padding-bottom: 10px;
+  cursor: pointer;
+}
+.expense-billable-label input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-indigo);
+}
+.expense-amount {
+  color: var(--text-primary);
+}
+
+/* Dashboard analytics */
+.analytics-heading {
+  margin: 8px 0 0;
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+.analytics-value {
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+.analytics-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+.analytics-compare-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.analytics-compare-label {
+  min-width: 44px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.analytics-prev {
+  color: var(--text-muted);
+}
+.analytics-change {
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+.analytics-change.up { color: var(--success); }
+.analytics-change.down { color: var(--danger); }
+.analytics-change.flat { color: var(--text-muted); }
+
+.analytics-aging-card {
+  padding: 20px;
+}
+.analytics-table-wrap {
+  overflow-x: auto;
+}
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+.analytics-table th,
+.analytics-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+  white-space: nowrap;
+}
+.analytics-table th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.analytics-table .num {
+  text-align: right;
+}
+.analytics-table tr.total td {
+  font-weight: 700;
+  border-bottom: none;
+}
+
+/* The payments modal now also holds the expenses: a bit wider, and it
+   scrolls inside when the window is short */
+#payments-modal .modal-content {
+  max-width: 620px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}

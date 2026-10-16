@@ -3,6 +3,8 @@ import Chart from 'chart.js/auto';
 import { store } from './store.js';
 import { billableHours, formatDurationShort, logDurationMs } from './utils.js';
 import { t } from './i18n.js';
+import { addToTotals, currencyOfClient, totalsLines } from './currency.js';
+import { renderAnalytics } from './analytics-view.js';
 
 let projectChartInstance = null;
 let clientChartInstance = null;
@@ -44,7 +46,8 @@ function buildPalette(count) {
 
 function calculateStats(logs) {
   let totalHours = 0;
-  let totalEarnings = 0;
+  // Per currency: amounts in different currencies are never added
+  const totalEarnings = {};
 
   logs.forEach(log => {
     const durationMs = logDurationMs(log);
@@ -53,7 +56,7 @@ function calculateStats(logs) {
     // Earned = all billable entries (both paid and awaiting payment);
     // the amount is rounded to 5-minute blocks.
     if (log.billable) {
-      totalEarnings += billableHours(durationMs) * (log.rateAtTime || 0);
+      addToTotals(totalEarnings, currencyOfClient(log.clientId), billableHours(durationMs) * (log.rateAtTime || 0));
     }
   });
 
@@ -86,9 +89,14 @@ export function renderDashboard() {
   const { totalHours, totalEarnings } = calculateStats(logs);
   
   document.getElementById('dash-hours-val').textContent = formatDurationShort(totalHours, lang);
-  document.getElementById('dash-earnings-val').textContent = `${totalEarnings.toFixed(2)} €`;
+  const earningsEl = document.getElementById('dash-earnings-val');
+  earningsEl.textContent = totalsLines(totalEarnings).join('\n');
+  earningsEl.classList.add('money-lines');
   document.getElementById('dash-projects-val').textContent = projects.length;
   document.getElementById('dash-clients-val').textContent = clients.length;
+
+  // Period analytics cards (they handle an empty period themselves)
+  renderAnalytics(selectedActivityPeriod);
   
   // Check if we have logs to render charts
   if (logs.length === 0) {

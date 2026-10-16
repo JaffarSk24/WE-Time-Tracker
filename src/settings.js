@@ -2,6 +2,7 @@
 import { store } from './store.js';
 import { t } from './i18n.js';
 import { showToast } from './toast.js';
+import { defaultCurrency } from './currency.js';
 import {
   updateState, updateStatusText, onUpdateChange,
   checkForUpdates, downloadUpdate, installUpdate
@@ -22,6 +23,15 @@ export function initSettings() {
   langSelect.addEventListener('change', (e) => {
     store.updateSettings({ language: e.target.value });
   });
+
+  // Default currency: for new clients and clients without their own
+  const currencySelect = document.getElementById('settings-currency-select');
+  if (currencySelect) {
+    currencySelect.value = defaultCurrency();
+    currencySelect.addEventListener('change', (e) => {
+      store.updateSettings({ currency: e.target.value });
+    });
+  }
 
   const themeSelect = document.getElementById('settings-theme-select');
   const currentTheme = store.getSettings().theme || 'dark';

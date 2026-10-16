@@ -2,6 +2,7 @@
 import { store } from './store.js';
 import { t } from './i18n.js';
 import { showToast } from './toast.js';
+import { addToTotals, currencyOfClient, nonZeroLines } from './currency.js';
 import {
   fillSelect,
   escapeHtml,
@@ -166,17 +167,19 @@ export function renderTodayLogs() {
   }
 
   let totalMs = 0;
-  let totalEarnings = 0;
+  const totalEarnings = {};
   logs.forEach(l => {
     const dur = logDurationMs(l);
     totalMs += dur;
     if (l.billable) {
-      totalEarnings += billableHours(dur) * (l.rateAtTime || 0);
+      addToTotals(totalEarnings, currencyOfClient(l.clientId), billableHours(dur) * (l.rateAtTime || 0));
     }
   });
 
   if (totalsEl) {
-    totalsEl.textContent = `${formatDurationShort(totalMs / 3600000, lang)}${totalEarnings > 0 ? ` · ${totalEarnings.toFixed(2)} €` : ''}`;
+    // One amount per currency, never added together
+    const money = nonZeroLines(totalEarnings);
+    totalsEl.textContent = `${formatDurationShort(totalMs / 3600000, lang)}${money.map(m => ` · ${m}`).join('')}`;
   }
 
   container.innerHTML = '';

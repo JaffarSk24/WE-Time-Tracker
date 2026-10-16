@@ -35,3 +35,8 @@ export function nonZeroTotals(totals) {
   Object.keys(totals).forEach(cur => { if (Math.abs(totals[cur]) > 0.005) out[cur] = totals[cur]; });
   return out;
 }
+
+// Formatted lines of the non-zero totals only (empty when there are none).
+export function nonZeroLines(totals) {
+  return formatMoneyTotals(nonZeroTotals(totals), defaultCurrency());
+}
