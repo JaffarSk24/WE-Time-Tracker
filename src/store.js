@@ -779,6 +779,40 @@ class Store {
     return true;
   }
 
+  // Adds many records in a single write, e.g. an import:
+  // { clients: [...], projects: [...], timeLogs: [...] }.
+  addRecords(byCollection) {
+    Object.keys(byCollection || {}).forEach(name => {
+      const records = byCollection[name] || [];
+      if (records.length === 0) return;
+      this.state[name] = [...this.getCollection(name), ...records];
+      this.unmarkDeleted(records.map(r => r.id));
+    });
+    this.saveState();
+  }
+
+  // Removes records by id in a single write: { timeLogs: [ids], ... }.
+  // Removed paid logs take their share of linked payments with them.
+  removeRecords(idsByCollection) {
+    const removedIds = [];
+    Object.keys(idsByCollection || {}).forEach(name => {
+      const idSet = new Set(idsByCollection[name] || []);
+      const list = this.getCollection(name);
+      const removed = list.filter(r => idSet.has(r.id));
+      if (removed.length === 0) return;
+      if (name === 'timeLogs') this.reverseAutoPayments(removed.filter(l => l.paid).map(l => l.id));
+      this.state[name] = list.filter(r => !idSet.has(r.id));
+      removed.forEach(r => removedIds.push(r.id));
+    });
+    const gone = new Set(removedIds);
+    const timer = this.state.activeTimer;
+    if (timer && gone.has(timer.clientId)) this.state.activeTimer = null;
+    else if (timer && gone.has(timer.projectId)) timer.projectId = null;
+    this.markDeleted(removedIds);
+    this.saveState();
+    return removedIds.length;
+  }
+
   clearAllData() {
     const ids = this.allIds();
     const deleted = this.state.deleted || {};

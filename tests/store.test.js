@@ -409,3 +409,38 @@ describe('utils', () => {
     expect(csvCell('=SUM(A1)')).toBe('"\'=SUM(A1)"');
   });
 });
+
+describe('batch records (CSV import)', () => {
+  it('adds and removes many records with one write each', () => {
+    let writes = 0;
+    const unsubscribe = store.subscribe(() => { writes++; });
+    store.addRecords({
+      clients: [{ id: 'client_x', name: 'X', defaultRate: 10, payments: [] }],
+      projects: [{ id: 'project_x', name: 'P', clientId: 'client_x', rate: 0 }],
+      timeLogs: [{ id: 'log_x', clientId: 'client_x', projectId: 'project_x', startTime: '2026-07-01T10:00:00Z', endTime: '2026-07-01T11:00:00Z', billable: true, paid: false, rateAtTime: 10 }]
+    });
+    expect(writes).toBe(1);
+    expect(store.getClients().map(c => c.id)).toEqual(['client_x']);
+    expect(store.getTimeLogs()).toHaveLength(1);
+
+    store.setLogsPaid(['log_x'], true);
+    expect(store.getPayments('client_x')).toHaveLength(1);
+    const keep = store.addTimeLog({ clientId: 'client_x', startTime: '2026-07-02T10:00:00Z', endTime: '2026-07-02T11:00:00Z' });
+
+    writes = 0;
+    expect(store.removeRecords({ timeLogs: ['log_x'], projects: ['project_x'] })).toBe(2);
+    expect(writes).toBe(1);
+    unsubscribe();
+    expect(store.getTimeLogs().map(l => l.id)).toEqual([keep.id]);
+    expect(store.getProjects()).toHaveLength(0);
+    expect(store.getPayments('client_x')).toHaveLength(0);
+    expect(store.state.deleted.log_x).toBeTruthy();
+  });
+
+  it('re-adding a removed record clears its tombstone', () => {
+    store.addRecords({ timeLogs: [{ id: 'log_y', startTime: '2026-07-01T10:00:00Z', endTime: '2026-07-01T11:00:00Z' }] });
+    store.removeRecords({ timeLogs: ['log_y'] });
+    store.addRecords({ timeLogs: [{ id: 'log_y', startTime: '2026-07-01T10:00:00Z', endTime: '2026-07-01T11:00:00Z' }] });
+    expect(store.state.deleted.log_y).toBeUndefined();
+  });
+});

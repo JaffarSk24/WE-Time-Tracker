@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const gdriveSync = require('./gdrive-sync.cjs');
+const calendar = require('./calendar.cjs');
 const updater = require('./updater.cjs');
 
 let viteProcess = null;
@@ -552,6 +553,14 @@ function initGDriveIpc() {
   }));
 }
 
+// Suggestions from Google Calendar (opt-in, uses the Drive sign-in).
+function initCalendarIpc() {
+  calendar.init(gdriveSync);
+  ipcMain.handle('calendar:status', () => calendar.getStatus());
+  ipcMain.handle('calendar:enable', async () => await calendar.enable(mainWindow));
+  ipcMain.handle('calendar:events', async (_e, from, to) => await calendar.listEvents(from, to));
+}
+
 app.whenReady().then(() => {
   // A leftover installer here means the previous update is finished (or was
   // abandoned) — either way the file is dead weight now.
@@ -559,6 +568,7 @@ app.whenReady().then(() => {
   initStorageIpc();
   initUpdatesIpc();
   initGDriveIpc();
+  initCalendarIpc();
   // A tray failure (a missing or unreadable icon on Windows, for instance)
   // must never prevent the main window from being created.
   try {

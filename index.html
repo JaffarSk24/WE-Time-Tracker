@@ -449,6 +449,21 @@
               </div>
             </div>
             
+            <!-- Import from Toggl Track / Clockify CSV -->
+            <div class="data-action-box">
+              <div class="data-action-text">
+                <div class="data-action-title" data-i18n="csv-import-title">Импорт из Toggl / Clockify (CSV)</div>
+                <div class="data-action-desc" data-i18n="csv-import-desc">Перенесите записи из подробного CSV-экспорта Toggl Track или Clockify.</div>
+              </div>
+              <div>
+                <input type="file" id="settings-csv-import-input" accept=".csv,text/csv" style="display: none;">
+                <button class="btn btn-secondary" id="settings-csv-import-btn">
+                  <i data-lucide="file-spreadsheet"></i>
+                  <span data-i18n="csv-import-btn">Выбрать CSV</span>
+                </button>
+              </div>
+            </div>
+
             <!-- Reset -->
             <div class="data-action-box" style="border-color: rgba(244, 63, 94, 0.2); background: rgba(244, 63, 94, 0.02);" id="reset-data-box">
               <div class="data-action-text">
@@ -690,6 +705,21 @@
       <div class="modal-actions">
         <button class="btn btn-secondary" id="edit-log-modal-cancel" data-i18n="cancel">Отмена</button>
         <button class="btn btn-primary" id="edit-log-modal-save" data-i18n="save">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toggl / Clockify CSV import preview -->
+  <div class="modal-overlay" id="csv-import-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" data-i18n="csv-import-modal-title">Импорт из Toggl / Clockify</h3>
+        <button class="modal-close" id="csv-import-close"><i data-lucide="x"></i></button>
+      </div>
+      <div id="csv-import-summary" class="csv-import-summary"></div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="csv-import-cancel" data-i18n="cancel">Отмена</button>
+        <button class="btn btn-primary" id="csv-import-confirm" data-i18n="csv-import-confirm">Импортировать</button>
       </div>
     </div>
   </div>
