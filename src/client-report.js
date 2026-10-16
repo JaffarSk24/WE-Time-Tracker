@@ -2,7 +2,7 @@
 // Not an invoice: no payments, no balance, no internal notes. Pure functions
 // only, so the HTML can be tested; the UI glue is in client-report-ui.js.
 
-import { escapeHtml, logDurationMs, billableHours, localDayKey, dayKeyToLocalDate } from './utils.js';
+import { escapeHtml, logDurationMs, billableHours, localDayKey, dayKeyToLocalDate, formatMoney as formatCurrency } from './utils.js';
 
 export const SENDER_FIELDS = ['company', 'address', 'ico', 'dic', 'email', 'phone'];
 
@@ -37,8 +37,9 @@ export function formatHM(minutes) {
   return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
 }
 
-export function formatMoney(amount) {
-  return `${(Number(amount) || 0).toFixed(2)} €`;
+// Amounts in the client's currency (EUR when not given).
+export function formatMoney(amount, currency = 'EUR') {
+  return formatCurrency(amount, currency);
 }
 
 export function entryAmount(log) {
@@ -80,6 +81,7 @@ function formatDay(dayKey, locale) {
 //         t (i18n function), generatedAt (Date, optional) }
 export function buildClientReportHtml(opts) {
   const { logs, client, projects = [], lang = 'en', t } = opts;
+  const currency = opts.currency || 'EUR';
   const sender = normalizeSender(opts.sender);
   const locale = lang === 'ru' ? 'ru-RU' : 'en-US';
   const generatedAt = opts.generatedAt || new Date();
@@ -108,7 +110,7 @@ export function buildClientReportHtml(opts) {
         <td>${escapeHtml(log.description || '')}</td>
         <td>${escapeHtml(projectName(log.projectId))}</td>
         <td class="num">${formatHM(minutes)}</td>
-        <td class="num">${log.billable ? escapeHtml(formatMoney(amount)) : ''}</td>
+        <td class="num">${log.billable ? escapeHtml(formatMoney(amount, currency)) : ''}</td>
       </tr>`;
   }).join('');
 
@@ -131,13 +133,13 @@ export function buildClientReportHtml(opts) {
       <tbody>${[...byProject.values()].map(p => `<tr>
         <td>${escapeHtml(p.name)}</td>
         <td class="num">${formatHM(p.minutes)}</td>
-        <td class="num">${escapeHtml(formatMoney(p.amount))}</td>
+        <td class="num">${escapeHtml(formatMoney(p.amount, currency))}</td>
       </tr>`).join('')}</tbody>
     </table>` : '';
 
   const rate = sharedRate(logs);
   const rateLine = rate !== null
-    ? `<tr><td>${escapeHtml(t('creport-rate'))}</td><td class="num">${escapeHtml(formatMoney(rate))}${escapeHtml(t('creport-per-hour'))}</td></tr>`
+    ? `<tr><td>${escapeHtml(t('creport-rate'))}</td><td class="num">${escapeHtml(formatMoney(rate, currency))}${escapeHtml(t('creport-per-hour'))}</td></tr>`
     : '';
 
   const periodText = period.from === period.to
@@ -198,7 +200,7 @@ export function buildClientReportHtml(opts) {
   <table class="totals">
     <tr><td>${escapeHtml(t('creport-total-hours'))}</td><td class="num">${formatHM(totalMinutes)}</td></tr>
     ${rateLine}
-    <tr class="grand"><td>${escapeHtml(t('creport-total-amount'))}</td><td class="num">${escapeHtml(formatMoney(totalAmount))}</td></tr>
+    <tr class="grand"><td>${escapeHtml(t('creport-total-amount'))}</td><td class="num">${escapeHtml(formatMoney(totalAmount, currency))}</td></tr>
   </table>
   <div class="generated">${escapeHtml(t('creport-generated', { date: generatedAt.toLocaleDateString(locale) }))}</div>
 </body>

@@ -9,6 +9,7 @@ import {
   startOfWeek, addWeeks, weekDays, buildWeekGrid, nextManualStart,
   findOverlaps, overlapsWith, timelineRange, findGaps, clientHue, assignLanes, rowKeyOf
 } from './timesheet.js';
+import { addToTotals, currencyOfClient, moneyForClient, nonZeroLines } from './currency.js';
 
 let weekStart = startOfWeek(new Date());
 let selectedDay = localDayKey(new Date());
@@ -29,8 +30,16 @@ function formatHM(durMs) {
   return `${Math.floor(totalMin / 60)}:${String(totalMin % 60).padStart(2, '0')}`;
 }
 
-function formatAmount(amount) {
-  return `${amount.toFixed(2)} €`;
+function formatAmount(amount, clientId) {
+  return moneyForClient(amount, clientId);
+}
+
+// Week total: one line per currency, amounts of different currencies are
+// never added.
+function formatGridAmount(grid) {
+  const totals = {};
+  grid.rows.forEach(row => { if (row.amount > 0) addToTotals(totals, currencyOfClient(row.clientId), row.amount); });
+  return nonZeroLines(totals).join(' · ');
 }
 
 function rowLabel(clientId, projectId) {
@@ -60,7 +69,7 @@ function renderGrid(grid) {
   const today = localDayKey(new Date());
 
   document.getElementById('week-total-hours').textContent = `${t('week-total')}: ${formatDurationShort(grid.totalMs / 3600000, lang)}`;
-  document.getElementById('week-total-amount').textContent = grid.amount > 0 ? formatAmount(grid.amount) : '';
+  document.getElementById('week-total-amount').textContent = grid.amount > 0 ? formatGridAmount(grid) : '';
 
   const dayHeaders = grid.days.map(dayKey => {
     const d = dayKeyToLocalDate(dayKey);
@@ -88,7 +97,7 @@ function renderGrid(grid) {
         <td class="week-row-label">${escapeHtml(rowLabel(row.clientId, row.projectId))}</td>
         ${cells}
         <td class="week-row-total">${formatHM(row.totalMs)}</td>
-        <td class="week-row-amount">${row.amount > 0 ? formatAmount(row.amount) : '-'}</td>
+        <td class="week-row-amount">${row.amount > 0 ? formatAmount(row.amount, row.clientId) : '-'}</td>
       </tr>`;
     }).join('');
   }
@@ -111,7 +120,7 @@ function renderGrid(grid) {
           <td class="week-row-label">${escapeHtml(t('week-total'))}</td>
           ${dayTotals}
           <td class="week-row-total">${formatHM(grid.totalMs)}</td>
-          <td class="week-row-amount">${grid.amount > 0 ? formatAmount(grid.amount) : '-'}</td>
+          <td class="week-row-amount">${grid.amount > 0 ? formatGridAmount(grid) : '-'}</td>
         </tr></tfoot>
       </table>
     </div>

@@ -5,6 +5,8 @@ import { t } from './i18n.js';
 import { showToast } from './toast.js';
 import { projectBudgetUsage, hasBudget, budgetLevel, budgetAlertToRaise } from './budgets.js';
 import { formatGoalHours } from './goals.js';
+import { formatMoney } from './utils.js';
+import { currencyOfClient } from './currency.js';
 
 function formatHours(hours, lang) {
   return `${formatGoalHours(hours, lang)} ${t('unit-hours-short')}`;
@@ -21,7 +23,8 @@ function barHtml(used, limit, ratio) {
 }
 
 // Bars (hours and/or euros) of a budget usage; empty string without a budget.
-export function budgetBarsHtml(usage) {
+// currency: the project's client currency (amount budgets are in it).
+export function budgetBarsHtml(usage, currency) {
   if (!usage) return '';
   const lang = store.getSettings().language;
   const lines = [];
@@ -29,7 +32,7 @@ export function budgetBarsHtml(usage) {
     lines.push(barHtml(formatHours(usage.usedHours, lang), formatHours(usage.limitHours, lang), usage.hoursRatio));
   }
   if (usage.limitAmount) {
-    lines.push(barHtml(`${usage.usedAmount.toFixed(2)} €`, `${usage.limitAmount.toFixed(2)} €`, usage.amountRatio));
+    lines.push(barHtml(formatMoney(usage.usedAmount, currency), formatMoney(usage.limitAmount, currency), usage.amountRatio));
   }
   const periodText = usage.period === 'month' ? t('budget-this-month') : t('budget-in-total');
   return `
@@ -84,7 +87,7 @@ export function renderTimerBudget(throttle = false) {
   }
   const usage = projectUsage(project, timer && timer.projectId === project.id ? [runningEntry(timer)] : []);
   el.hidden = false;
-  el.innerHTML = budgetBarsHtml(usage);
+  el.innerHTML = budgetBarsHtml(usage, currencyOfClient(project.clientId));
 }
 
 // Runs a save (timer stop, manual entry, edit) and announces any budget

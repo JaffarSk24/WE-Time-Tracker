@@ -149,7 +149,7 @@ export function renderProjects() {
         </div>
       </div>
       <div class="entity-rate">${rateText}</div>
-      ${budgetBarsHtml(projectUsage(proj))}
+      ${budgetBarsHtml(projectUsage(proj), currencyOfClient(proj.clientId))}
       <div class="entity-actions">
         <button class="btn-icon edit-project-btn" data-id="${proj.id}" title="${t('edit')}">
           <i data-lucide="edit-2"></i>

@@ -43,8 +43,9 @@ export function tagNamesOf(log, tags) {
 // ({ start, end } local dates, end exclusive; null = all time). An entry with
 // several tags counts for each of them. Sorted by hours, most first; tags
 // without time in the range are left out.
-export function tagStats(logs, tags, range = null) {
-  const stats = new Map((tags || []).map(tag => [tag.id, { tag, ms: 0, amount: 0 }]));
+// currencyOf(log), optional, splits the amounts by currency (amounts).
+export function tagStats(logs, tags, range = null, currencyOf = null) {
+  const stats = new Map((tags || []).map(tag => [tag.id, { tag, ms: 0, amount: 0, amounts: {} }]));
   (logs || []).forEach(log => {
     if (range) {
       const start = new Date(log.startTime);
@@ -60,6 +61,10 @@ export function tagStats(logs, tags, range = null) {
       if (!entry) return;
       entry.ms += ms;
       entry.amount += amount;
+      if (amount && currencyOf) {
+        const cur = currencyOf(log);
+        entry.amounts[cur] = (entry.amounts[cur] || 0) + amount;
+      }
     });
   });
   return [...stats.values()]
@@ -69,7 +74,8 @@ export function tagStats(logs, tags, range = null) {
       name: entry.tag.name,
       color: tagColor(entry.tag.color),
       hours: entry.ms / 3600000,
-      amount: entry.amount
+      amount: entry.amount,
+      amounts: entry.amounts
     }))
     .sort((a, b) => b.hours - a.hours);
 }

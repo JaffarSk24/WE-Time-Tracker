@@ -3,10 +3,11 @@
 import { store } from './store.js';
 import { t } from './i18n.js';
 import { showToast } from './toast.js';
-import { escapeHtml, formatDurationShort } from './utils.js';
+import { escapeHtml, formatDurationShort, formatMoney } from './utils.js';
 import {
   TAG_COLORS, tagColor, logTagIds, validTagIds, tagRemovalPatches, tagStats, dashboardPeriodRange
 } from './tags.js';
+import { currencyOfClient, defaultCurrency, nonZeroLines } from './currency.js';
 
 export function getTags() {
   return [...store.getCollection('tags')].sort((a, b) => a.name.localeCompare(b.name));
@@ -148,7 +149,7 @@ export function renderDashboardTags(logs, period) {
   const list = document.getElementById('dash-tags-list');
   if (!list) return;
   const lang = store.getSettings().language;
-  const stats = tagStats(logs, store.getCollection('tags'), dashboardPeriodRange(period));
+  const stats = tagStats(logs, store.getCollection('tags'), dashboardPeriodRange(period), log => currencyOfClient(log.clientId));
 
   if (stats.length === 0) {
     list.innerHTML = `<div class="dash-tags-empty">${t('dash-tags-empty')}</div>`;
@@ -161,7 +162,7 @@ export function renderDashboardTags(logs, period) {
       <span class="dash-tag-name">${escapeHtml(s.name)}</span>
       <span class="dash-tag-bar"><span style="width: ${(s.hours / maxHours) * 100}%;"></span></span>
       <span class="dash-tag-hours">${formatDurationShort(s.hours, lang)}</span>
-      <span class="dash-tag-amount">${s.amount.toFixed(2)} €</span>
+      <span class="dash-tag-amount">${nonZeroLines(s.amounts).join(' · ') || formatMoney(0, defaultCurrency())}</span>
     </div>
   `).join('');
 }

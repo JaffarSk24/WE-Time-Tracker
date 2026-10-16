@@ -42,7 +42,9 @@ export function hasGoals(goals) {
 }
 
 // Billable hours (worked time) and amount of billable entries in a range.
-export function billableTotals(logs, range) {
+// countAmount(log), optional: whether the entry's amount counts (amount goals
+// are in the default currency, other currencies are left out).
+export function billableTotals(logs, range, countAmount = null) {
   let ms = 0;
   let amount = 0;
   (logs || []).forEach(log => {
@@ -52,19 +54,19 @@ export function billableTotals(logs, range) {
     const dur = logDurationMs(log);
     if (dur <= 0) return;
     ms += dur;
-    amount += billableHours(dur) * (log.rateAtTime || 0);
+    if (!countAmount || countAmount(log)) amount += billableHours(dur) * (log.rateAtTime || 0);
   });
   return { hours: ms / 3600000, amount };
 }
 
 // Progress of every active goal, in GOAL_KEYS order:
 // [{ key, unit: 'h'|'eur', value, target, ratio, percent }].
-export function goalProgress(logs, goals, now = new Date()) {
+export function goalProgress(logs, goals, now = new Date(), countAmount = null) {
   const g = normalizeGoals(goals);
   const result = [];
   if (g.weekHours === null && g.weekAmount === null && g.monthAmount === null) return result;
-  const week = billableTotals(logs, weekRange(now));
-  const month = g.monthAmount !== null ? billableTotals(logs, monthRange(now)) : null;
+  const week = billableTotals(logs, weekRange(now), countAmount);
+  const month = g.monthAmount !== null ? billableTotals(logs, monthRange(now), countAmount) : null;
   const push = (key, unit, value, goal) => {
     const ratio = value / goal;
     result.push({ key, unit, value, target: goal, ratio, percent: Math.floor(ratio * 100) });
@@ -99,12 +101,12 @@ const TRAY_TEXT = {
 // Short label for the menu-bar tray, e.g. "Цель: 12,5 / 30 ч".
 // Shows the first active goal (week hours, then week amount, then month
 // amount); empty string when no goal is set.
-export function goalTrayLabel(logs, goals, lang = 'en', now = new Date()) {
-  const first = goalProgress(logs, goals, now)[0];
+export function goalTrayLabel(logs, goals, lang = 'en', now = new Date(), countAmount = null, symbol = '€') {
+  const first = goalProgress(logs, goals, now, countAmount)[0];
   if (!first) return '';
   const text = TRAY_TEXT[lang] || TRAY_TEXT.en;
   if (first.unit === 'h') {
     return `${text.goal}: ${formatGoalHours(first.value, lang)} / ${formatGoalHours(first.target, lang)} ${text.h}`;
   }
-  return `${text.goal}: ${formatGoalAmount(first.value, lang)} / ${formatGoalAmount(first.target, lang)} €`;
+  return `${text.goal}: ${formatGoalAmount(first.value, lang)} / ${formatGoalAmount(first.target, lang)} ${symbol}`;
 }

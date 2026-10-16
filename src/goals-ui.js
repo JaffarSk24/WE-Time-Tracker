@@ -4,18 +4,21 @@ import { store } from './store.js';
 import { t } from './i18n.js';
 import { showToast } from './toast.js';
 import { goalProgress, normalizeGoals, formatGoalHours } from './goals.js';
+import { currencyOfClient, defaultCurrency } from './currency.js';
+import { formatMoney } from './utils.js';
 
 function formatValue(value, unit, lang) {
   return unit === 'h'
     ? `${formatGoalHours(value, lang)} ${t('unit-hours-short')}`
-    : `${value.toFixed(2)} €`;
+    : formatMoney(value, defaultCurrency());
 }
 
 export function renderGoalsCard(containerId) {
   const el = document.getElementById(containerId);
   if (!el) return;
   const lang = store.getSettings().language;
-  const progress = goalProgress(store.getCollection('timeLogs'), store.getSettings().goals);
+  const cur = defaultCurrency();
+  const progress = goalProgress(store.getCollection('timeLogs'), store.getSettings().goals, new Date(), log => currencyOfClient(log.clientId) === cur);
   if (progress.length === 0) {
     el.hidden = true;
     el.innerHTML = '';

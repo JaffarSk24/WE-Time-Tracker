@@ -4,6 +4,7 @@
 import { store } from './store.js';
 import { t } from './i18n.js';
 import { showToast } from './toast.js';
+import { currencyOfClient } from './currency.js';
 import {
   SENDER_FIELDS,
   normalizeSender,
@@ -57,6 +58,7 @@ export async function exportClientReport(filteredLogs, clientId, statusFilter) {
     projects: store.getProjects(),
     sender: settings.reportSender,
     lang: settings.language,
+    currency: currencyOfClient(clientId),
     t
   });
   const fileName = clientReportFileName(t('creport-file-prefix'), client ? client.name : '', reportPeriod(logs));
