@@ -333,6 +333,34 @@ describe('deletions remembered for sync', () => {
   });
 });
 
+describe('generic collections', () => {
+  it('adds, changes and deletes records of a new collection, remembering deletions', () => {
+    const e = store.upsertRecord('expenses', { amount: 12 });
+    expect(e.id).toMatch(/^expense_/);
+    store.patchRecord('expenses', e.id, { amount: 15 });
+    expect(store.getCollection('expenses')[0].amount).toBe(15);
+    store.deleteRecord('expenses', e.id);
+    expect(store.getCollection('expenses')).toEqual([]);
+    expect(store.state.deleted[e.id]).toBeTruthy();
+  });
+
+  it('keeps fields other features store on a project when it is edited', () => {
+    const c = store.addClient('Acme', 50);
+    const p = store.addProject('Site', c.id, 0);
+    store.patchRecord('projects', p.id, { budgetHours: 10 });
+    store.updateProject(p.id, 'Site 2', c.id, 0);
+    expect(store.getProjects().find(x => x.id === p.id).budgetHours).toBe(10);
+  });
+
+  it('keeps collections it does not know through import, and resets them on clear', () => {
+    store.importData({ clients: [], timeLogs: [], expenses: [{ id: 'e1', amount: 5 }] });
+    expect(store.getCollection('expenses').length).toBe(1);
+    store.clearAllData();
+    expect(store.getCollection('expenses')).toEqual([]);
+    expect(store.state.deleted.e1).toBeTruthy();
+  });
+});
+
 describe('utils', () => {
   it('billableHours is minute-precise (no block rounding)', () => {
     expect(billableHours(0)).toBe(0);

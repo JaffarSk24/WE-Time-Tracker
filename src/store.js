@@ -81,8 +81,10 @@ class Store {
       if (data) {
         hadData = true;
         const parsed = JSON.parse(data);
-        // Ensure all top-level keys exist
+        // Ensure all top-level keys exist. Keys this version does not know
+        // (a collection added by a newer version) are kept as they are.
         return {
+          ...parsed,
           clients: (parsed.clients || []).map(c => this.normalizeClient(c)),
           projects: parsed.projects || [],
           timeLogs: (parsed.timeLogs || []).map(l => this.normalizeLog(l)),
@@ -256,7 +258,9 @@ class Store {
   updateProject(id, name, clientId, rate) {
     const projIndex = this.state.projects.findIndex(p => p.id === id);
     if (projIndex !== -1) {
+      // Keep fields other features store on a project (budget and the like).
       this.state.projects[projIndex] = {
+        ...this.state.projects[projIndex],
         id,
         name: name.trim(),
         clientId,
@@ -686,14 +690,11 @@ class Store {
         // The imported file is the new truth: whatever it leaves out counts
         // as deleted, so sync does not bring it back from the cloud.
         const before = this.allIds();
-        const kept = new Set([
-          ...(parsed.clients || []).flatMap(c => [c.id, ...(c.payments || []).map(p => p.id)]),
-          ...(parsed.projects || []).map(p => p.id),
-          ...(parsed.timeLogs || []).map(l => l.id)
-        ]);
+        const kept = new Set(Store.idsOf(parsed));
         const deleted = { ...(this.state.deleted || {}), ...(parsed.deleted || {}) };
         kept.forEach(id => { delete deleted[id]; });
         this.state = {
+          ...parsed,
           clients: (parsed.clients || []).map(c => this.normalizeClient(c)),
           projects: parsed.projects || [],
           timeLogs: (parsed.timeLogs || []).map(l => this.normalizeLog(l)),
@@ -713,19 +714,80 @@ class Store {
     return { success: false, error: 'Invalid data format' };
   }
 
-  // Ids of every client, payment, project and time log.
+  // Ids of every record: clients with their payments, and every item of every
+  // collection (an array of objects with an id at the top level).
+  static idsOf(state) {
+    const ids = [];
+    Object.keys(state || {}).forEach(key => {
+      const list = state[key];
+      if (!Array.isArray(list)) return;
+      list.forEach(item => {
+        if (!item || !item.id) return;
+        ids.push(item.id);
+        if (Array.isArray(item.payments)) item.payments.forEach(p => p && p.id && ids.push(p.id));
+      });
+    });
+    return ids;
+  }
+
   allIds() {
-    return [
-      ...this.state.clients.flatMap(c => [c.id, ...(c.payments || []).map(p => p.id)]),
-      ...this.state.projects.map(p => p.id),
-      ...this.state.timeLogs.map(l => l.id)
-    ];
+    return Store.idsOf(this.state);
+  }
+
+  // --- Generic collections ---
+  // New kinds of records (expenses, tags and the like) live in their own
+  // top-level array. Records need an id; sync merges them by id, and a
+  // deletion is remembered so a merge does not bring the record back.
+  getCollection(name) {
+    return Array.isArray(this.state[name]) ? this.state[name] : [];
+  }
+
+  newId(prefix) {
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  // Adds a record, or replaces the one with the same id. Returns it.
+  upsertRecord(name, record) {
+    const list = this.getCollection(name).slice();
+    const rec = { ...record, id: record.id || this.newId(name.replace(/s$/, '')) };
+    const index = list.findIndex(r => r.id === rec.id);
+    if (index === -1) list.push(rec);
+    else list[index] = rec;
+    this.state[name] = list;
+    this.unmarkDeleted([rec.id]);
+    this.saveState();
+    return rec;
+  }
+
+  // Changes some fields of a record of any collection, the built-in ones
+  // included (clients, projects, timeLogs). Returns the record or null.
+  patchRecord(name, id, patch) {
+    const list = this.getCollection(name);
+    const index = list.findIndex(r => r.id === id);
+    if (index === -1) return null;
+    list[index] = { ...list[index], ...patch, id };
+    this.saveState();
+    return list[index];
+  }
+
+  deleteRecord(name, id) {
+    const list = this.getCollection(name);
+    if (!list.some(r => r.id === id)) return false;
+    this.state[name] = list.filter(r => r.id !== id);
+    this.markDeleted([id]);
+    this.saveState();
+    return true;
   }
 
   clearAllData() {
     const ids = this.allIds();
     const deleted = this.state.deleted || {};
+    const emptied = {};
+    Object.keys(this.state).forEach(key => {
+      if (Array.isArray(this.state[key])) emptied[key] = [];
+    });
     this.state = {
+      ...emptied,
       clients: [],
       projects: [],
       timeLogs: [],

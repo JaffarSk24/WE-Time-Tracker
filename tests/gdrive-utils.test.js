@@ -143,6 +143,14 @@ describe('mergeData', () => {
     expect(mergeData(local, remote, 'local').timeLogs.map(l => l.id)).toEqual(['a']);
   });
 
+  it('merges collections added by later versions the same way', () => {
+    const local = { clients: [], projects: [], timeLogs: [], expenses: [{ id: 'e1' }], tags: [{ id: 't1' }] };
+    const remote = { clients: [], projects: [], timeLogs: [], expenses: [{ id: 'e2' }, { id: 'e3' }], deleted: { e3: 'x' } };
+    const merged = mergeData(local, remote, 'local');
+    expect(merged.expenses.map(e => e.id).sort()).toEqual(['e1', 'e2']);
+    expect(merged.tags.map(e => e.id)).toEqual(['t1']);
+  });
+
   it('keeps a running timer from either computer', () => {
     const timer = { description: 'work', startTime: '2026-10-12T08:00:00Z' };
     const local = { clients: [], projects: [], timeLogs: [], activeTimer: null };

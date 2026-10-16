@@ -88,18 +88,30 @@ function newerSide(local, remote, localFileTime, remoteFileTime) {
 }
 
 // Combines two copies of the data so that nothing entered on either computer
-// is lost: every client, project, time log and payment from both, the newer
-// copy winning where the same record differs, deletions from both applied.
+// is lost: every record of every collection (clients with their payments,
+// projects, time logs, and any array of records a later version adds) from
+// both, the newer copy winning where the same record differs, deletions from
+// both applied. Settings and other plain values come from the newer copy.
 function mergeData(local, remote, side) {
   const newer = side === 'local' ? local : remote;
   const older = side === 'local' ? remote : local;
   const deleted = { ...((older && older.deleted) || {}), ...((newer && newer.deleted) || {}) };
+  const isCollection = (v) => Array.isArray(v) && v.every(item => item && typeof item === 'object' && item.id);
+
+  const merged = { ...older, ...newer };
+  new Set([...Object.keys(newer), ...Object.keys(older)]).forEach(key => {
+    const a = newer[key];
+    const b = older[key];
+    if ((a === undefined || isCollection(a)) && (b === undefined || isCollection(b)) && (a || b)) {
+      merged[key] = mergeList(a, b, deleted);
+    }
+  });
 
   // A client on both sides comes from the newer copy, with the payments of
   // both (payments live inside their client).
   const olderClients = byId(older.clients);
   const newerClients = byId(newer.clients);
-  const clients = mergeList(newer.clients, older.clients, deleted).map(client => {
+  merged.clients = (merged.clients || []).map(client => {
     const other = olderClients.get(client.id);
     if (!other || !newerClients.has(client.id)) return client;
     return { ...client, payments: mergeList(client.payments, other.payments, deleted) };
@@ -107,11 +119,10 @@ function mergeData(local, remote, side) {
 
   const times = [local.savedAt, remote.savedAt].filter(Boolean).sort();
   return {
-    ...older,
-    ...newer,
-    clients,
-    projects: mergeList(newer.projects, older.projects, deleted),
-    timeLogs: mergeList(newer.timeLogs, older.timeLogs, deleted),
+    ...merged,
+    clients: merged.clients,
+    projects: merged.projects || [],
+    timeLogs: merged.timeLogs || [],
     settings: newer.settings || older.settings,
     // A timer running on either computer is not dropped.
     activeTimer: newer.activeTimer || older.activeTimer || null,
