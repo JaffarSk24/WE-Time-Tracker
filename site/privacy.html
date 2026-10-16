@@ -52,6 +52,9 @@
       <p>The app exchanges data with Google directly from your computer. Your time entries and your Google data never pass through a server of ours, and we have no way to access them. The app does not use Google user data for advertising, does not sell it or pass it to anyone, and does not use it to train AI or machine learning models.</p>
       <p>WE Time Tracker's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
 
+      <h2>Phone web app</h2>
+      <p>The phone version at <a href="app/">jaffarsk24.github.io/WE-Time-Tracker/app/</a> works the same way inside your phone's browser. It keeps your data, the state of sync and a short-lived Google access token (about an hour) in the browser's storage on the phone, and talks to Google directly from the phone. It asks for the same Drive permission (<code>drive.appdata</code>) and for <code>openid</code> and <code>email</code>, used only to show which account is connected. To remove its data, sign out in the app and clear the site data of jaffarsk24.github.io in the browser settings.</p>
+
       <h2>Removing your data</h2>
       <ul>
         <li>Sign out in the app's Settings. The app deletes the sign-in tokens from your computer and stops syncing.</li>

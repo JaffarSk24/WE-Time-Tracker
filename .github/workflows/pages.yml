@@ -1,9 +1,13 @@
 name: Website
 
+# The site (site/) and the phone web app (npm run build:web, published at
+# /app/) go to GitHub Pages together. The app's Google OAuth web client id
+# comes from the repository variable GOOGLE_WEB_CLIENT_ID.
+
 on:
   push:
     branches: [main]
-    paths: ['site/**', '.github/workflows/pages.yml']
+    paths: ['site/**', 'src/**', 'public-web/**', 'web.html', 'gdrive-utils.cjs', 'scripts/vite-web-plugins.js', 'vite.config.js', 'package.json', 'package-lock.json', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -17,16 +21,32 @@ concurrency:
 
 jobs:
   deploy:
-    name: Publish site/ to GitHub Pages
+    name: Publish the site and the phone app to GitHub Pages
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build:web
+        env:
+          VITE_GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
+      - name: Put the site and the app together
+        run: |
+          mkdir -p _site
+          cp -R site/. _site/
+          cp -R dist-web _site/app
+          test -f _site/index.html && test -f _site/privacy.html && test -f _site/app/index.html
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: site
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v5
