@@ -1,4 +1,5 @@
 // WE Time Tracker State Management Store
+import { isTimeInLockedPeriod, logLockReason } from './period-lock.js';
 
 const STORAGE_KEY = 'we_time_tracker_data';
 
@@ -12,6 +13,8 @@ class Store {
   constructor() {
     this.state = this.loadState();
     this.listeners = [];
+    // Why the last time-log change was refused by the period lock, or null.
+    this.lastLockError = null;
     if (this.migrateAutoPaymentsForPaidLogs()) {
       this.saveStateDirectly(this.state);
     }
@@ -443,13 +446,41 @@ class Store {
     return { billed, paid, balance: paid - billed };
   }
 
+  // --- Locked periods ---
+  // Paid entries and entries on or before settings.lockedUntil cannot be
+  // changed. Refused calls leave state untouched and describe why in
+  // lastLockError: { reason: 'period' | 'paid', count }.
+  getLockedUntil() {
+    return (this.state.settings && this.state.settings.lockedUntil) || '';
+  }
+
+  logLockReason(log) {
+    return logLockReason(log, this.getLockedUntil());
+  }
+
+  isLogLocked(log) {
+    return this.logLockReason(log) !== null;
+  }
+
+  setLockError(reason, count = 1) {
+    this.lastLockError = { reason, count };
+  }
+
   // --- Time Logs API ---
   getTimeLogs() {
     // Sort descending by start time
     return [...this.state.timeLogs].sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
   }
 
-  addTimeLog(log) {
+  // Entries starting inside the locked period are refused (returns null and
+  // sets lastLockError) unless options.allowLocked is set: stopTimer uses it,
+  // because a running timer must never lose new work.
+  addTimeLog(log, options = {}) {
+    this.lastLockError = null;
+    if (!options.allowLocked && isTimeInLockedPeriod(log.startTime, this.getLockedUntil())) {
+      this.setLockError('period');
+      return null;
+    }
     const id = 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     const rateAtTime = log.rateAtTime !== undefined ? log.rateAtTime : this.getRate(log.clientId, log.projectId);
     const newLog = {
@@ -477,10 +508,22 @@ class Store {
     return newLog;
   }
 
+  // Locked entries, and moves of an entry into the locked period, are refused:
+  // returns null and sets lastLockError.
   updateTimeLog(id, updatedLog) {
+    this.lastLockError = null;
     const index = this.state.timeLogs.findIndex(l => l.id === id);
     if (index !== -1) {
       const existing = this.state.timeLogs[index];
+      const lockReason = this.logLockReason(existing);
+      if (lockReason) {
+        this.setLockError(lockReason);
+        return null;
+      }
+      if (updatedLog.startTime && isTimeInLockedPeriod(updatedLog.startTime, this.getLockedUntil())) {
+        this.setLockError('period');
+        return null;
+      }
       // If client/project changed, we might want to update rate, but we also allow manually editing rateAtTime if provided
       let rate = existing.rateAtTime;
       if (updatedLog.clientId !== existing.clientId || updatedLog.projectId !== existing.projectId) {
@@ -527,9 +570,18 @@ class Store {
     return this.deleteTimeLogs([id]);
   }
 
+  // Locked entries are skipped (lastLockError tells how many and why).
   deleteTimeLogs(ids) {
-    const idSet = new Set(ids);
-    const removed = this.state.timeLogs.filter(l => idSet.has(l.id));
+    this.lastLockError = null;
+    const requested = new Set(ids);
+    const found = this.state.timeLogs.filter(l => requested.has(l.id));
+    const removed = found.filter(l => !this.isLogLocked(l));
+    const skipped = found.filter(l => this.isLogLocked(l));
+    if (skipped.length) {
+      const reason = skipped.some(l => this.logLockReason(l) === 'period') ? 'period' : 'paid';
+      this.setLockError(reason, skipped.length);
+    }
+    const idSet = new Set(removed.map(l => l.id));
     if (removed.length === 0) return [];
     // Deleting paid work must also drop the payment it generated,
     // otherwise the client would show a phantom advance.
@@ -559,9 +611,17 @@ class Store {
 
   // Batch 'paid' toggle: a single state write instead of N.
   // Marking as paid also records a linked payment; unmarking reverses it.
+  // Entries inside the locked period are skipped either way (lastLockError);
+  // unmarking a paid entry outside it is allowed: that is how it is unlocked.
   setLogsPaid(ids, paid = true) {
+    this.lastLockError = null;
     const idSet = new Set(ids);
-    const targets = this.state.timeLogs.filter(l => idSet.has(l.id) && !!l.paid !== !!paid);
+    const lockedUntil = this.getLockedUntil();
+    const changing = this.state.timeLogs.filter(l => idSet.has(l.id) && !!l.paid !== !!paid);
+    const targets = changing.filter(l => !isTimeInLockedPeriod(l.startTime, lockedUntil));
+    if (targets.length < changing.length) {
+      this.setLockError('period', changing.length - targets.length);
+    }
     if (targets.length === 0) return false;
 
     const targetIds = targets.map(l => l.id);
@@ -636,6 +696,9 @@ class Store {
     const startTime = timer.originalStartTime
       || new Date(new Date(endTime).getTime() - totalDuration).toISOString();
     const rateAtTime = this.getRate(timer.clientId, timer.projectId);
+    // The period lock protects billed history and must never drop new work:
+    // a timer that started inside the locked period is saved anyway, the UI
+    // warns about it (store.isLogLocked(newLog)).
     const newLog = this.addTimeLog({
       description: timer.description,
       clientId: timer.clientId,
@@ -645,7 +708,7 @@ class Store {
       billable: timer.billable,
       durationMs: totalDuration,
       rateAtTime
-    });
+    }, { allowLocked: true });
 
     this.state.activeTimer = null;
     this.saveState();

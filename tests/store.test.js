@@ -186,12 +186,16 @@ describe('payments & deposits', () => {
     expect(store.getClientBalance(c.id).balance).toBeCloseTo(-70);
   });
 
-  it('deleting a paid log removes its payment (no phantom advance)', () => {
+  it('deleting a paid log is refused and keeps its payment (no phantom advance)', () => {
     const c = store.addClient('Acme', 35);
     store.addTimeLog({ clientId: c.id, startTime: '2026-07-21T10:00:00Z', endTime: '2026-07-21T12:00:00Z' });
     const ids = store.getTimeLogs().map(l => l.id);
     store.setLogsPaid(ids, true);
     const removed = store.deleteTimeLogs(ids);
+    // Paid entries are locked: nothing is removed, the ledger stays as it was.
+    expect(removed).toHaveLength(0);
+    expect(store.lastLockError).toEqual({ reason: 'paid', count: 1 });
+    expect(store.getTimeLogs()).toHaveLength(1);
     expect(store.getClientBalance(c.id).balance).toBeCloseTo(0);
     store.restoreTimeLogs(removed);   // undo restores both log and payment
     expect(store.getClientBalance(c.id).balance).toBeCloseTo(0);
@@ -297,6 +301,8 @@ describe('deletions remembered for sync', () => {
     const log = store.addTimeLog({ clientId: c.id, ...hour });
     store.setLogsPaid([log.id], true);
     const payment = store.getPayments(c.id)[0];
+    // A paid entry is locked: it has to be unmarked before it can be deleted.
+    store.setLogsPaid([log.id], false);
     store.deleteTimeLogs([log.id]);
     expect(store.state.deleted[log.id]).toBeTruthy();
     expect(store.state.deleted[payment.id]).toBeTruthy();
