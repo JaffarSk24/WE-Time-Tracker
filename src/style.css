@@ -2051,6 +2051,11 @@ textarea:focus {
   flex-wrap: wrap;
 }
 
+/* Nothing to show without a project budget: no empty row under the timer. */
+.timer-extra-row:not(:has(> :not([hidden]))) {
+  display: none;
+}
+
 .timer-budget {
   flex: 1 1 260px;
   max-width: 420px;
