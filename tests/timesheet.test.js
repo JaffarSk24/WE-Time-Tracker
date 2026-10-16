@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   startOfWeek, addWeeks, weekDays, buildWeekGrid, nextManualStart,
   findOverlaps, overlapsWith, timelineRange, findGaps, clientHue,
-  splitLog, mergeLogs, mergeBlocker
+  splitLog, mergeLogs, mergeBlocker, assignLanes
 } from '../src/timesheet.js';
 import { localDayKey, logDurationMs } from '../src/utils.js';
 
@@ -144,6 +144,16 @@ describe('timeline helpers', () => {
       log('c', at(2026, 10, 12, 12), at(2026, 10, 12, 13))
     ]);
     expect(gaps).toEqual([{ start: new Date(2026, 9, 12, 11).getTime(), end: new Date(2026, 9, 12, 12).getTime() }]);
+  });
+
+  it('overlapping entries get separate lanes, touching ones share a lane', () => {
+    const a = log('a', at(2026, 10, 12, 9), at(2026, 10, 12, 10));
+    const b = log('b', at(2026, 10, 12, 9, 30), at(2026, 10, 12, 11));
+    const c = log('c', at(2026, 10, 12, 10), at(2026, 10, 12, 12));
+    const res = assignLanes([a, b, c]);
+    expect(res.lanes).toEqual({ a: 0, b: 1, c: 0 });
+    expect(res.count).toBe(2);
+    expect(assignLanes([]).count).toBe(1);
   });
 
   it('client hue is stable', () => {

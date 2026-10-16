@@ -234,3 +234,22 @@ export function mergeLogs(logs) {
     endTime: new Date(end).toISOString()
   }, worked);
 }
+
+// Lanes for the day timeline: overlapping entries go to separate rows.
+// Returns { lanes: { id: laneIndex }, count }.
+export function assignLanes(logs) {
+  const sorted = [...logs].sort((a, b) => ms(a.startTime) - ms(b.startTime));
+  const laneEnds = [];
+  const lanes = {};
+  sorted.forEach(l => {
+    const s = ms(l.startTime);
+    let lane = laneEnds.findIndex(end => end <= s);
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(0);
+    }
+    laneEnds[lane] = ms(l.endTime);
+    lanes[l.id] = lane;
+  });
+  return { lanes, count: Math.max(1, laneEnds.length) };
+}

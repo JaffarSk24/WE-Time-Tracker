@@ -39,6 +39,10 @@
           <i data-lucide="file-spreadsheet"></i>
           <span data-i18n="nav-reports">Отчеты & Логи</span>
         </a>
+        <a class="nav-item" data-target="week-view">
+          <i data-lucide="calendar-days"></i>
+          <span data-i18n="nav-week">Неделя</span>
+        </a>
         <a class="nav-item" data-target="settings-view">
           <i data-lucide="settings"></i>
           <span data-i18n="nav-settings">Настройки</span>
@@ -362,6 +366,10 @@
               <i data-lucide="check-circle" style="width: 14px; height: 14px;"></i>
               <span data-i18n="bulk-mark-paid">Пометить оплаченными</span>
             </button>
+            <button class="btn btn-secondary btn-sm" id="bulk-merge-btn" disabled style="display: flex; align-items: center; gap: 6px;">
+              <i data-lucide="merge" style="width: 14px; height: 14px;"></i>
+              <span data-i18n="merge-action">Объединить</span>
+            </button>
             <button class="btn btn-danger btn-sm" id="bulk-delete-btn" disabled style="display: flex; align-items: center; gap: 6px;">
               <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
               <span data-i18n="bulk-delete">Удалить выбранные</span>
@@ -375,6 +383,38 @@
         </div>
       </section>
       
+
+      <!-- WEEK VIEW (weekly timesheet and day timeline) -->
+      <section id="week-view" class="view-panel">
+        <div>
+          <h1 class="view-title" data-i18n="week-title">Неделя</h1>
+          <p class="view-subtitle" data-i18n="week-subtitle">Часы по дням, клиентам и проектам</p>
+        </div>
+
+        <div class="week-toolbar card">
+          <div class="week-nav">
+            <button class="btn btn-secondary btn-sm" id="week-prev-btn"><i data-lucide="chevron-left"></i></button>
+            <span class="week-range-label" id="week-range-label"></span>
+            <button class="btn btn-secondary btn-sm" id="week-next-btn"><i data-lucide="chevron-right"></i></button>
+            <button class="btn btn-secondary btn-sm" id="week-today-btn" data-i18n="week-this">Эта неделя</button>
+          </div>
+          <div class="week-summary">
+            <span id="week-total-hours"></span>
+            <span class="week-summary-amount" id="week-total-amount"></span>
+          </div>
+        </div>
+
+        <div id="week-grid-container"></div>
+
+        <div class="card week-timeline-card">
+          <div class="week-timeline-header">
+            <h3 id="week-timeline-title"></h3>
+          </div>
+          <div id="week-timeline"></div>
+          <div id="week-overlaps"></div>
+        </div>
+      </section>
+
       <!-- 5. SETTINGS VIEW -->
       <section id="settings-view" class="view-panel">
         <div>
@@ -690,6 +730,55 @@
       <div class="modal-actions">
         <button class="btn btn-secondary" id="edit-log-modal-cancel" data-i18n="cancel">Отмена</button>
         <button class="btn btn-primary" id="edit-log-modal-save" data-i18n="save">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Week: entries of one timesheet cell and quick add -->
+  <div class="modal-overlay" id="week-cell-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="week-cell-title"></h3>
+        <button class="modal-close" id="week-cell-modal-close"><i data-lucide="x"></i></button>
+      </div>
+      <div id="week-cell-entries" class="week-cell-entries"></div>
+      <h4 class="week-cell-add-title" data-i18n="week-add-time">Добавить время</h4>
+      <div class="week-cell-add-grid">
+        <div class="form-group">
+          <label for="week-add-hours" data-i18n="week-hours">Часы</label>
+          <input type="number" id="week-add-hours" min="0" max="24" step="1" value="1">
+        </div>
+        <div class="form-group">
+          <label for="week-add-minutes" data-i18n="week-minutes">Минуты</label>
+          <input type="number" id="week-add-minutes" min="0" max="59" step="5" value="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="week-add-desc" data-i18n="col-desc">Описание</label>
+        <input type="text" id="week-add-desc">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="week-cell-modal-cancel" data-i18n="cancel">Отмена</button>
+        <button class="btn btn-primary" id="week-cell-add-btn" data-i18n="week-add-time">Добавить время</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reports: split an entry -->
+  <div class="modal-overlay" id="split-log-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" data-i18n="split-title">Разделить запись</h3>
+        <button class="modal-close" id="split-log-modal-close"><i data-lucide="x"></i></button>
+      </div>
+      <p class="split-log-info" id="split-log-info"></p>
+      <div class="form-group">
+        <label for="split-log-at" data-i18n="split-moment">Момент разделения</label>
+        <input type="datetime-local" id="split-log-at" step="60">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="split-log-modal-cancel" data-i18n="cancel">Отмена</button>
+        <button class="btn btn-primary" id="split-log-modal-save" data-i18n="split-action">Разделить</button>
       </div>
     </div>
   </div>

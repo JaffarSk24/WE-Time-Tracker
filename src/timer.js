@@ -12,6 +12,7 @@ import {
   formatDurationShort,
   logDurationMs
 } from './utils.js';
+import { overlapsWith } from './timesheet.js';
 
 let timerInterval = null;
 
@@ -383,7 +384,7 @@ export function initTimer() {
       return;
     }
 
-    store.addTimeLog({
+    const added = store.addTimeLog({
       description: desc,
       clientId,
       projectId,
@@ -399,6 +400,9 @@ export function initTimer() {
     setDefaultManualTimes();
 
     showToast(t('toast-log-added'), { type: 'success' });
+    if (overlapsWith(added, store.getTimeLogs()).length) {
+      showToast(t('toast-overlap-warning'), { type: 'info' });
+    }
     renderTodayLogs();
   });
 

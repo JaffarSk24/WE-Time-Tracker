@@ -14,6 +14,8 @@ import {
   formatDurationShort,
   csvCell
 } from './utils.js';
+import { overlapsWith } from './timesheet.js';
+import { openSplitModal, mergeSelected, canOfferMerge, initSplitMerge } from './split-merge.js';
 
 let editingLogId = null;
 
@@ -140,6 +142,7 @@ export function updateBulkState() {
   const selectedCountEl = document.getElementById('bulk-selected-count');
   const markPaidBtn = document.getElementById('bulk-mark-paid-btn');
   const deleteBtn = document.getElementById('bulk-delete-btn');
+  const mergeBtn = document.getElementById('bulk-merge-btn');
   if (!selectAllCheck) return;
 
   const rowCheckboxes = document.querySelectorAll('.log-row-checkbox');
@@ -152,6 +155,7 @@ export function updateBulkState() {
 
   markPaidBtn.disabled = count === 0;
   deleteBtn.disabled = count === 0;
+  if (mergeBtn) mergeBtn.disabled = count < 2 || !canOfferMerge(getCheckedIds());
 
   if (total > 0 && count === total) {
     selectAllCheck.checked = true;
@@ -309,6 +313,7 @@ export function renderReports() {
         <div class="log-item-actions">
           <button class="btn-icon play-log-btn" data-id="${log.id}" title="${t('restart-timer')}"><i data-lucide="play"></i></button>
           <button class="btn-icon edit-log-btn" data-id="${log.id}" title="${t('edit')}"><i data-lucide="edit-2"></i></button>
+          <button class="btn-icon split-log-btn" data-id="${log.id}" title="${t('split-action')}"><i data-lucide="scissors"></i></button>
           <button class="btn-icon delete delete-log-btn" data-id="${log.id}" title="${t('delete')}"><i data-lucide="trash-2"></i></button>
         </div>
       `;
@@ -347,6 +352,12 @@ export function renderReports() {
     });
   });
 
+  document.querySelectorAll('.split-log-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openSplitModal(btn.getAttribute('data-id'));
+    });
+  });
+
   document.querySelectorAll('.delete-log-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.getAttribute('data-id');
@@ -368,7 +379,8 @@ export function renderReports() {
 }
 
 // ---------------- EDIT LOG MODAL ----------------
-function openEditLogModal(id) {
+// Exported: the Week view opens the same modal for its entries.
+export function openEditLogModal(id) {
   editingLogId = id;
   const log = store.getTimeLogs().find(l => l.id === id);
   if (!log) return;
@@ -456,8 +468,13 @@ function saveEditLogModal() {
     paid
   });
 
+  const savedId = editingLogId;
   closeEditLogModal();
   showToast(t('toast-saved'), { type: 'success' });
+  const saved = store.getTimeLogs().find(l => l.id === savedId);
+  if (saved && overlapsWith(saved, store.getTimeLogs()).length) {
+    showToast(t('toast-overlap-warning'), { type: 'info' });
+  }
   renderReports();
 }
 
@@ -586,6 +603,13 @@ export function initReports() {
     });
   }
 
+  const mergeBtn = document.getElementById('bulk-merge-btn');
+  if (mergeBtn) {
+    mergeBtn.addEventListener('click', () => {
+      if (mergeSelected(getCheckedIds())) renderReports();
+    });
+  }
+
   if (deleteBtn) {
     deleteBtn.addEventListener('click', () => {
       const ids = getCheckedIds();
@@ -609,6 +633,8 @@ export function initReports() {
       }
     });
   }
+
+  initSplitMerge();
 
   // Populates selector filters initially
   updateReportsDropdowns();
