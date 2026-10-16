@@ -273,7 +273,7 @@ describe('tray: start and stop on the data file', () => {
     const fromTray = T.stopTimerOnState(fileState, Date.now());
     const fromStore = store.stopTimer();
 
-    const strip = ({ id, ...rest }) => rest;
+    const strip = ({ id: _id, ...rest }) => rest;
     expect(strip(fromTray)).toEqual(strip(fromStore));
     expect(fromTray.durationMs).toBe(40 * MIN);
     expect(fromTray.startTime).toBe(new Date(T0).toISOString());

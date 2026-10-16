@@ -18,7 +18,18 @@ contextBridge.exposeInMainWorld('weStorage', {
 
 contextBridge.exposeInMainWorld('weTimer', {
   sync: (state) => ipcRenderer.send('timer:sync', state),
-  onStopRequest: (callback) => ipcRenderer.on('timer:stop-request', () => callback())
+  onStopRequest: (callback) => ipcRenderer.on('timer:stop-request', () => callback()),
+  // Quick start from the tray menu or the global hotkey.
+  onStartRequest: (callback) => ipcRenderer.on('timer:start-request', (_e, task) => callback(task)),
+  // The user is back from an absence: { startMs, endMs }.
+  onIdlePrompt: (callback) => ipcRenderer.on('idle:prompt', (_e, prompt) => callback(prompt)),
+  idleResolved: () => ipcRenderer.send('idle:resolved'),
+  // Reminder, hotkey and language settings were saved: main reads them again.
+  settingsChanged: () => ipcRenderer.send('settings:changed'),
+  // Launch at login is an OS setting, not part of the data file.
+  getOpenAtLogin: () => ipcRenderer.invoke('login-item:get'),
+  setOpenAtLogin: (enabled) => ipcRenderer.invoke('login-item:set', enabled),
+  platform: process.platform
 });
 
 contextBridge.exposeInMainWorld('weUpdates', {

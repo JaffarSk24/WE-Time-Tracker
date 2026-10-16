@@ -44,6 +44,7 @@ export default [
         setTimeout: 'readonly',
         setInterval: 'readonly',
         clearInterval: 'readonly',
+        clearTimeout: 'readonly',
         URL: 'readonly',
         URLSearchParams: 'readonly',
         Buffer: 'readonly',
