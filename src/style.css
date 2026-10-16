@@ -1919,12 +1919,24 @@ textarea:focus {
   min-width: 160px;
 }
 
+/* The lock sits left of the duration without changing the column width. */
+.log-item-duration {
+  position: relative;
+}
+
 .log-item-duration .log-lock-icon {
+  position: absolute;
+  left: -16px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 12px;
   height: 12px;
-  margin-right: 4px;
-  vertical-align: -1px;
   color: var(--warning);
+}
+
+.lock-date-controls .btn svg {
+  width: 14px;
+  height: 14px;
 }
 
 .lock-note {

@@ -165,7 +165,7 @@ export function buildClientReportHtml(opts) {
   table.entries td { padding: 6px 6px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
   table.entries tr { page-break-inside: avoid; }
   .num { text-align: right; white-space: nowrap; }
-  th.num { text-align: right; }
+  table.entries th.num { text-align: right; }
   .nowrap { white-space: nowrap; }
   table.totals { margin: 18px 0 0 auto; border-collapse: collapse; min-width: 45%; }
   table.totals td { padding: 5px 6px; }
