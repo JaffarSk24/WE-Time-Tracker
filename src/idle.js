@@ -45,7 +45,11 @@ function discard(stop) {
     return;
   }
   const ok = store.discardIdle(prompt.startMs, { stop, endMs: prompt.endMs });
-  if (ok && stop) {
+  if (!ok) {
+    showToast(t('idle-outdated'), { type: 'info' });
+    return;
+  }
+  if (stop) {
     const desc = document.getElementById('timer-desc');
     if (desc) desc.value = '';
   }
