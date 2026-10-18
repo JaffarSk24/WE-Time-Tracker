@@ -9,8 +9,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="WE Tracker" />
   <title>WE Time Tracker</title>
-  <!-- The same head links as WE Budget, whose home-screen icon iOS shows.
-       A changed icon gets a new file name (-vN), never a query. -->
+  <!-- The build puts the touch icon into the page as a data URL (see
+       touchIconInPage in scripts/vite-web-plugins.js): iOS 27.2 shows a
+       letter when it has to fetch the icon by address. A changed icon gets
+       a new file name (-vN), never a query. -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" type="image/png" href="./favicon.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon-v5.png" />

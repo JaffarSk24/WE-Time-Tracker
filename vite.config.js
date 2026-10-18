@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import { readFileSync } from 'fs';
 import { URL } from 'url';
-import { sharedCjs, webEntryAsIndex, serviceWorker } from './scripts/vite-web-plugins.js';
+import { sharedCjs, webEntryAsIndex, serviceWorker, touchIconInPage } from './scripts/vite-web-plugins.js';
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 
@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
       // Icons and the manifest of the installable app; public/ stays the
       // desktop app's.
       publicDir: 'public-web',
-      plugins: [sharedCjs(), webEntryAsIndex(WEB_BASE), serviceWorker(pkg.version)],
+      plugins: [sharedCjs(), webEntryAsIndex(WEB_BASE), touchIconInPage(), serviceWorker(pkg.version)],
       build: {
         outDir: 'dist-web',
         emptyOutDir: true,

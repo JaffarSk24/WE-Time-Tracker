@@ -62,3 +62,15 @@ describe('phone app icons', () => {
     expect(manifest.icons.some(icon => 'purpose' in icon)).toBe(false);
   });
 });
+
+describe('touch icon in the page', () => {
+  it('replaces the apple-touch-icon address with the PNG as a data URL', async () => {
+    const { embedTouchIcon } = await import('../scripts/vite-web-plugins.js');
+    const html = '<link rel="icon" href="./favicon.png" />\n<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon-v5.png" />';
+    const read = file => Buffer.from('png:' + file);
+    const out = embedTouchIcon(html, read);
+    expect(out).toContain('href="./favicon.png"');
+    expect(out).toContain('<link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,' + Buffer.from('png:apple-touch-icon-v5.png').toString('base64') + '" />');
+    expect(out).not.toContain('./apple-touch-icon-v5.png');
+  });
+});

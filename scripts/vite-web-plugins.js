@@ -66,6 +66,27 @@ export function webEntryAsIndex(base) {
   };
 }
 
+// The home-screen icon goes into the page itself as a data URL. iOS 27.2
+// shows a letter instead of the icon when it has to fetch the icon by
+// address for the "Add to Home Screen" sheet, for any site; an icon that
+// is already in the page is taken. The file stays in public-web/ for the
+// manifest and the sign-in screen.
+export function embedTouchIcon(html, readFile) {
+  return html.replace(/(<link rel="apple-touch-icon"[^>]*href=")\.\/([^"]+\.png)(")/g, (_match, before, file, after) => {
+    const png = readFile(file);
+    return before + 'data:image/png;base64,' + png.toString('base64') + after;
+  });
+}
+
+export function touchIconInPage() {
+  return {
+    name: 'we-touch-icon-in-page',
+    transformIndexHtml(html) {
+      return embedTouchIcon(html, file => readFileSync(fileURLToPath(new URL('../public-web/' + file, import.meta.url))));
+    }
+  };
+}
+
 // Files that come from public-web/ as they are and the app needs offline.
 const PUBLIC_FILES = ['manifest.webmanifest', 'favicon.png', 'apple-touch-icon-v5.png', 'icon-192-v5.png', 'icon-512-v5.png'];
 
