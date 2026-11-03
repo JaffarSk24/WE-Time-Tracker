@@ -903,6 +903,17 @@
 
   <!-- MODALS -->
 
+  <!-- A new version: opens over the app once per version (update-popup.js) -->
+  <div class="modal-overlay" id="update-popup-modal">
+    <div class="modal-content update-popup-content" role="dialog" aria-modal="true" aria-labelledby="update-popup-title">
+      <div class="modal-header">
+        <h3 class="modal-title" id="update-popup-title"></h3>
+        <button class="modal-close" id="update-popup-close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="update-popup" id="update-popup-body"></div>
+    </div>
+  </div>
+
   <!-- Release notes of the version the update banner offers -->
   <div class="modal-overlay" id="update-notes-modal">
     <div class="modal-content">

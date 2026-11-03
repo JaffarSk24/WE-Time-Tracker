@@ -74,9 +74,9 @@ Download the latest version from **[Releases](https://github.com/JaffarSk24/WE-T
 
 ## 🔄 Updates
 
-The app checks for a new version on start and every few hours. When one is out, a banner appears at the top of the window:
+The app checks for a new version on start and every few hours. When one is out, a window opens over the app with the new and the current version and what is new in it (the release notes):
 
-1. **Update** downloads the new version with a progress bar. **What is new** shows the release notes, **Later** hides the banner until the next version.
+1. **Update now** downloads the new version with a progress bar. **Later** closes the window until the next start; a banner at the top of the window stays as a reminder, with **Update**, **What is new** and **Later** (which hides it until the next version).
 2. The download is checked against the checksums published with the release.
 3. **Restart and update** closes the app, puts the new version in place of the old one and opens the app again. Your data stays where it is, and unsaved changes reach Google Drive before the app closes.
 

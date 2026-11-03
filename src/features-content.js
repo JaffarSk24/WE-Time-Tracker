@@ -346,10 +346,10 @@ export const FEATURES = [
     id: 'updates', section: 'data', icon: 'refresh-cw', view: 'settings-view',
     title: { ru: 'Обновления в один клик', en: 'One-click updates' },
     body: {
-      ru: ['Когда выходит новая версия, сверху появляется баннер. «Обновить» скачивает её и проверяет, «Перезапустить и обновить» ставит новую версию и открывает приложение заново. Перетаскивать ничего не нужно.'],
-      en: ['When a new version is out, a banner appears on top. Update downloads and checks it, "Restart and update" installs it and opens the app again. Nothing to drag.']
+      ru: ['Когда выходит новая версия, при запуске поверх приложения открывается окно: какая версия вышла, что в ней нового и большая кнопка «Обновить сейчас». Она скачивает версию и проверяет её, «Перезапустить и обновить» ставит новую версию и открывает приложение заново. Перетаскивать ничего не нужно. После «Позже» о версии напоминает баннер сверху.'],
+      en: ['When a new version is out, a window opens over the app at start: which version is out, what is new in it, and a large "Update now" button. It downloads and checks the version, "Restart and update" installs it and opens the app again. Nothing to drag. After "Later", a banner on top reminds you of the version.']
     },
-    where: { ru: 'Баннер сверху; Настройки, «Обновление приложения»', en: 'The banner on top; Settings, "App update"' }
+    where: { ru: 'Окно при запуске и баннер сверху; Настройки, «Обновление приложения»', en: 'The window at start and the banner on top; Settings, "App update"' }
   },
   {
     id: 'phone', section: 'data', icon: 'external-link', isNew: true,

@@ -35,6 +35,7 @@ import { initWeek, renderWeek } from './week.js';
 import { initFeatures, renderFeatures } from './features.js';
 import { initUpdates } from './updates.js';
 import { initBanners, refreshBanners } from './banners.js';
+import { initUpdatePopup, refreshUpdatePopup } from './update-popup.js';
 import { initTagsTab, renderTagsTab } from './tags-ui.js';
 import { initGoalsSettings } from './goals-ui.js';
 import { initIdlePrompt } from './idle.js';
@@ -206,6 +207,7 @@ function updateGlobalUI() {
   
   // The banners build their text in JS, so a language change has to redraw them
   refreshBanners();
+  refreshUpdatePopup();
 
   // Refresh icons
   if (window.lucide) {
@@ -248,6 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initReminderSettings();
   initIdlePrompt();
   initBanners();
+  initUpdatePopup();
   initUpdates();
   
   // First render
