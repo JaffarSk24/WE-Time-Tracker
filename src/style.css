@@ -599,12 +599,6 @@ textarea:focus {
 .timer-counter.running {
   color: var(--accent-cyan);
   text-shadow: 0 0 15px rgba(0, 242, 254, 0.4);
-  animation: pulseColor 2s infinite;
-}
-
-@keyframes pulseColor {
-  0%, 100% { filter: brightness(1); }
-  50% { filter: brightness(1.2); }
 }
 
 .btn-timer {
@@ -624,8 +618,9 @@ textarea:focus {
 
 .btn-timer-stop {
   background: var(--grad-danger);
-  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.3);
-  animation: pulseGlow 1.5s infinite;
+  /* A steady glow: a pulsing one repainted the window 60 times a second,
+     over the blurred cards, for as long as the timer ran. */
+  box-shadow: 0 4px 18px rgba(244, 63, 94, 0.45);
 }
 
 .btn-timer-pause {
@@ -636,11 +631,6 @@ textarea:focus {
 
 .btn-timer-pause:hover {
   filter: brightness(1.1);
-}
-
-@keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 4px 14px rgba(244, 63, 94, 0.3); }
-  50% { box-shadow: 0 4px 20px rgba(244, 63, 94, 0.6); }
 }
 
 /* Manual log entry form card */

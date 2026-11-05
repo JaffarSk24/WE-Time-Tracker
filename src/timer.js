@@ -126,7 +126,10 @@ function tick() {
     if (!timer.isPaused && timer.startTime) {
       elapsed += Date.now() - new Date(timer.startTime).getTime();
     }
-    clockEl.textContent = formatDurationHMS(elapsed);
+    // The tick runs twice a second; writing the same text again would still
+    // repaint the counter.
+    const text = formatDurationHMS(elapsed);
+    if (clockEl.textContent !== text) clockEl.textContent = text;
   }
   renderTimerBudget(true);
 }
@@ -253,6 +256,8 @@ export function refreshTimerUI() {
   if (activeTimer) {
     // Timer is running
     toggleBtn.textContent = t('timer-stop');
+    // translatePage() rewrites the label from data-i18n after a settings change
+    toggleBtn.setAttribute('data-i18n', 'timer-stop');
     toggleBtn.className = 'btn btn-timer btn-timer-stop';
     cancelBtn.style.display = 'inline-flex';
     pauseBtn.style.display = 'inline-flex';
@@ -294,6 +299,7 @@ export function refreshTimerUI() {
   } else {
     // Timer is stopped
     toggleBtn.textContent = t('timer-start');
+    toggleBtn.setAttribute('data-i18n', 'timer-start');
     toggleBtn.className = 'btn btn-timer btn-timer-start';
     cancelBtn.style.display = 'none';
     pauseBtn.style.display = 'none';
