@@ -156,7 +156,8 @@ On macOS the app is signed ad hoc after packaging (`scripts/adhoc-sign.cjs`). Bu
 
 ## 📜 License & credits
 
-This project is released under a free public license by **White Eagles & Co. s.r.o.**
+[MIT](LICENSE). Copyright 2026 White Eagles & Co. s.r.o.
+
 Feel free to fork, customize, and use it for personal or team productivity.
 
 *Need web application engineering, mobile app development, or marketing campaigns that convert?*
